@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { loginUser } from "@actions/users";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
 
@@ -14,7 +13,18 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      const loggedInUser = await loginUser(form);
+      const res = await fetch("/api/user?action=login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Login failed");
+      }
+
+      const loggedInUser = await res.json();
       setUser(loggedInUser);
       setError("");
       router.push("/");
@@ -25,7 +35,7 @@ export default function Login() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 font-sans">
+    <div className="max-w-4xl mx-auto p-6 font-sans">
       <h1 className="text-3xl font-bold mb-6">Login</h1>
       <form onSubmit={handleSubmit} className="mb-6 space-y-4">
         <input

@@ -11,10 +11,6 @@ export async function registerUser({ name, email, password }) {
   return db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
 }
 
-export async function getUsers() {
-  return db.prepare("SELECT * FROM users ORDER BY id DESC").all();
-}
-
 export async function loginUser({ email, password }) {
   if (!email || !password) throw new Error("Email and password are required");
 

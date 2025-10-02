@@ -8,19 +8,18 @@ export default function Home() {
   const router = useRouter();
   const { user } = useUser();
 
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
 
   const [list, setList] = useState([]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      router.push("/login");
+      return;
+    }
 
     (async () => {
       try {
-        const res = await fetch(`/api/itineraries/${user.id}`);
+        const res = await fetch(`/api/itineraries?userId=${user.id}`);
         if (!res.ok) {
           throw new Error(`Failed to fetch itineraries: ${res.status}`);
         }
@@ -31,7 +30,7 @@ export default function Home() {
         setList([]);
       }
     })();
-  }, [user.id]);
+  }, [user]);
 
   return (
     <div className="max-w-4xl mx-auto p-6 font-sans">
