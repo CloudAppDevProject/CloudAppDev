@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getItineraries } from "@actions/itineraries";
 import { useUser } from "@context/UserContext";
 import { useRouter } from "next/navigation";
 
@@ -17,15 +16,25 @@ export default function Home() {
   const [list, setList] = useState([]);
 
   useEffect(() => {
+    if (!user?.id) return;
+
     (async () => {
-      const data = await getItineraries(user.id);
-      setList(data);
+      try {
+        const res = await fetch(`/api/itineraries/${user.id}`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch itineraries: ${res.status}`);
+        }
+        const data = await res.json();
+        setList(data);
+      } catch (err) {
+        console.error(err);
+        setList([]);
+      }
     })();
   }, [user.id]);
 
   return (
     <div className="max-w-4xl mx-auto p-6 font-sans">
-      {/* Header mit Plus-Button */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">My Itineraries</h1>
         <button onClick={() => router.push("/itineraries/new")} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-sm text-lg" title="Add new itinerary">

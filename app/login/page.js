@@ -44,9 +44,14 @@ export default function Login() {
           className="border rounded-lg p-2 w-full"
           required
         />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg">
-          Login
-        </button>
+        <div className="space-x-4">
+          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg">
+            Login
+          </button>
+          <button type="button" onClick={() => router.push("/register")} className="bg-gray-600 px-4 py-2 rounded-lg hover:bg-gray-500">
+            Register
+          </button>
+        </div>
       </form>
 
       {error && <p className="text-red-600 mb-4">{error}</p>}

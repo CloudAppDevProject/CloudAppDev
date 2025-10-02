@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addItinerary } from "@actions/itineraries";
 import { useUser } from "@context/UserContext";
 
 export default function NewItinerary() {
@@ -24,8 +23,26 @@ export default function NewItinerary() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    await addItinerary({ ...form, userId: user.id });
-    router.push("/"); // Zurück zur Übersicht
+
+    try {
+      const res = await fetch("/api/itineraries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, userId: user.id }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to create itinerary: ${res.status}`);
+      }
+
+      // optional: du könntest das neu angelegte Itinerary zurückbekommen
+      // const newItem = await res.json();
+
+      router.push("/"); // zurück zur Übersicht
+    } catch (err) {
+      console.error("Error adding itinerary:", err);
+      alert("Could not save itinerary. Please try again.");
+    }
   }
 
   return (

@@ -39,15 +39,6 @@ export default function Register() {
           Register
         </button>
       </form>
-
-      <h2 className="text-2xl font-semibold mb-4">Registered Travellers</h2>
-      <ul className="space-y-2">
-        {users.map((user) => (
-          <li key={user.id} className="border rounded-lg p-2">
-            {user.name} — {user.email}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
