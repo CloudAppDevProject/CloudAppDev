@@ -1,9 +1,11 @@
-import db from "@lib/db";
+import { prisma } from "@lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const users = db.prepare("SELECT * FROM users ORDER BY id DESC").all();
+    const users = await prisma.user.findMany({
+      orderBy: { id: "desc" }
+    });
     return NextResponse.json(users);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -23,12 +25,9 @@ export async function POST(req) {
         return NextResponse.json({ error: "Name, Email and Password are required" }, { status: 400 });
       }
 
-      const stmt = db.prepare(`
-        INSERT INTO users (name, email, password)
-        VALUES (?, ?, ?)
-      `);
-      const info = stmt.run(name, email, password);
-      const newUser = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
+      const newUser = await prisma.user.create({
+        data: { name, email, password }
+      });
 
       return NextResponse.json(newUser, { status: 201 });
     }
@@ -39,7 +38,9 @@ export async function POST(req) {
         return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
       }
 
-      const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+      const user = await prisma.user.findUnique({
+        where: { email }
+      });
       if (!user) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
       }

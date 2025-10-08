@@ -1,18 +1,20 @@
-import db from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
     const { userId, title, destination, start_date, short_desc, detail_desc } = await req.json();
 
-    const stmt = db.prepare(`
-      INSERT INTO itineraries (user_id, title, destination, start_date, short_desc, detail_desc)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    const info = stmt.run(userId, title, destination, start_date, short_desc, detail_desc);
-
-    const newItinerary = db.prepare("SELECT * FROM itineraries WHERE id = ?").get(info.lastInsertRowid);
+    const newItinerary = await prisma.itinerary.create({
+      data: {
+        user_id: userId,
+        title,
+        destination,
+        start_date,
+        short_desc,
+        detail_desc
+      }
+    });
 
     return NextResponse.json(newItinerary, { status: 201 });
   } catch (err) {
@@ -28,7 +30,9 @@ export async function GET(req) {
   try {
     if (id) {
       // Einzelnes Itinerary anhand der ID
-      const itinerary = db.prepare("SELECT * FROM itineraries WHERE id = ?").get(id);
+      const itinerary = await prisma.itinerary.findUnique({
+        where: { id: Number(id) }
+      });
       if (!itinerary) {
         return NextResponse.json({ error: "Itinerary not found" }, { status: 404 });
       }
@@ -37,8 +41,11 @@ export async function GET(req) {
 
     if (userId) {
       // Alle Itineraries eines Users
-      const itineraries = db.prepare("SELECT * FROM itineraries WHERE user_id = ? ORDER BY id DESC").all(userId);
-      return NextResponse.json(itineraries);
+      const itineraries = await prisma.user.findUnique({
+        where: { id: Number(userId) },
+        include: { itineraries: true }
+      });
+      return NextResponse.json(itineraries ? itineraries.itineraries : []);
     }
 
     // Weder id noch userId angegeben

@@ -48,3 +48,4 @@ package-lock.json
 
 # database
 data/itineraries.db
+/generated/prisma
