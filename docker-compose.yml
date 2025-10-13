@@ -10,13 +10,14 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-appdb}"]
       interval: 5s
       timeout: 5s
       retries: 10
-  server:
+
+  frontend:
     build: .
-    container_name: cloudappdev_server
+    container_name: cloudappdev_frontend
     restart: unless-stopped
     depends_on:
       db:
@@ -25,8 +26,57 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      NODE_ENV: production
+      PORT: 3000
+    expose:
+      - "3000"
+
+  proxy:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: cloudappdev_proxy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    env_file:
+      - .env   # uses DOMAIN for paths/template
     ports:
-      - "80:3000"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro
+
+  certbot:
+    image: certbot/dns-cloudflare:latest
+    container_name: cloudappdev_certbot
+    restart: unless-stopped
+    env_file:
+      - .env   # uses DOMAIN and CERTBOT_EMAIL
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      # credentials (read-only) provided from host
+      - ./certbot/cloudflare.ini:/secrets/cloudflare.ini:ro
+    command: >
+      sh -c 'set -eu;
+      umask 077;
+      mkdir -p /root/.secrets/certbot;
+      cp /secrets/cloudflare.ini /root/.secrets/certbot/cloudflare.ini;
+      # 1) first-issue if missing
+      if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+        certbot certonly --non-interactive --agree-tos --email "$CERTBOT_EMAIL"
+        --dns-cloudflare --dns-cloudflare-credentials /root/.secrets/certbot/cloudflare.ini
+        --dns-cloudflare-propagation-seconds 60
+        -d "${DOMAIN}" -d "*.${DOMAIN}";
+      fi;
+      # 2) renew forever; nginx auto-reloads on file change
+      while true; do
+        certbot renew --quiet
+        --dns-cloudflare --dns-cloudflare-credentials /root/.secrets/certbot/cloudflare.ini
+        --dns-cloudflare-propagation-seconds 60;
+        sleep 12h;
+      done'
 
 volumes:
   db_data:
+  letsencrypt:

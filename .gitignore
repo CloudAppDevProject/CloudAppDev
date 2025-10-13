@@ -49,3 +49,9 @@ package-lock.json
 # database
 data/itineraries.db
 /generated/prisma
+/certbot/conf/
+/certbot/www/
+/certbot/cloudflare.ini
+letsencrypt/
+**/fullchain.pem
+**/privkey.pem
