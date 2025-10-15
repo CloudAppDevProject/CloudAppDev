@@ -58,16 +58,17 @@ services:
       # credentials (read-only) provided from host
       - ./certbot/cloudflare.ini:/secrets/cloudflare.ini:ro
     command: >
+      sh -c '
       if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
         certbot certonly --non-interactive --agree-tos --email "$CERTBOT_EMAIL"
-        --dns-cloudflare --dns-cloudflare-credentials /secrets/cloudflare.ini:ro
+        --dns-cloudflare --dns-cloudflare-credentials /root/.secrets/certbot/cloudflare.ini
         --dns-cloudflare-propagation-seconds 60
         -d "${DOMAIN}" -d "*.${DOMAIN}";
       fi;
       # 2) renew forever; nginx auto-reloads on file change
       while true; do
         certbot renew --quiet
-        --dns-cloudflare --dns-cloudflare-credentials /secrets/cloudflare.ini:ro
+        --dns-cloudflare --dns-cloudflare-credentials /root/.secrets/certbot/cloudflare.ini
         --dns-cloudflare-propagation-seconds 60;
         sleep 12h;
       done'
