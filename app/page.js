@@ -4,12 +4,18 @@ import { useEffect, useState } from "react";
 import { useUser } from "@context/UserContext";
 import { useRouter } from "next/navigation";
 
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { Button } from "primereact/button";
+import { InputText } from "primereact/inputtext"; // To be used for global filtering
+
 export default function Home() {
   const router = useRouter();
   const { user } = useUser();
 
-
   const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [globalFilterValue, setGlobalFilterValue] = useState("");
 
   useEffect(() => {
     if (!user?.id) {
@@ -17,6 +23,7 @@ export default function Home() {
       return;
     }
 
+    setLoading(true);
     (async () => {
       try {
         const res = await fetch(`/api/itineraries?userId=${user.id}`);
@@ -28,43 +35,54 @@ export default function Home() {
       } catch (err) {
         console.error(err);
         setList([]);
+      } finally {
+        setLoading(false);
       }
     })();
   }, [user]);
 
-  return (
-    <div className="max-w-4xl mx-auto p-6 font-sans">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">My Itineraries</h1>
-        <button onClick={() => router.push("/itineraries/new")} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-sm text-lg" title="Add new itinerary">
-          +
-        </button>
-      </div>
+  const onRowClick = (event) => {
+    router.push(`/itineraries/${event.data.id}`);
+  };
 
-      {list.length === 0 ? (
-        <p>No itineraries found.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-300">
-            <thead>
-              <tr>
-                <th className="border px-4 py-2 text-left">Title</th>
-                <th className="border px-4 py-2 text-left">Destination</th>
-                <th className="border px-4 py-2 text-left">Start Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-800 cursor-pointer" onClick={() => router.push(`/itineraries/${item.id}`)}>
-                  <td className="border px-4 py-2">{item.title}</td>
-                  <td className="border px-4 py-2">{item.destination}</td>
-                  <td className="border px-4 py-2">{item.start_date}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+  const renderHeader = () => {
+    return (
+      <div className="flex justify-between items-center">
+        <span className="p-input-icon-left">
+          <InputText value={globalFilterValue} onChange={(e) => setGlobalFilterValue(e.target.value)} placeholder="Global Search" />
+        </span>
+        <Button icon="pi pi-plus" label="Add New" onClick={() => router.push("/itineraries/new")} title="Add new itinerary" />
+      </div>
+    );
+  };
+
+  const header = renderHeader();
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 font-sans">
+      <h1 className="text-3xl font-bold mb-6">My Itineraries</h1>
+
+      <div className="rounded-md shadow-md overflow-hidden">
+        <DataTable
+          value={list}
+          dataKey="id"
+          loading={loading}
+          paginator
+          rows={10}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          selectionMode="single"
+          onRowClick={onRowClick}
+          sortMode="single"
+          header={header} 
+          globalFilter={globalFilterValue}
+          emptyMessage="No itineraries found."
+          className=" p-datatable-sm"
+        >
+          <Column field="title" header="Title" sortable filter style={{ width: "40%" }}></Column>
+          <Column field="destination" header="Destination" filter sortable style={{ width: "30%" }}></Column>
+          <Column field="start_date" header="Start Date" sortable style={{ width: "30%" }}></Column>
+        </DataTable>
+      </div>
     </div>
   );
 }

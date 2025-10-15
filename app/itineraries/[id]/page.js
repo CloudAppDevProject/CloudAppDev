@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useUser } from "@context/UserContext";
+import { Button } from "primereact/button";
 
 export default function ItineraryDetail() {
   const router = useRouter();
@@ -56,12 +57,11 @@ export default function ItineraryDetail() {
       <p className="text-gray-50 mb-2">
         <strong>Detail Description:</strong> {itinerary.detail_desc}
       </p>
-      <button
+      <Button
+        label="Back"
         onClick={() => router.push("/")}
-        className="mt-4 bg-gray-600 px-4 py-2 rounded-lg hover:bg-gray-500"
-      >
-        Back
-      </button>
+        severity="secondary"
+      />
     </div>
   );
 }

@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { PrimeReactProvider } from "primereact/api";
+import { ThemeProvider } from "@components/theme-provider";
+import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";
 import { UserProvider } from "./context/UserContext";
 import Footer from "./components/footer";
+import "primeicons/primeicons.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,10 +31,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} flex flex-col min-h-screen antialiased`}>
-        <main className="flex-grow">
-          <UserProvider>{children}</UserProvider>
-        </main>
-        <Footer />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main className="flex-grow">
+            <PrimeReactProvider>
+              <UserProvider>{children}</UserProvider>
+            </PrimeReactProvider>
+          </main>
+          <Footer />
+        </ThemeProvider>
       </body>
     </html>
   );

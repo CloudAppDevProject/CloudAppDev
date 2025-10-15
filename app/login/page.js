@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
+import { Button } from "primereact/button";
 
 export default function Login() {
   const router = useRouter();
@@ -54,13 +55,9 @@ export default function Login() {
           className="border rounded-lg p-2 w-full"
           required
         />
-        <div className="space-x-4">
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg">
-            Login
-          </button>
-          <button type="button" onClick={() => router.push("/register")} className="bg-gray-600 px-4 py-2 rounded-lg hover:bg-gray-500">
-            Register
-          </button>
+        <div className="flex gap-4">
+          <Button type="submit" label="Login" />
+          <Button type="button" onClick={() => router.push("/register")} label="Register" severity="secondary" />
         </div>
       </form>
 

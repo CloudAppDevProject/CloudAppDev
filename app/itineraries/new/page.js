@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
+import { Button } from "primereact/button";
 
 export default function NewItinerary() {
   const router = useRouter();
@@ -34,9 +35,6 @@ export default function NewItinerary() {
       if (!res.ok) {
         throw new Error(`Failed to create itinerary: ${res.status}`);
       }
-
-      // optional: du könntest das neu angelegte Itinerary zurückbekommen
-      // const newItem = await res.json();
 
       router.push("/"); // zurück zur Übersicht
     } catch (err) {
@@ -91,9 +89,7 @@ export default function NewItinerary() {
           className="border rounded-lg p-2 w-full"
         />
 
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg">
-          Add Itinerary
-        </button>
+        <Button label="Add Itinerary" type="submit" />
       </form>
     </div>
   );
