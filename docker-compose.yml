@@ -58,21 +58,16 @@ services:
       # credentials (read-only) provided from host
       - ./certbot/cloudflare.ini:/secrets/cloudflare.ini:ro
     command: >
-      sh -c 'set -eu;
-      umask 077;
-      mkdir -p /root/.secrets/certbot;
-      cp /secrets/cloudflare.ini /root/.secrets/certbot/cloudflare.ini;
-      # 1) first-issue if missing
       if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
         certbot certonly --non-interactive --agree-tos --email "$CERTBOT_EMAIL"
-        --dns-cloudflare --dns-cloudflare-credentials /root/.secrets/certbot/cloudflare.ini
+        --dns-cloudflare --dns-cloudflare-credentials /secrets/cloudflare.ini:ro
         --dns-cloudflare-propagation-seconds 60
         -d "${DOMAIN}" -d "*.${DOMAIN}";
       fi;
       # 2) renew forever; nginx auto-reloads on file change
       while true; do
         certbot renew --quiet
-        --dns-cloudflare --dns-cloudflare-credentials /root/.secrets/certbot/cloudflare.ini
+        --dns-cloudflare --dns-cloudflare-credentials /secrets/cloudflare.ini:ro
         --dns-cloudflare-propagation-seconds 60;
         sleep 12h;
       done'
