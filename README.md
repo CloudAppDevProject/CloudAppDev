@@ -29,8 +29,32 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### PaaS - Google Cloud Platform
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Automated deployment to Google Cloud Run with managed PostgreSQL database. Configure `PROJECT_ID` and `DB_PASS` in `deploy.ps1` (Windows) or `deploy.sh` (Linux/Mac), then run:
+
+```bash
+# Windows PowerShell
+.\deploy.ps1 deploy
+
+# Linux/Mac
+./deploy.sh deploy
+```
+
+**Available commands:** `deploy` (full setup ~15-20min), `update` (app updates only), `logs`, `status`, `delete`  
+**Requirements:** [Google Cloud SDK](https://cloud.google.com/sdk/docs/install), [Docker](https://www.docker.com/get-started), GCP account with billing enabled  
+**Features:** Auto-scaling, managed HTTPS, Cloud SQL PostgreSQL with automatic backups
+
+### Docker Compose (Local)
+
+```bash
+docker compose db up -d
+```
+
+Local deployment with Nginx reverse proxy and optional SSL via Certbot. Configure `.env` file before starting.
+
+### Vercel
+
+Alternatively, deploy on the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme). See [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for details.
