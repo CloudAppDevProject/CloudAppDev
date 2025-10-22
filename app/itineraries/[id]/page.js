@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
+import CommentSection from "@/app/components/CommentSection";
 
 export default function ItineraryDetail() {
   const router = useRouter();
@@ -62,6 +63,9 @@ export default function ItineraryDetail() {
         onClick={() => router.push("/")}
         severity="secondary"
       />
+
+      {/* Kommentarsektion */}
+      <CommentSection itineraryId={itinerary.id} currentUser={user} />
     </div>
   );
 }

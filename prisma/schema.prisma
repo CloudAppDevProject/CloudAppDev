@@ -13,6 +13,7 @@ model User {
   email      String      @unique
   password   String
   itineraries Itinerary[]
+  comments    Comment[]
 }
 
 model Itinerary {
@@ -25,4 +26,15 @@ model Itinerary {
   detail_desc String?
   created_at  DateTime @default(now())
   user        User     @relation(fields: [user_id], references: [id])
+  comments    Comment[]
+}
+
+model Comment {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  itinerary_id Int
+  content      String
+  created_at   DateTime  @default(now())
+  user         User      @relation(fields: [user_id], references: [id])
+  itinerary    Itinerary @relation(fields: [itinerary_id], references: [id], onDelete: Cascade)
 }
