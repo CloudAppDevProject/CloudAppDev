@@ -48,8 +48,9 @@ export async function GET(req) {
       return NextResponse.json(itineraries ? itineraries.itineraries : []);
     }
 
-    // Weder id noch userId angegeben
-    return NextResponse.json({ error: "Please provide either id or userId" }, { status: 400 });
+    // Alle Itineraries
+    const allItineraries = await prisma.itinerary.findMany();
+    return NextResponse.json(allItineraries);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

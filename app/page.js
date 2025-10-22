@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
-import { InputText } from "primereact/inputtext"; // To be used for global filtering
+import { InputText } from "primereact/inputtext";
 
 export default function Home() {
   const router = useRouter();
@@ -23,14 +23,18 @@ export default function Home() {
       return;
     }
 
-    setLoading(true);
-    (async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`/api/itineraries?userId=${user.id}`);
+        const url = globalFilterValue.trim() ? `/api/itineraries` : `/api/itineraries?userId=${user.id}`;
+
+        const res = await fetch(url);
         if (!res.ok) {
           throw new Error(`Failed to fetch itineraries: ${res.status}`);
         }
+
         const data = await res.json();
+        console.log("Fetching itineraries from:", data);
         setList(data);
       } catch (err) {
         console.error(err);
@@ -38,23 +42,23 @@ export default function Home() {
       } finally {
         setLoading(false);
       }
-    })();
-  }, [user]);
+    };
+
+    fetchData();
+  }, [user, globalFilterValue]);
 
   const onRowClick = (event) => {
     router.push(`/itineraries/${event.data.id}`);
   };
 
-  const renderHeader = () => {
-    return (
-      <div className="flex justify-between items-center">
-        <span className="p-input-icon-left">
-          <InputText value={globalFilterValue} onChange={(e) => setGlobalFilterValue(e.target.value)} placeholder="Global Search" />
-        </span>
-        <Button icon="pi pi-plus" label="Add New" onClick={() => router.push("/itineraries/new")} title="Add new itinerary" />
-      </div>
-    );
-  };
+  const renderHeader = () => (
+    <div className="flex justify-between items-center">
+      <span className="p-input-icon-left">
+        <InputText value={globalFilterValue} onChange={(e) => setGlobalFilterValue(e.target.value)} placeholder="Global Search" />
+      </span>
+      <Button icon="pi pi-plus" label="Add New" onClick={() => router.push("/itineraries/new")} title="Add new itinerary" />
+    </div>
+  );
 
   const header = renderHeader();
 
@@ -73,14 +77,15 @@ export default function Home() {
           selectionMode="single"
           onRowClick={onRowClick}
           sortMode="single"
-          header={header} 
+          header={header}
           globalFilter={globalFilterValue}
+          globalFilterFields={["title", "destination", "start_date"]}
           emptyMessage="No itineraries found."
-          className=" p-datatable-sm"
+          className="p-datatable-sm"
         >
-          <Column field="title" header="Title" sortable filter style={{ width: "40%" }}></Column>
-          <Column field="destination" header="Destination" filter sortable style={{ width: "30%" }}></Column>
-          <Column field="start_date" header="Start Date" sortable style={{ width: "30%" }}></Column>
+          <Column field="title" header="Title" sortable style={{ width: "40%" }} />
+          <Column field="destination" header="Destination" sortable style={{ width: "30%" }} />
+          <Column field="start_date" header="Start Date" sortable style={{ width: "30%" }} />
         </DataTable>
       </div>
     </div>
