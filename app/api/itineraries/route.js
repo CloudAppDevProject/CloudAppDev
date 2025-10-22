@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { connectToMongoDB } from "@/lib/mongodb";
 
 export async function POST(req) {
   try {
@@ -26,8 +27,13 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const userId = searchParams.get("userId");
+  const currentUserId = searchParams.get("currentUserId");
 
   try {
+    // Get MongoDB connection for likes
+    const { db } = await connectToMongoDB();
+    const likesCollection = db.collection("likes");
+
     if (id) {
       // Einzelnes Itinerary anhand der ID
       const itinerary = await prisma.itinerary.findUnique({
@@ -36,21 +42,67 @@ export async function GET(req) {
       if (!itinerary) {
         return NextResponse.json({ error: "Itinerary not found" }, { status: 404 });
       }
-      return NextResponse.json(itinerary);
+
+      // Add like data
+      const likeCount = await likesCollection.countDocuments({
+        itinerary_id: itinerary.id,
+      });
+
+      let userHasLiked = false;
+      if (currentUserId) {
+        const userLike = await likesCollection.findOne({
+          user_id: parseInt(currentUserId),
+          itinerary_id: itinerary.id,
+        });
+        userHasLiked = !!userLike;
+      }
+
+      return NextResponse.json({
+        ...itinerary,
+        likeCount,
+        userHasLiked,
+      });
     }
 
+    // Fetch itineraries
+    let itineraries;
     if (userId) {
       // Alle Itineraries eines Users
-      const itineraries = await prisma.user.findUnique({
+      const userWithItineraries = await prisma.user.findUnique({
         where: { id: Number(userId) },
         include: { itineraries: true }
       });
-      return NextResponse.json(itineraries ? itineraries.itineraries : []);
+      itineraries = userWithItineraries ? userWithItineraries.itineraries : [];
+    } else {
+      // Alle Itineraries
+      itineraries = await prisma.itinerary.findMany();
     }
 
-    // Alle Itineraries
-    const allItineraries = await prisma.itinerary.findMany();
-    return NextResponse.json(allItineraries);
+    // Enrich with like data from MongoDB
+    const enrichedItineraries = await Promise.all(
+      itineraries.map(async (itinerary) => {
+        const likeCount = await likesCollection.countDocuments({
+          itinerary_id: itinerary.id,
+        });
+
+        let userHasLiked = false;
+        if (currentUserId) {
+          const userLike = await likesCollection.findOne({
+            user_id: parseInt(currentUserId),
+            itinerary_id: itinerary.id,
+          });
+          userHasLiked = !!userLike;
+        }
+
+        return {
+          ...itinerary,
+          likeCount,
+          userHasLiked,
+        };
+      })
+    );
+
+    return NextResponse.json(enrichedItineraries);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

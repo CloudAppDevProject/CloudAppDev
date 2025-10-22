@@ -8,6 +8,7 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
+import LikeButton from "@/app/components/LikeButton";
 
 export default function Home() {
   const router = useRouter();
@@ -26,7 +27,9 @@ export default function Home() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const url = globalFilterValue.trim() ? `/api/itineraries` : `/api/itineraries?userId=${user.id}`;
+        const url = globalFilterValue.trim() 
+          ? `/api/itineraries?currentUserId=${user.id}` 
+          : `/api/itineraries?userId=${user.id}&currentUserId=${user.id}`;
 
         const res = await fetch(url);
         if (!res.ok) {
@@ -49,6 +52,31 @@ export default function Home() {
 
   const onRowClick = (event) => {
     router.push(`/itineraries/${event.data.id}`);
+  };
+
+  const likeBodyTemplate = (rowData) => {
+    return (
+      <LikeButton
+        itineraryId={rowData.id}
+        userId={user?.id}
+        initialLiked={rowData.userHasLiked || false}
+        initialCount={rowData.likeCount || 0}
+        onLikeChange={(itineraryId, newLiked) => {
+          // Update the list with new like status
+          setList((prevList) =>
+            prevList.map((item) =>
+              item.id === itineraryId
+                ? {
+                    ...item,
+                    userHasLiked: newLiked,
+                    likeCount: newLiked ? item.likeCount + 1 : item.likeCount - 1,
+                  }
+                : item
+            )
+          );
+        }}
+      />
+    );
   };
 
   const renderHeader = () => (
@@ -83,9 +111,10 @@ export default function Home() {
           emptyMessage="No itineraries found."
           className="p-datatable-sm"
         >
-          <Column field="title" header="Title" sortable style={{ width: "40%" }} />
-          <Column field="destination" header="Destination" sortable style={{ width: "30%" }} />
-          <Column field="start_date" header="Start Date" sortable style={{ width: "30%" }} />
+          <Column field="title" header="Title" sortable style={{ width: "35%" }} />
+          <Column field="destination" header="Destination" sortable style={{ width: "25%" }} />
+          <Column field="start_date" header="Start Date" sortable style={{ width: "20%" }} />
+          <Column header="Likes" body={likeBodyTemplate} style={{ width: "20%" }} />
         </DataTable>
       </div>
     </div>

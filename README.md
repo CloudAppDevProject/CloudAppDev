@@ -1,5 +1,29 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Database Setup
+
+This project uses **PostgreSQL** (via Prisma) and **MongoDB** for data storage.
+
+### Quick Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Configure environment
+cp example.env .env
+# Edit .env with your database credentials
+
+# Start databases
+docker-compose up -d
+
+# Initialize databases (first time only)
+npm run db:deploy        # PostgreSQL
+npm run db:init-mongo    # MongoDB
+```
+
+See [MONGODB.md](./MONGODB.md) for detailed MongoDB documentation.
+
 ## Getting Started
 
 First, run the development server:

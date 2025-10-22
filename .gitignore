@@ -48,6 +48,15 @@ package-lock.json
 
 # database
 data/itineraries.db
+
+# MongoDB
+mongo-backups/
+*.bson
+*.metadata.json
+
+# Docker volumes (if using local bind mounts)
+mongo_data/
+mongo_config/
 /generated/prisma
 /certbot/conf/
 /certbot/www/
