@@ -55,3 +55,6 @@ data/itineraries.db
 letsencrypt/
 **/fullchain.pem
 **/privkey.pem
+
+# locust
+__pycache__/
