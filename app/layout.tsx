@@ -6,7 +6,7 @@ import { ThemeProvider } from "@components/theme-provider";
 import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";
 import { UserProvider } from "./context/UserContext";
 import Footer from "./components/footer";
-import Menu from "./components/menu";
+import Menu from "./components/Menu";
 import "primeicons/primeicons.css";
 
 const geistSans = Geist({
@@ -24,7 +24,6 @@ export const metadata: Metadata = {
   description: "Plan and manage your travel itineraries",
 };
 
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,13 +33,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} flex flex-col min-h-screen antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Menu />
-          <main className="flex-grow">
-            <PrimeReactProvider>
-              <UserProvider>{children}</UserProvider>
-            </PrimeReactProvider>
-          </main>
-          <Footer />
+          <PrimeReactProvider>
+            <UserProvider>
+              <Menu />
+              <main className="flex-grow">{children}</main>
+              <Footer />
+            </UserProvider>
+          </PrimeReactProvider>
         </ThemeProvider>
       </body>
     </html>

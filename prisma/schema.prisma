@@ -8,25 +8,26 @@ datasource db {
 }
 
 model User {
-  id         Int         @id @default(autoincrement())
-  name       String
-  email      String      @unique
-  password   String
-  itineraries Itinerary[]
+  id          Int         @id @default(autoincrement())
+  name        String
+  email       String      @unique
+  password    String
+  avatarUrl   String?     @db.VarChar(500)
   comments    Comment[]
+  itineraries Itinerary[]
 }
 
 model Itinerary {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   user_id     Int
   title       String
   destination String
   start_date  String
   short_desc  String?
   detail_desc String?
-  created_at  DateTime @default(now())
-  user        User     @relation(fields: [user_id], references: [id])
+  created_at  DateTime  @default(now())
   comments    Comment[]
+  user        User      @relation(fields: [user_id], references: [id])
 }
 
 model Comment {
@@ -35,6 +36,6 @@ model Comment {
   itinerary_id Int
   content      String
   created_at   DateTime  @default(now())
-  user         User      @relation(fields: [user_id], references: [id])
   itinerary    Itinerary @relation(fields: [itinerary_id], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [user_id], references: [id])
 }

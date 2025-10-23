@@ -7,66 +7,74 @@ import { ProgressBar } from "primereact/progressbar";
 import { Button } from "primereact/button";
 import { Tooltip } from "primereact/tooltip";
 import { Tag } from "primereact/tag";
+import { useFileUpload } from "@hooks/useFileUpload";
+import { useUser } from "@context/UserContext";
 
 /**
- * Reusable image uploader component.
- * @param {number} maxFiles - How many images can be uploaded at once.
- * @param {(files: string[]) => void} onUploaded - Callback when upload completes.
+ * ImageUploader using PrimeReact UI but custom upload logic via useFileUpload()
  */
 export default function ImageUploader({ maxFiles = 1, onUploaded }) {
   const toast = useRef(null);
   const fileUploadRef = useRef(null);
-  const [totalSize, setTotalSize] = useState(0);
+  const { user } = useUser();
 
+  const [files, setFiles] = useState([]);
+  const { uploadFile, uploadProgress, isUploading, uploadResult, resetUpload } = useFileUpload();
+
+  // Called when user selects files
   const onTemplateSelect = (e) => {
-    let _totalSize = totalSize;
-    let files = e.files;
-
-    Object.keys(files).forEach((key) => {
-      _totalSize += files[key].size || 0;
-    });
-
-    setTotalSize(_totalSize);
+    setFiles(e.files.slice(0, maxFiles));
   };
 
-  const onTemplateUpload = async (e) => {
-    let _totalSize = 0;
-    e.files.forEach((file) => {
-      _totalSize += file.size || 0;
-    });
-    setTotalSize(_totalSize);
+  // Called when user clicks Upload
+  const onTemplateUpload = async () => {
+    if (!user?.id || files.length === 0) return;
 
-    toast.current.show({
-      severity: "success",
-      summary: "Upload complete",
-      detail: `${e.files.length} file(s) uploaded`,
-    });
-
-    // Call optional callback with uploaded filenames
-    if (onUploaded && e.xhr?.response) {
-      try {
-        const data = JSON.parse(e.xhr.response);
-        onUploaded(data.files || []);
-      } catch {
-        onUploaded([]);
+    const uploadedFiles = [];
+    for (const file of files) {
+      const result = await uploadFile(file, user.id, file.name);
+      if (result.success && result.gcsUri) {
+        uploadedFiles.push(result.gcsUri);
+      } else {
+        toast.current.show({
+          severity: "error",
+          summary: "Upload failed",
+          detail: result.error || "Unknown error",
+        });
       }
+    }
+
+    if (uploadedFiles.length > 0) {
+      toast.current.show({
+        severity: "success",
+        summary: "Upload complete",
+        detail: `${uploadedFiles.length} file(s) uploaded successfully`,
+      });
+      onUploaded?.(uploadedFiles);
+      setFiles([]);
+      resetUpload();
+      fileUploadRef.current?.clear();
     }
   };
 
   const onTemplateRemove = (file, callback) => {
-    setTotalSize(totalSize - file.size);
+    setFiles((prev) => prev.filter((f) => f.name !== file.name));
     callback();
   };
 
   const onTemplateClear = () => {
-    setTotalSize(0);
+    setFiles([]);
+    resetUpload();
   };
 
   const headerTemplate = (options) => {
     const { className, chooseButton, uploadButton, cancelButton } = options;
     const MAX_SIZE = 100 * 1024 * 1024;
+    const totalSize = files.reduce((acc, f) => acc + (f.size || 0), 0);
     const value = (totalSize / MAX_SIZE) * 100;
-    const formatedValue = fileUploadRef && fileUploadRef.current ? fileUploadRef.current.formatSize(totalSize) : "0 B";
+    const formattedValue = fileUploadRef.current
+      ? fileUploadRef.current.formatSize(totalSize)
+      : "0 B";
 
     return (
       <div
@@ -78,11 +86,21 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
         }}
       >
         {chooseButton}
-        {uploadButton}
+        <Button
+          icon="pi pi-cloud-upload"
+          label="Upload"
+          onClick={onTemplateUpload}
+          disabled={isUploading || files.length === 0}
+          className="p-button-success p-button-rounded p-button-outlined ml-2"
+        />
         {cancelButton}
         <div className="flex align-items-center gap-3 ml-auto">
-          <span>{formatedValue} / 100 MB</span>
-          <ProgressBar value={value} showValue={false} style={{ width: "10rem", height: "12px" }}></ProgressBar>
+          <span>{formattedValue} / 100 MB</span>
+          <ProgressBar
+            value={isUploading ? uploadProgress : value}
+            showValue={false}
+            style={{ width: "10rem", height: "12px" }}
+          />
         </div>
       </div>
     );
@@ -97,7 +115,12 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
         <small>{new Date().toLocaleDateString()}</small>
         <div className="flex align-items-center" style={{ width: "20%" }}></div>
         <Tag value={props.formatSize} severity="info" className="px-3 py-2" />
-        <Button type="button" icon="pi pi-times" className="p-button-outlined p-button-rounded p-button-danger ml-auto" onClick={() => onTemplateRemove(file, props.onRemove)} />
+        <Button
+          type="button"
+          icon="pi pi-times"
+          className="p-button-outlined p-button-rounded p-button-danger ml-auto"
+          onClick={() => onTemplateRemove(file, props.onRemove)}
+        />
       </div>
     );
   };
@@ -114,7 +137,10 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
             color: "var(--surface-d)",
           }}
         ></i>
-        <span style={{ fontSize: "1.2em", color: "var(--text-color-secondary)" }} className="my-2">
+        <span
+          style={{ fontSize: "1.2em", color: "var(--text-color-secondary)" }}
+          className="my-2"
+        >
           Bild hier ablegen
         </span>
       </div>
@@ -126,11 +152,6 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
     iconOnly: true,
     className: "custom-choose-btn p-button-rounded p-button-outlined",
   };
-  const uploadOptions = {
-    icon: "pi pi-fw pi-cloud-upload",
-    iconOnly: true,
-    className: "custom-upload-btn p-button-success p-button-rounded p-button-outlined",
-  };
   const cancelOptions = {
     icon: "pi pi-fw pi-times",
     iconOnly: true,
@@ -139,28 +160,23 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
 
   return (
     <div>
-      <Toast ref={toast}></Toast>
-
+      <Toast ref={toast} />
       <Tooltip target=".custom-choose-btn" content="Choose" position="bottom" />
-      <Tooltip target=".custom-upload-btn" content="Upload" position="bottom" />
       <Tooltip target=".custom-cancel-btn" content="Clear" position="bottom" />
 
       <FileUpload
         ref={fileUploadRef}
         name="images"
-        url="/api/upload"
         multiple={maxFiles > 1}
         accept="image/*"
         maxFileSize={104857600}
-        onUpload={onTemplateUpload}
         onSelect={onTemplateSelect}
-        onError={onTemplateClear}
         onClear={onTemplateClear}
+        customUpload
         headerTemplate={headerTemplate}
         itemTemplate={itemTemplate}
         emptyTemplate={emptyTemplate}
         chooseOptions={chooseOptions}
-        uploadOptions={uploadOptions}
         cancelOptions={cancelOptions}
       />
     </div>

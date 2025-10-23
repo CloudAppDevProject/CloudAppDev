@@ -24,6 +24,7 @@
       "@lib/*": ["lib/*"],
       "@actions/*": ["app/actions/*"],
       "@context/*": ["app/context/*"],
+      "@hooks/*": ["app/hooks/*"],
       "@components/*": ["app/components/*"]
     }
   },
