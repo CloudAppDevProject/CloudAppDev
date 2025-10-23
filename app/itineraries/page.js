@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
-import ItineraryTable from "../components/ItineraryTable";
+import ItineraryTable from "../components/itineraryTable";
 
 export default function AllItinerariesPage() {
   const router = useRouter();
