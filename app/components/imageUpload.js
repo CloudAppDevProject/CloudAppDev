@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useRef, useState } from "react";
 import { Toast } from "primereact/toast";
 import { FileUpload } from "primereact/fileupload";
@@ -69,12 +68,10 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
 
   const headerTemplate = (options) => {
     const { className, chooseButton, uploadButton, cancelButton } = options;
-    const MAX_SIZE = 100 * 1024 * 1024;
+    const MAX_SIZE = 20 * 1024 * 1024;
     const totalSize = files.reduce((acc, f) => acc + (f.size || 0), 0);
     const value = (totalSize / MAX_SIZE) * 100;
-    const formattedValue = fileUploadRef.current
-      ? fileUploadRef.current.formatSize(totalSize)
-      : "0 B";
+    const formattedValue = fileUploadRef.current ? fileUploadRef.current.formatSize(totalSize) : "0 B";
 
     return (
       <div
@@ -95,12 +92,8 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
         />
         {cancelButton}
         <div className="flex align-items-center gap-3 ml-auto">
-          <span>{formattedValue} / 100 MB</span>
-          <ProgressBar
-            value={isUploading ? uploadProgress : value}
-            showValue={false}
-            style={{ width: "10rem", height: "12px" }}
-          />
+          <span>{formattedValue} / 20 MB</span>
+          <ProgressBar value={isUploading ? uploadProgress : value} showValue={false} style={{ width: "10rem", height: "12px" }} />
         </div>
       </div>
     );
@@ -115,12 +108,7 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
         <small>{new Date().toLocaleDateString()}</small>
         <div className="flex align-items-center" style={{ width: "20%" }}></div>
         <Tag value={props.formatSize} severity="info" className="px-3 py-2" />
-        <Button
-          type="button"
-          icon="pi pi-times"
-          className="p-button-outlined p-button-rounded p-button-danger ml-auto"
-          onClick={() => onTemplateRemove(file, props.onRemove)}
-        />
+        <Button type="button" icon="pi pi-times" className="p-button-outlined p-button-rounded p-button-danger ml-auto" onClick={() => onTemplateRemove(file, props.onRemove)} />
       </div>
     );
   };
@@ -137,10 +125,7 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
             color: "var(--surface-d)",
           }}
         ></i>
-        <span
-          style={{ fontSize: "1.2em", color: "var(--text-color-secondary)" }}
-          className="my-2"
-        >
+        <span style={{ fontSize: "1.2em", color: "var(--text-color-secondary)" }} className="my-2">
           Bild hier ablegen
         </span>
       </div>
@@ -169,7 +154,7 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
         name="images"
         multiple={maxFiles > 1}
         accept="image/*"
-        maxFileSize={104857600}
+        maxFileSize={20971520}
         onSelect={onTemplateSelect}
         onClear={onTemplateClear}
         customUpload
