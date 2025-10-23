@@ -4,8 +4,11 @@ import { connectToMongoDB } from "@/lib/mongodb";
 
 export async function POST(req) {
   try {
+    // Eingangsdaten aus dem Request-Body lesen
     const { userId, title, destination, start_date, short_desc, detail_desc } = await req.json();
+    console.log("[POST] Incoming data:", { userId, title, destination });
 
+    // Datensatz in Prisma erstellen
     const newItinerary = await prisma.itinerary.create({
       data: {
         user_id: userId,
@@ -13,12 +16,15 @@ export async function POST(req) {
         destination,
         start_date,
         short_desc,
-        detail_desc
-      }
+        detail_desc,
+      },
     });
+
+    console.log("[POST] Itinerary created:", newItinerary.id);
 
     return NextResponse.json(newItinerary, { status: 201 });
   } catch (err) {
+    console.error("[POST] Error creating itinerary:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -27,34 +33,44 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const userId = searchParams.get("userId");
-  const search = searchParams.get("search"); // 🔍 Neuer Parameter
+  const currentUserId = searchParams.get("currentUserId");
+  const search = searchParams.get("search");
+
+  console.log("[GET] Query parameters:", { id, userId, currentUserId, search });
 
   try {
-    // Get MongoDB connection for likes
+    // Verbindung zu MongoDB herstellen
     const { db } = await connectToMongoDB();
-    const likesCollection = db.collection("likes");
+    console.log("[GET] MongoDB connected:", !!db);
 
+    const likesCollection = db.collection("likes");
+    console.log("[GET] Using collection:", likesCollection.collectionName);
+
+    // Einzelnes Itinerary anhand der ID abrufen
     if (id) {
+      console.log("[GET] Fetching single itinerary with ID:", id);
       const itinerary = await prisma.itinerary.findUnique({
         where: { id: Number(id) },
       });
+
       if (!itinerary) {
+        console.warn("[GET] Itinerary not found:", id);
         return NextResponse.json({ error: "Itinerary not found" }, { status: 404 });
       }
 
-      // Add like data
-      const likeCount = await likesCollection.countDocuments({
-        itinerary_id: itinerary.id,
-      });
+      // Likes zählen
+      const likeCount = await likesCollection.countDocuments({ itinerary_id: itinerary.id });
+      console.log("[GET] Like count:", likeCount);
 
-      let userHasLiked = false;
-      if (currentUserId) {
-        const userLike = await likesCollection.findOne({
-          user_id: parseInt(currentUserId),
-          itinerary_id: itinerary.id,
-        });
-        userHasLiked = !!userLike;
-      }
+      // Prüfen, ob aktueller User geliked hat
+      const userHasLiked = currentUserId
+        ? !!(await likesCollection.findOne({
+            user_id: parseInt(currentUserId),
+            itinerary_id: itinerary.id,
+          }))
+        : false;
+
+      console.log("[GET] User has liked:", userHasLiked);
 
       return NextResponse.json({
         ...itinerary,
@@ -63,37 +79,64 @@ export async function GET(req) {
       });
     }
 
-    // Fetch itineraries
-    let itineraries;
+    // Dynamische Filterbedingungen aufbauen
+    const where = {};
     if (userId) {
-      // Alle Itineraries eines Users
-      const userWithItineraries = await prisma.user.findUnique({
-        where: { id: Number(userId) },
-        include: { itineraries: true },
-      });
-      itineraries = userWithItineraries ? userWithItineraries.itineraries : [];
-    } else {
-      // Alle Itineraries
-      itineraries = await prisma.itinerary.findMany();
+      where.user_id = Number(userId);
+      console.log("[GET] Filtering by userId:", where.user_id);
     }
 
     if (search) {
-      const filtered = await prisma.itinerary.findMany({
-        where: {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { destination: { contains: search, mode: "insensitive" } },
-            { start_date: { contains: search, mode: "insensitive" } }, // falls startDate ein String ist
-          ],
-        },
-      });
-      return NextResponse.json(filtered);
+      console.log("[GET] Applying search filter:", search);
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { destination: { contains: search, mode: "insensitive" } },
+        { short_desc: { contains: search, mode: "insensitive" } },
+        { detail_desc: { contains: search, mode: "insensitive" } },
+      ];
     }
 
-    // Alle Itineraries
-    const allItineraries = await prisma.itinerary.findMany();
-    return NextResponse.json(allItineraries);
+    // Prisma-Abfrage ausführen
+    console.log("[GET] Executing Prisma query with where:", where);
+    const itineraries = await prisma.itinerary.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
+      orderBy: { id: "desc" },
+    });
+
+    console.log("[GET] Found itineraries:", itineraries.length);
+
+    // Mit Like-Daten aus MongoDB anreichern
+    const enrichedItineraries = await Promise.all(
+      itineraries.map(async (itinerary) => {
+        const likeCount = await likesCollection.countDocuments({
+          itinerary_id: itinerary.id,
+        });
+
+        const userHasLiked = currentUserId
+          ? !!(await likesCollection.findOne({
+              user_id: parseInt(currentUserId),
+              itinerary_id: itinerary.id,
+            }))
+          : false;
+
+        console.log("[GET] Enriched itinerary:", {
+          id: itinerary.id,
+          likeCount,
+          userHasLiked,
+        });
+
+        return {
+          ...itinerary,
+          likeCount,
+          userHasLiked,
+        };
+      })
+    );
+
+    console.log("[GET] Returning enriched itineraries:", enrichedItineraries.length);
+    return NextResponse.json(enrichedItineraries);
   } catch (err) {
+    console.error("[GET] Error fetching itineraries:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

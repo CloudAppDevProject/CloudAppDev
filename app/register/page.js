@@ -13,6 +13,7 @@ export default function Register() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
+      console.log("Submitting registration:", form);
       const res = await fetch("/api/user?action=register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -24,7 +25,6 @@ export default function Register() {
         throw new Error(errData.error || "Registration failed");
       }
 
-      // erfolgreich registriert → evtl. gleich weiterleiten zum Login
       await res.json();
       setForm({ name: "", email: "", password: "" });
       setError("");
@@ -40,7 +40,7 @@ export default function Register() {
       <form onSubmit={handleSubmit} className="mb-6 space-y-6">
         <div>
           <label className="block text-sm font-medium mb-1">Username</label>
-          <InputText name="username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="w-full mb-6" />
+          <InputText name="username" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full mb-6" />
         </div>
 
         <div>

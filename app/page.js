@@ -3,61 +3,87 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@context/UserContext";
 import { useRouter } from "next/navigation";
-import ItineraryTable from "./components/itineraryTable";
+import ItineraryTable from "./components/ItineraryTable";
 
-export default function Home() {
+export default function MyItinerariesPage() {
   const router = useRouter();
   const { user } = useUser();
 
-  const [list, setList] = useState([]);
+  const [itineraries, setItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [search, setSearch] = useState("");
 
+  // --- Daten laden ---
   useEffect(() => {
     if (!user?.id) {
       router.push("/login");
       return;
     }
 
-    const fetchData = async () => {
+    const fetchItineraries = async () => {
       setLoading(true);
       try {
-        let url = `/api/itineraries?userId=${user.id}`;
-        if (globalFilterValue.trim()) {
-          url += `&search=${encodeURIComponent(globalFilterValue.trim())}`;
-        }
+        let url = `/api/itineraries?userId=${user.id}&currentUserId=${user.id}`;
+        if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch itineraries: ${res.status}`);
 
         const data = await res.json();
-        setList(data);
+        setItineraries(data);
       } catch (err) {
-        console.error(err);
-        setList([]);
+        console.error("Error fetching itineraries:", err);
+        setItineraries([]);
       } finally {
         setLoading(false);
       }
     };
 
-    const timeout = setTimeout(fetchData, 400);
+    const timeout = setTimeout(fetchItineraries, 400);
     return () => clearTimeout(timeout);
-  }, [user, globalFilterValue, router]);
+  }, [user, search, router]);
 
-  const handleRowClick = (event) => router.push(`/itineraries/${event.data.id}`);
+  // --- Like Status aktualisieren ---
+  const handleLikeChange = (itineraryId, newLiked) => {
+    setItineraries((prev) =>
+      prev.map((item) =>
+        item.id === itineraryId
+          ? {
+              ...item,
+              userHasLiked: newLiked,
+              likeCount: newLiked
+                ? item.likeCount + 1
+                : item.likeCount - 1,
+            }
+          : item
+      )
+    );
+  };
+
+  // --- Zeileninteraktion ---
+  const handleRowClick = (id) => router.push(`/itineraries/${id}`);
   const handleAddNew = () => router.push("/itineraries/new");
 
   return (
     <div className="max-w-6xl mx-auto p-6 font-sans">
-      <h1 className="text-3xl font-bold mb-6">My Itineraries</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">My Itineraries</h1>
+        <button
+          onClick={handleAddNew}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+        >
+          + Add New
+        </button>
+      </div>
 
       <ItineraryTable
-        list={list}
+        itineraries={itineraries}
         loading={loading}
-        globalFilterValue={globalFilterValue}
-        setGlobalFilterValue={setGlobalFilterValue}
+        search={search}
+        onSearchChange={setSearch}
+        userId={user?.id}
         onRowClick={handleRowClick}
-        onAddNew={handleAddNew}
+        onLikeChange={handleLikeChange}
       />
     </div>
   );
