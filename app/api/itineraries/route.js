@@ -26,12 +26,12 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const userId = searchParams.get("userId");
+  const search = searchParams.get("search"); // 🔍 Neuer Parameter
 
   try {
     if (id) {
-      // Einzelnes Itinerary anhand der ID
       const itinerary = await prisma.itinerary.findUnique({
-        where: { id: Number(id) }
+        where: { id: Number(id) },
       });
       if (!itinerary) {
         return NextResponse.json({ error: "Itinerary not found" }, { status: 404 });
@@ -43,9 +43,25 @@ export async function GET(req) {
       // Alle Itineraries eines Users
       const itineraries = await prisma.user.findUnique({
         where: { id: Number(userId) },
-        include: { itineraries: true }
+        include: { itineraries: true },
       });
-      return NextResponse.json(itineraries ? itineraries.itineraries : []);
+      itineraries = userWithItineraries ? userWithItineraries.itineraries : [];
+    } else {
+      // Alle Itineraries
+      itineraries = await prisma.itinerary.findMany();
+    }
+
+    if (search) {
+      const filtered = await prisma.itinerary.findMany({
+        where: {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { destination: { contains: search, mode: "insensitive" } },
+            { start_date: { contains: search, mode: "insensitive" } }, // falls startDate ein String ist
+          ],
+        },
+      });
+      return NextResponse.json(filtered);
     }
 
     // Alle Itineraries

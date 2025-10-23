@@ -1,35 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser } from "@context/UserContext";
 import { useRouter } from "next/navigation";
-import ItineraryTable from "./components/itineraryTable";
+import ItineraryTable from ".././components/itineraryTable";
 
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
-import { Button } from "primereact/button";
-import { InputText } from "primereact/inputtext";
-
-export default function Home() {
+export default function AllItinerariesPage() {
   const router = useRouter();
-  const { user } = useUser();
 
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
 
   useEffect(() => {
-    if (!user?.id) {
-      router.push("/login");
-      return;
-    }
-
     const fetchData = async () => {
       setLoading(true);
       try {
-        let url = `/api/itineraries?userId=${user.id}`;
+        let url = `/api/itineraries`;
         if (globalFilterValue.trim()) {
-          url += `&search=${encodeURIComponent(globalFilterValue.trim())}`;
+          url += `?search=${encodeURIComponent(globalFilterValue.trim())}`;
         }
 
         const res = await fetch(url);
@@ -47,14 +35,14 @@ export default function Home() {
 
     const timeout = setTimeout(fetchData, 400);
     return () => clearTimeout(timeout);
-  }, [user, globalFilterValue, router]);
+  }, [globalFilterValue]);
 
   const handleRowClick = (event) => router.push(`/itineraries/${event.data.id}`);
   const handleAddNew = () => router.push("/itineraries/new");
 
   return (
     <div className="max-w-6xl mx-auto p-6 font-sans">
-      <h1 className="text-3xl font-bold mb-6">My Itineraries</h1>
+      <h1 className="text-3xl font-bold mb-6">All Itineraries</h1>
 
       <ItineraryTable
         list={list}
