@@ -1,5 +1,39 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Database Setup
+
+This project uses **PostgreSQL** (via Prisma) and **MongoDB** for data storage.
+
+### Quick Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Configure environment
+cp example.env .env
+# Edit .env with your database credentials
+
+# Start databases
+docker-compose up -d
+
+# Initialize databases (first time only)
+npm run db:deploy        # PostgreSQL
+npm run db:init-mongo    # MongoDB
+```
+
+See [MONGODB.md](./MONGODB.md) for detailed MongoDB documentation.
+
+### Google Cloud Storage Setup
+1. Sign in to Google Cloud Console and create a new project.
+2. Enable the "Cloud Storage" API for your project.
+3. Create a new storage bucket to hold your files.
+4. Create a service account with "Storage Object Admin" role and generate a JSON key file.
+5. Set the following environment variables in your `.env` file:
+   - `GOOGLE_CLOUD_PROJECT_ID`: Your Google Cloud project ID.
+   - `GOOGLE_CLOUD_CREDENTIALS_BASE64`: The base64-encoded JSON key from your service account.
+   - `GOOGLE_CLOUD_STORAGE_BUCKET`: The name of your Cloud Storage bucket.
+
 ## Getting Started
 
 First, run the development server:
