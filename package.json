@@ -7,8 +7,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "db:deploy": "prisma migrate deploy && prisma generate",
-    "db:seed": "prisma db seed",
+    "db:deploy": "npx prisma migrate deploy && npx prisma generate",
+    "db:seed": "npx prisma db seed",
     "db:init-mongo": "node init-mongo.js"
   },
   "dependencies": {
