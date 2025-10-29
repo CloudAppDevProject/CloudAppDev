@@ -39,16 +39,17 @@ export async function GET(req) {
       return NextResponse.json(itinerary);
     }
 
+
     if (userId) {
       // Alle Itineraries eines Users
-      const itineraries = await prisma.user.findUnique({
+      var userWithItineraries = await prisma.user.findUnique({
         where: { id: Number(userId) },
         include: { itineraries: true },
       });
-      itineraries = userWithItineraries ? userWithItineraries.itineraries : [];
+      userWithItineraries = userWithItineraries ? userWithItineraries.itineraries : [];
     } else {
       // Alle Itineraries
-      itineraries = await prisma.itinerary.findMany();
+      userWithItineraries = await prisma.itinerary.findMany();
     }
 
     if (search) {
@@ -65,8 +66,7 @@ export async function GET(req) {
     }
 
     // Alle Itineraries
-    const allItineraries = await prisma.itinerary.findMany();
-    return NextResponse.json(allItineraries);
+    return NextResponse.json(userWithItineraries);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
