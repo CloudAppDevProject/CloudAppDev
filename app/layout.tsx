@@ -5,8 +5,8 @@ import { PrimeReactProvider } from "primereact/api";
 import { ThemeProvider } from "@components/theme-provider";
 import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";
 import { UserProvider } from "./context/UserContext";
-import Footer from "./components/footer";
-import Menu from "./components/Menu";
+import Footer from "@components/footer";
+import Menu from "@components/menu";
 import "primeicons/primeicons.css";
 
 const geistSans = Geist({
