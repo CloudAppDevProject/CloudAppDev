@@ -2,15 +2,38 @@ from locust import HttpUser, task, between
 from datetime import datetime, timedelta
 import random
 import string
+import time
+from urllib.parse import quote
 
 def random_email():
     return ''.join(random.choices(string.ascii_lowercase, k=8)) + "@test.com"
+
+def random_name():
+    return ''.join(random.choices(string.ascii_lowercase, k=8))
 
 class APIUser(HttpUser):
     wait_time = between(1, 3)
     user_id = None
     itinerary_id = None
     latest_registration = None
+    test_email = None
+    test_password = "testpass"
+    
+    def on_start(self):
+        while self.user_id is None:
+            self.test_email = random_email()
+            print("Attempting registration with email:", self.test_email)
+            response = self.client.post("/api/user?action=register", json={
+                "name": random_name(),
+                "email": self.test_email,
+                "password": self.test_password
+            })
+            print("Registration response status code:", response.json())
+            if response.status_code == 201:
+                self.user_id = response.json().get("id")
+                self.login()
+            else:
+                time.sleep(1)  
     
     def get_random_dates(self):
         start_offset = random.randint(1, 180)
@@ -19,31 +42,28 @@ class APIUser(HttpUser):
         end_date = start_date + timedelta(days=stay_length)
         return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
 
-    @task
-    def register(self):
-        name = "TestUser"
-        email = random_email()
-        password = "testpass"
-        with self.client.post("/api/user?action=register", json={
-            "name": name,
-            "email": email,
-            "password": password
-        }, catch_response=True) as response:
-            if response.status_code == 201:
-                self.latest_registration = email
-                self.user_id = response.json().get("id")
-            else:
-                response.failure(f"Failed to register: {response.text}")
+    def login(self):
+        self.client.post("/api/user?action=login", json={
+            "email": self.test_email,
+            "password": self.test_password
+        })
 
     @task
-    def login(self):
-        # Use a static test user or one from registration
-        email = self.latest_registration if self.latest_registration else "alice@example.com"
-        password = "testpass"
-        self.client.post("/api/user?action=login", json={
-            "email": email,
-            "password": password
-        })
+    def search_itineraries(self):
+        # Perform a search for itineraries using the correct API format
+        search_terms = ["Berlin", "Trip", "description", "Test", ""]
+        term = random.choice(search_terms)
+        url = None
+        if self.user_id:
+            url = f"/api/itineraries?currentUserId={self.user_id}"
+            if term.strip():
+                url += f"&search={quote(term.strip())}"
+        # else:
+        #     if term.strip():
+        #         url = f"/api/itineraries?search={quote(term.strip())}"
+        #     else:
+        #         url = "/api/itineraries"
+            self.client.get(url)
 
     @task
     def get_users(self):
