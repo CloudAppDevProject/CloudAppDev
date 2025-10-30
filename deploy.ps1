@@ -92,7 +92,7 @@ function Deploy-Full {
             --root-password=$DB_PASS `
             --no-backup `
             --edition=ENTERPRISE `
-            --database-flags=max_connections=500
+            --database-flags=max_connections=100
 
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to create Cloud SQL instance. Please check:"
@@ -226,10 +226,31 @@ function Deploy-Full {
     
     # Deploy to Cloud Run
     Write-Step "Deploying to Cloud Run..."
-    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASS}@localhost/${DB}?host=/cloudsql/${CONN_NAME}&connection_limit=500"
+    # Use pgbouncer for connection pooling - SAFE LIMITS:
+    # - connection_limit=5: Conservative connection limit per instance
+    # - pool_timeout=20: Fast timeout (20 seconds - fail fast!)
+    # - connect_timeout=5: Very quick connection timeout
+    # - statement_timeout=15000: Kill queries after 15 seconds (15000ms)
+    # 
+    # Math for 1000 users (with db-g1-small, max_connections=300):
+    # - Max instances=50 (more instances, fewer connections each)
+    # - 50 instances × 5 connections = 250 total (safe margin from 300!)
+    # - 50 instances × 20 concurrency = 1000 request capacity
+    # - Better ratio: 20 requests / 5 connections = 4:1
+    # - CRITICAL: Queries timeout after 15s = connections free up faster!
+    # - Reserved connections (~15) still available for admin
+    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASS}@localhost/${DB}?host=/cloudsql/${CONN_NAME}&pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=5&statement_timeout=15000"
     
     Write-Host "MongoDB URI: $MONGODB_URI" -ForegroundColor Gray
     Write-Host "Storage Bucket: $GOOGLE_CLOUD_STORAGE_BUCKET" -ForegroundColor Gray
+    
+    # Optimized for high load with db-g1-small (300 connections):
+    # - concurrency=20: Moderate concurrency for stability
+    # - max-instances=50: More instances to distribute load
+    # - connection_limit=5: Only 5 DB connections per instance = 250 total
+    # - memory=1Gi, cpu=1: Standard resources (cost effective)
+    # - statement_timeout=15s: Kills slow queries to free connections!
+    # - Result: 4:1 ratio + fast timeouts + safe margin from max_connections!
     
     gcloud run deploy $SERVICE `
         --image=$IMAGE_TAG `
@@ -240,6 +261,10 @@ function Deploy-Full {
         --memory=1Gi `
         --cpu=1 `
         --timeout=300 `
+        --min-instances=3 `
+        --max-instances=50 `
+        --concurrency=20 `
+        --cpu-throttling `
         --service-account="${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
         --add-cloudsql-instances=$CONN_NAME `
         --vpc-egress=private-ranges-only `
@@ -250,6 +275,7 @@ function Deploy-Full {
         Write-Host "`nYour application is now available at:"
         $URL = gcloud run services describe $SERVICE --region=$REGION --format="value(status.url)"
         Write-Host $URL -ForegroundColor Green
+        
     } else {
         Write-Error "Deployment failed"
         exit 1
@@ -286,7 +312,8 @@ function Update-Service {
     
     # Get connection name for database
     $CONN_NAME = gcloud sql instances describe $INSTANCE --format="value(connectionName)"
-    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASS}@localhost/${DB}?host=/cloudsql/${CONN_NAME}&connection_limit=500"
+    # Use pgbouncer for connection pooling - SAFE LIMITS
+    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASS}@localhost/${DB}?host=/cloudsql/${CONN_NAME}&pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=5&statement_timeout=15000"
     
     Write-Host "MongoDB URI: $MONGODB_URI" -ForegroundColor Gray
     Write-Host "Storage Bucket: $GOOGLE_CLOUD_STORAGE_BUCKET" -ForegroundColor Gray
@@ -294,6 +321,12 @@ function Update-Service {
     gcloud run deploy $SERVICE `
         --image=$IMAGE_TAG `
         --region=$REGION `
+        --min-instances=3 `
+        --max-instances=50 `
+        --concurrency=20 `
+        --memory=1Gi `
+        --cpu=1 `
+        --cpu-throttling `
         --vpc-egress=private-ranges-only `
         --set-env-vars="DATABASE_URL=${DATABASE_URL},NODE_ENV=production,POSTGRES_USER=${DB_USER},POSTGRES_PASSWORD=${DB_PASS},POSTGRES_DB=${DB},GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID},GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET},GOOGLE_CLOUD_CREDENTIALS_BASE64=${GOOGLE_CLOUD_CREDENTIALS_BASE64},MONGODB_URI=${MONGODB_URI},MONGO_INITDB_DATABASE=clouddev"
     

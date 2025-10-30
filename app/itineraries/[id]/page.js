@@ -21,7 +21,7 @@ export default function ItineraryDetail() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/itineraries?id=${params.id}`);
+        const res = await fetch(`/api/itineraries?id=${params.id}&currentUserId=${user.id}`);
         if (res.status === 404) {
           router.push("/"); // nicht gefunden → zurück zur Übersicht
           return;
@@ -29,6 +29,7 @@ export default function ItineraryDetail() {
         if (!res.ok) throw new Error("Failed to fetch itinerary");
 
         const data = await res.json();
+        // Single itinerary response bleibt ein Objekt (keine pagination)
         setItinerary(data);
       } catch (err) {
         console.error("Error loading itinerary:", err);
