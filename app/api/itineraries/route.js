@@ -5,10 +5,9 @@ import { connectToMongoDB } from "@/lib/mongodb";
 export async function POST(req) {
   try {
     // Eingangsdaten aus dem Request-Body lesen
-    const { userId, title, destination, start_date, short_desc, detail_desc } = await req.json();
-    //console.log("[POST] Incoming data:", { userId, title, destination });
+    const { userId, title, destination, start_date, short_desc, detail_desc, locations } = await req.json();
 
-    // Datensatz in Prisma erstellen mit Timeout
+    // Itinerary + locations erstellen mit Timeout
     // Use Promise.race to timeout after 15 seconds
     const createPromise = prisma.itinerary.create({
       data: {
@@ -18,7 +17,19 @@ export async function POST(req) {
         start_date,
         short_desc,
         detail_desc,
+        locations: locations && Array.isArray(locations)
+          ? {
+              create: locations.map(loc => ({
+                name: loc.name,
+                start_date: loc.start_date,
+                end_date: loc.end_date,
+                short_desc: loc.short_desc,
+                images: loc.images || [],
+              }))
+            }
+          : undefined,
       },
+      include: { locations: true },
     });
 
     const timeoutPromise = new Promise((_, reject) =>
@@ -31,7 +42,6 @@ export async function POST(req) {
 
     return NextResponse.json(newItinerary, { status: 201 });
   } catch (err) {
-    //console.error("[POST] Error creating itinerary:", err);
     
     // Return 503 for timeouts (Service Temporarily Unavailable)
     if (err.message.includes('timeout')) {
@@ -66,7 +76,8 @@ export async function GET(req) {
       const [itinerary, mongoConnection] = await Promise.all([
         prisma.itinerary.findUnique({
           where: { id: Number(id) },
-        }),
+          include: { locations: true },
+      }),
         connectToMongoDB(),
       ]);
 
