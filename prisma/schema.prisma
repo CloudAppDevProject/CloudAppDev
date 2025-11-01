@@ -28,6 +28,18 @@ model Itinerary {
   created_at  DateTime  @default(now())
   comments    Comment[]
   user        User      @relation(fields: [user_id], references: [id])
+  locations   Location[]
+}
+
+model Location {
+  id           Int      @id @default(autoincrement())
+  itinerary_id Int
+  name         String
+  start_date   String
+  end_date     String
+  short_desc   String?
+  images       String[] @db.VarChar(500)
+  itinerary    Itinerary @relation(fields: [itinerary_id], references: [id], onDelete: Cascade)
 }
 
 model Comment {

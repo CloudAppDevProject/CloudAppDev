@@ -5,10 +5,9 @@ import { connectToMongoDB } from "@/lib/mongodb";
 export async function POST(req) {
   try {
     // Eingangsdaten aus dem Request-Body lesen
-    const { userId, title, destination, start_date, short_desc, detail_desc } = await req.json();
-    //console.log("[POST] Incoming data:", { userId, title, destination });
+    const { userId, title, destination, start_date, short_desc, detail_desc, locations } = await req.json();
 
-    // Datensatz in Prisma erstellen
+    // Itinerary + locations erstellen
     const newItinerary = await prisma.itinerary.create({
       data: {
         user_id: userId,
@@ -17,14 +16,23 @@ export async function POST(req) {
         start_date,
         short_desc,
         detail_desc,
+        locations: locations && Array.isArray(locations)
+          ? {
+              create: locations.map(loc => ({
+                name: loc.name,
+                start_date: loc.start_date,
+                end_date: loc.end_date,
+                short_desc: loc.short_desc,
+                images: loc.images || [],
+              }))
+            }
+          : undefined,
       },
+      include: { locations: true },
     });
-
-    //console.log("[POST] Itinerary created:", newItinerary.id);
 
     return NextResponse.json(newItinerary, { status: 201 });
   } catch (err) {
-    //console.error("[POST] Error creating itinerary:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -51,6 +59,7 @@ export async function GET(req) {
       //console.log("[GET] Fetching single itinerary with ID:", id);
       const itinerary = await prisma.itinerary.findUnique({
         where: { id: Number(id) },
+        include: { locations: true },
       });
 
       if (!itinerary) {
@@ -60,7 +69,6 @@ export async function GET(req) {
 
       // Likes zählen
       const likeCount = await likesCollection.countDocuments({ itinerary_id: itinerary.id });
-      //console.log("[GET] Like count:", likeCount);
 
       // Prüfen, ob aktueller User geliked hat
       const userHasLiked = currentUserId
@@ -69,8 +77,6 @@ export async function GET(req) {
             itinerary_id: itinerary.id,
           }))
         : false;
-
-      //console.log("[GET] User has liked:", userHasLiked);
 
       return NextResponse.json({
         ...itinerary,
