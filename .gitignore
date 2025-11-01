@@ -68,3 +68,4 @@ letsencrypt/
 # Locust
 **/locust/__pycache__
 .venv/
+locust/reports/*
