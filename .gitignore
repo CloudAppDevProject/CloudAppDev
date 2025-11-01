@@ -64,3 +64,7 @@ mongo_config/
 letsencrypt/
 **/fullchain.pem
 **/privkey.pem
+
+# Locust
+**/locust/__pycache__
+.venv/

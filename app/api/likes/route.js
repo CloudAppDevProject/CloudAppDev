@@ -64,26 +64,73 @@ export async function POST(request) {
 /**
  * GET /api/likes?itineraryId=123
  * Get like count and user's like status for an itinerary
+ * 
+ * GET /api/likes?itineraryIds=1,2,3&userId=5 (Batch query for multiple itineraries)
  */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const itineraryId = parseInt(searchParams.get("itineraryId"));
+    const itineraryId = searchParams.get("itineraryId");
+    const itineraryIds = searchParams.get("itineraryIds");
     const userId = parseInt(searchParams.get("userId"));
-
-    if (!itineraryId) {
-      return NextResponse.json(
-        { error: "itineraryId is required" },
-        { status: 400 }
-      );
-    }
 
     const { db } = await connectToMongoDB();
     const likesCollection = db.collection("likes");
 
+    // Batch query for multiple itineraries
+    if (itineraryIds) {
+      const ids = itineraryIds.split(",").map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+      
+      if (ids.length === 0) {
+        return NextResponse.json(
+          { error: "Valid itineraryIds are required" },
+          { status: 400 }
+        );
+      }
+
+      // Fetch all likes for the given itineraries in one query
+      const allLikes = await likesCollection
+        .find({ itinerary_id: { $in: ids } })
+        .toArray();
+
+      // Group likes by itinerary
+      const likesMap = {};
+      const userLikesSet = new Set();
+
+      allLikes.forEach(like => {
+        if (!likesMap[like.itinerary_id]) {
+          likesMap[like.itinerary_id] = 0;
+        }
+        likesMap[like.itinerary_id]++;
+
+        if (userId && like.user_id === userId) {
+          userLikesSet.add(like.itinerary_id);
+        }
+      });
+
+      // Build response for each itinerary
+      const result = ids.map(id => ({
+        itineraryId: id,
+        likeCount: likesMap[id] || 0,
+        userHasLiked: userLikesSet.has(id),
+      }));
+
+      return NextResponse.json(result);
+    }
+
+    // Single itinerary query
+    if (!itineraryId) {
+      return NextResponse.json(
+        { error: "itineraryId or itineraryIds is required" },
+        { status: 400 }
+      );
+    }
+
+    const parsedItineraryId = parseInt(itineraryId);
+
     // Get total like count
     const likeCount = await likesCollection.countDocuments({
-      itinerary_id: itineraryId,
+      itinerary_id: parsedItineraryId,
     });
 
     // Check if current user has liked
@@ -91,13 +138,13 @@ export async function GET(request) {
     if (userId) {
       const userLike = await likesCollection.findOne({
         user_id: userId,
-        itinerary_id: itineraryId,
+        itinerary_id: parsedItineraryId,
       });
       userHasLiked = !!userLike;
     }
 
     return NextResponse.json({
-      itineraryId,
+      itineraryId: parsedItineraryId,
       likeCount,
       userHasLiked,
     });

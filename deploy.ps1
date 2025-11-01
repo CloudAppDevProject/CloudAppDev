@@ -41,8 +41,31 @@ function Write-Error {
     Write-Host "✗ $Message" -ForegroundColor Red
 }
 
+function Load-EnvFile {
+    Write-Step "Loading environment variables from .env file..."
+    if (Test-Path ".env") {
+        Get-Content ".env" | ForEach-Object {
+            if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+                $name = $matches[1].Trim()
+                $value = $matches[2].Trim()
+                # Remove quotes if present
+                $value = $value -replace '^["'']|["'']$', ''
+                Set-Variable -Name $name -Value $value -Scope Script
+                Write-Host "  Loaded: $name" -ForegroundColor Gray
+            }
+        }
+        Write-Success "Environment variables loaded"
+    } else {
+        Write-Error ".env file not found!"
+        exit 1
+    }
+}
+
 function Deploy-Full {
     Write-Step "Starting full deployment to Google Cloud..."
+    
+    # Load environment variables
+    Load-EnvFile
     
     # Set project
     Write-Step "Setting active project..."
@@ -68,7 +91,8 @@ function Deploy-Full {
             --region=$REGION `
             --root-password=$DB_PASS `
             --no-backup `
-            --edition=ENTERPRISE
+            --edition=ENTERPRISE `
+            --database-flags=max_connections=100
 
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to create Cloud SQL instance. Please check:"
@@ -91,21 +115,70 @@ function Deploy-Full {
     
     # Check if service account exists
     Write-Step "Checking service account..."
-    $saExists = gcloud iam.service-accounts describe "${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    $ErrorActionPreference = "SilentlyContinue"
+    $saCheck = gcloud iam service-accounts describe "${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" 2>$null
+    $saExists = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = "Continue"
+    
+    if (-not $saExists) {
         Write-Step "Creating service account..."
         gcloud iam service-accounts create $RUN_SA --display-name="Cloud Run SA for CloudAppDev"
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to create service account"
+            exit 1
+        }
+        
         gcloud projects add-iam-policy-binding $PROJECT_ID `
             --member="serviceAccount:${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
             --role="roles/cloudsql.client"
+        
+        # Add Storage Object Admin role for Google Cloud Storage
+        Write-Step "Adding Storage permissions to service account..."
+        gcloud projects add-iam-policy-binding $PROJECT_ID `
+            --member="serviceAccount:${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
+            --role="roles/storage.objectAdmin"
+        
+        # Add Firestore permissions
+        Write-Step "Adding Firestore permissions to service account..."
+        gcloud projects add-iam-policy-binding $PROJECT_ID `
+            --member="serviceAccount:${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
+            --role="roles/datastore.user"
+        
         Write-Success "Service account created"
     } else {
         Write-Success "Service account already exists"
+        # Ensure all required roles are assigned
+        Write-Step "Ensuring service account has all required permissions..."
+        gcloud projects add-iam-policy-binding $PROJECT_ID `
+            --member="serviceAccount:${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
+            --role="roles/cloudsql.client" --condition=None 2>$null
+        gcloud projects add-iam-policy-binding $PROJECT_ID `
+            --member="serviceAccount:${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
+            --role="roles/storage.objectAdmin" --condition=None 2>$null
+        gcloud projects add-iam-policy-binding $PROJECT_ID `
+            --member="serviceAccount:${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
+            --role="roles/datastore.user" --condition=None 2>$null
+        Write-Success "Permissions verified"
     }
     
     # Enable APIs
     Write-Step "Enabling required APIs..."
-    gcloud services enable artifactregistry.googleapis.com run.googleapis.com sqladmin.googleapis.com
+    gcloud services enable artifactregistry.googleapis.com run.googleapis.com sqladmin.googleapis.com storage.googleapis.com vpcaccess.googleapis.com compute.googleapis.com firestore.googleapis.com
+    
+    # Check if Firestore database exists
+    Write-Step "Checking Firestore database..."
+    $firestoreExists = gcloud firestore databases describe --database="(default)" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Step "Creating Firestore database in Native mode..."
+        gcloud firestore databases create --location=$REGION --type=firestore-native
+        Write-Success "Firestore database created"
+    } else {
+        Write-Success "Firestore database already exists"
+    }
+    
+    # VPC Connector is no longer needed since we're using Firestore instead of external MongoDB
+    # Keeping it for potential future use, but not creating it if it doesn't exist
     
     # Create artifact registry if needed
     $repoExists = gcloud artifacts.repositories describe docker-repo --location=$REGION 2>&1
@@ -121,6 +194,17 @@ function Deploy-Full {
     # Configure Docker
     Write-Step "Configuring Docker authentication..."
     gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+    
+    # Check if Docker is running
+    Write-Step "Checking Docker status..."
+    docker info 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Docker is not running!"
+        Write-Host "`nPlease start Docker Desktop and wait until it's fully running." -ForegroundColor Yellow
+        Write-Host "Then run this script again." -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Success "Docker is running"
     
     # Build and push image
     Write-Step "Building Docker image..."
@@ -142,7 +226,31 @@ function Deploy-Full {
     
     # Deploy to Cloud Run
     Write-Step "Deploying to Cloud Run..."
-    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASS}@localhost/${DB}?host=/cloudsql/${CONN_NAME}"
+    # Use pgbouncer for connection pooling - SAFE LIMITS:
+    # - connection_limit=5: Conservative connection limit per instance
+    # - pool_timeout=20: Fast timeout (20 seconds - fail fast!)
+    # - connect_timeout=5: Very quick connection timeout
+    # - statement_timeout=15000: Kill queries after 15 seconds (15000ms)
+    # 
+    # Math for 1000 users (with db-g1-small, max_connections=300):
+    # - Max instances=50 (more instances, fewer connections each)
+    # - 50 instances × 5 connections = 250 total (safe margin from 300!)
+    # - 50 instances × 20 concurrency = 1000 request capacity
+    # - Better ratio: 20 requests / 5 connections = 4:1
+    # - CRITICAL: Queries timeout after 15s = connections free up faster!
+    # - Reserved connections (~15) still available for admin
+    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASS}@localhost/${DB}?host=/cloudsql/${CONN_NAME}&pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=5&statement_timeout=15000"
+    
+    Write-Host "MongoDB URI: $MONGODB_URI" -ForegroundColor Gray
+    Write-Host "Storage Bucket: $GOOGLE_CLOUD_STORAGE_BUCKET" -ForegroundColor Gray
+    
+    # Optimized for high load with db-g1-small (300 connections):
+    # - concurrency=20: Moderate concurrency for stability
+    # - max-instances=50: More instances to distribute load
+    # - connection_limit=5: Only 5 DB connections per instance = 250 total
+    # - memory=1Gi, cpu=1: Standard resources (cost effective)
+    # - statement_timeout=15s: Kills slow queries to free connections!
+    # - Result: 4:1 ratio + fast timeouts + safe margin from max_connections!
     
     gcloud run deploy $SERVICE `
         --image=$IMAGE_TAG `
@@ -152,15 +260,22 @@ function Deploy-Full {
         --port=3000 `
         --memory=1Gi `
         --cpu=1 `
+        --timeout=300 `
+        --min-instances=3 `
+        --max-instances=50 `
+        --concurrency=20 `
+        --cpu-throttling `
         --service-account="${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" `
         --add-cloudsql-instances=$CONN_NAME `
-        --set-env-vars="DATABASE_URL=${DATABASE_URL},NODE_ENV=production,POSTGRES_USER=${DB_USER},POSTGRES_PASSWORD=${DB_PASS},POSTGRES_DB=${DB}"
+        --vpc-egress=private-ranges-only `
+        --set-env-vars="DATABASE_URL=${DATABASE_URL},NODE_ENV=production,POSTGRES_USER=${DB_USER},POSTGRES_PASSWORD=${DB_PASS},POSTGRES_DB=${DB},GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID},GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET},GOOGLE_CLOUD_CREDENTIALS_BASE64=${GOOGLE_CLOUD_CREDENTIALS_BASE64},MONGODB_URI=${MONGODB_URI},MONGO_INITDB_DATABASE=clouddev"
     
     if ($LASTEXITCODE -eq 0) {
         Write-Success "Deployment completed successfully!"
         Write-Host "`nYour application is now available at:"
         $URL = gcloud run services describe $SERVICE --region=$REGION --format="value(status.url)"
         Write-Host $URL -ForegroundColor Green
+        
     } else {
         Write-Error "Deployment failed"
         exit 1
@@ -169,6 +284,9 @@ function Deploy-Full {
 
 function Update-Service {
     Write-Step "Updating existing Cloud Run service..."
+    
+    # Load environment variables
+    Load-EnvFile
     
     gcloud config set project $PROJECT_ID
     
@@ -191,7 +309,26 @@ function Update-Service {
     
     # Update Cloud Run service
     Write-Step "Updating Cloud Run service..."
-    gcloud run deploy $SERVICE --image=$IMAGE_TAG --region=$REGION
+    
+    # Get connection name for database
+    $CONN_NAME = gcloud sql instances describe $INSTANCE --format="value(connectionName)"
+    # Use pgbouncer for connection pooling - SAFE LIMITS
+    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASS}@localhost/${DB}?host=/cloudsql/${CONN_NAME}&pgbouncer=true&connection_limit=5&pool_timeout=20&connect_timeout=5&statement_timeout=15000"
+    
+    Write-Host "MongoDB URI: $MONGODB_URI" -ForegroundColor Gray
+    Write-Host "Storage Bucket: $GOOGLE_CLOUD_STORAGE_BUCKET" -ForegroundColor Gray
+    
+    gcloud run deploy $SERVICE `
+        --image=$IMAGE_TAG `
+        --region=$REGION `
+        --min-instances=3 `
+        --max-instances=50 `
+        --concurrency=20 `
+        --memory=1Gi `
+        --cpu=1 `
+        --cpu-throttling `
+        --vpc-egress=private-ranges-only `
+        --set-env-vars="DATABASE_URL=${DATABASE_URL},NODE_ENV=production,POSTGRES_USER=${DB_USER},POSTGRES_PASSWORD=${DB_PASS},POSTGRES_DB=${DB},GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID},GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET},GOOGLE_CLOUD_CREDENTIALS_BASE64=${GOOGLE_CLOUD_CREDENTIALS_BASE64},MONGODB_URI=${MONGODB_URI},MONGO_INITDB_DATABASE=clouddev"
     
     if ($LASTEXITCODE -eq 0) {
         Write-Success "Update completed!"
@@ -217,6 +354,12 @@ function Delete-Resources {
     
     Write-Step "Deleting Cloud Run service..."
     gcloud run services delete $SERVICE --region=$REGION --quiet
+    
+    Write-Step "Deleting VPC Connector..."
+    gcloud compute networks vpc-access connectors delete $VPC_CONNECTOR --region=$REGION --quiet
+    
+    Write-Step "Deleting firewall rule..."
+    gcloud compute firewall-rules delete allow-mongodb-access --quiet
     
     Write-Step "Deleting Cloud SQL instance..."
     gcloud sql instances delete $INSTANCE --quiet

@@ -21,7 +21,7 @@ export default function ItineraryDetail() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/itineraries?id=${params.id}`);
+        const res = await fetch(`/api/itineraries?id=${params.id}&currentUserId=${user.id}`);
         if (res.status === 404) {
           router.push("/"); // nicht gefunden → zurück zur Übersicht
           return;

@@ -7,23 +7,15 @@ import dotenv from "dotenv";
 // Load environment variables from .env file
 dotenv.config();
 
-// Build MongoDB URI from environment variables
-const username = process.env.MONGO_INITDB_ROOT_USERNAME;
-const password = process.env.MONGO_INITDB_ROOT_PASSWORD;
-const database = process.env.MONGO_INITDB_DATABASE || "appdb";
-const host = process.env.MONGO_HOST || "localhost";
-const port = process.env.MONGO_PORT || "27017";
+// Use MONGODB_URI directly
+const uri = process.env.MONGODB_URI;
 
-// Use MONGODB_URI if provided, otherwise build from components
-const uri = process.env.MONGODB_URI || 
-  `mongodb://${username}:${password}@${host}:${port}/${database}?authSource=admin`;
+console.log("Connecting to:", uri ? "✓ URI provided" : "✗ No URI");
 
-console.log(uri);
-if (!username || !password) {
-  console.error("❌ MongoDB credentials not set");
+if (!uri) {
+  console.error("❌ MONGODB_URI not set");
   console.error("💡 Make sure your .env file has:");
-  console.error("   MONGO_INITDB_ROOT_USERNAME=your_username");
-  console.error("   MONGO_INITDB_ROOT_PASSWORD=your_password");
+  console.error("   MONGODB_URI=mongodb://...");
   process.exit(1);
 }
 
@@ -34,7 +26,7 @@ async function initMongo() {
     await client.connect();
     console.log("✅ Connected to MongoDB");
 
-    const dbName = process.env.MONGO_INITDB_DATABASE;
+    const dbName = process.env.MONGO_INITDB_DATABASE || "clouddev";
     const db = client.db(dbName);
 
     // Check existing collections
@@ -51,6 +43,20 @@ async function initMongo() {
       console.log("ℹ️  Likes collection already exists");
       // Ensure index exists
       await db.collection("likes").createIndex({ user_id: 1, itinerary_id: 1 }, { unique: true });
+    }
+
+    // Initialize comments collection
+    if (!collectionNames.includes("comments")) {
+      console.log("📝 Creating comments collection...");
+      await db.createCollection("comments");
+      await db.collection("comments").createIndex({ itinerary_id: 1 });
+      await db.collection("comments").createIndex({ user_id: 1 });
+      console.log("✅ Comments collection created with indexes");
+    } else {
+      console.log("ℹ️  Comments collection already exists");
+      // Ensure indexes exist
+      await db.collection("comments").createIndex({ itinerary_id: 1 });
+      await db.collection("comments").createIndex({ user_id: 1 });
     }
 
     console.log("✅ MongoDB initialization complete");

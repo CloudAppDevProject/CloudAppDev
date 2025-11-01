@@ -24,6 +24,22 @@ npm run db:init-mongo    # MongoDB
 
 See [MONGODB.md](./MONGODB.md) for detailed MongoDB documentation.
 
+## Load Testing
+
+This project includes load testing capabilities using [Locust](https://locust.io/). See [locust/README.md](./locust/README.md) for detailed instructions.
+
+### Quick Start
+
+```bash
+# Install Locust
+pip install locust
+
+# Run load tests (make sure your app is running)
+locust -f locust/locustfile.py --host=http://localhost:3000
+
+# Open http://localhost:8089 in your browser to configure and start the test
+```
+
 ### Google Cloud Storage Setup
 1. Sign in to Google Cloud Console and create a new project.
 2. Enable the "Cloud Storage" API for your project.

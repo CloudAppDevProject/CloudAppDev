@@ -10,8 +10,14 @@ export default function MyItinerariesPage() {
   const { user } = useUser();
 
   const [itineraries, setItineraries] = useState([]);
+  const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [lazyState, setLazyState] = useState({
+    first: 0,
+    rows: 10,
+    page: 1,
+  });
 
   // --- Daten laden ---
   useEffect(() => {
@@ -23,17 +29,21 @@ export default function MyItinerariesPage() {
     const fetchItineraries = async () => {
       setLoading(true);
       try {
-        let url = `/api/itineraries?userId=${user.id}&currentUserId=${user.id}`;
+        const page = lazyState.page;
+        const limit = lazyState.rows;
+        let url = `/api/itineraries?userId=${user.id}&currentUserId=${user.id}&page=${page}&limit=${limit}&includeLikes=true`;
         if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch itineraries: ${res.status}`);
 
-        const data = await res.json();
-        setItineraries(data);
+        const response = await res.json();
+        setItineraries(response.data);
+        setTotalRecords(response.pagination.totalCount);
       } catch (err) {
         console.error("Error fetching itineraries:", err);
         setItineraries([]);
+        setTotalRecords(0);
       } finally {
         setLoading(false);
       }
@@ -41,7 +51,7 @@ export default function MyItinerariesPage() {
 
     const timeout = setTimeout(fetchItineraries, 400);
     return () => clearTimeout(timeout);
-  }, [user, search, router]);
+  }, [user, search, router, lazyState]);
 
   // --- Like Status aktualisieren ---
   const handleLikeChange = (itineraryId, newLiked) => {
@@ -64,6 +74,15 @@ export default function MyItinerariesPage() {
   const handleRowClick = (id) => router.push(`/itineraries/${id}`);
   const handleAddNew = () => router.push("/itineraries/new");
 
+  // --- Pagination Handler (for DataTable) ---
+  const onPage = (event) => {
+    setLazyState({
+      first: event.first,
+      rows: event.rows,
+      page: event.page + 1, // PrimeReact uses 0-based pages, our API uses 1-based
+    });
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 font-sans">
       <div className="flex justify-between items-center mb-6">
@@ -84,6 +103,11 @@ export default function MyItinerariesPage() {
         userId={user?.id}
         onRowClick={handleRowClick}
         onLikeChange={handleLikeChange}
+        lazy={true}
+        first={lazyState.first}
+        rows={lazyState.rows}
+        totalRecords={totalRecords}
+        onPage={onPage}
       />
     </div>
   );

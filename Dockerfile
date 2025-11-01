@@ -19,8 +19,11 @@ COPY . .
 # Disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Generate Prisma Client
 RUN npx prisma generate
-RUN npm run build;
+
+# Build Next.js
+RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -32,6 +35,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Install Prisma CLI in production for migrations
+RUN npm install -g prisma
+
 COPY --from=builder /app/public ./public
 
 # Automatically leverage output traces to reduce image size
@@ -39,9 +45,17 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma files if using Prisma
+# Copy Prisma files and generated client
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/package.json ./
+
+# Copy MongoDB initialization script and required dependencies
+COPY --from=builder /app/init-mongo.js ./init-mongo.js
+COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
+COPY --from=builder /app/node_modules/mongodb ./node_modules/mongodb
+COPY --from=builder /app/node_modules/bson ./node_modules/bson
 
 USER nextjs
 EXPOSE 3000
@@ -50,5 +64,7 @@ ENV PORT=3000
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/config/next-config-js/output
 ENV HOSTNAME="0.0.0.0"
-CMD ["sh", "-c", "npm run db:deploy && node server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && (node init-mongo.js &) && node server.js"]
+
+
 

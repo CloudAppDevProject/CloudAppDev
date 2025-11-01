@@ -5,7 +5,20 @@ import { Column } from "primereact/column";
 import { InputText } from "primereact/inputtext";
 import LikeButton from "@/app/components/LikeButton";
 
-export default function ItineraryTable({ itineraries, loading, search, onSearchChange, userId, onRowClick, onLikeChange }) {
+export default function ItineraryTable({ 
+  itineraries, 
+  loading, 
+  search, 
+  onSearchChange, 
+  userId, 
+  onRowClick, 
+  onLikeChange,
+  lazy = false,
+  first = 0,
+  rows = 10,
+  totalRecords = 0,
+  onPage
+}) {
   // --- Like Button Template ---
   const likeBodyTemplate = (rowData) => (
     <LikeButton itineraryId={rowData.id} userId={userId} initialLiked={rowData.userHasLiked || false} initialCount={rowData.likeCount || 0} onLikeChange={onLikeChange} />
@@ -29,15 +42,21 @@ export default function ItineraryTable({ itineraries, loading, search, onSearchC
         value={itineraries}
         dataKey="id"
         loading={loading}
+        lazy={lazy}
         paginator
-        rows={10}
-        rowsPerPageOptions={[5, 10, 25, 50]}
+        first={first}
+        rows={rows}
+        totalRecords={totalRecords}
+        onPage={onPage}
+        rowsPerPageOptions={[5, 10, 20, 25, 50]}
         selectionMode="single"
         onRowClick={handleRowClick}
         sortMode="single"
         header={header}
         emptyMessage="No itineraries found."
         className="p-datatable-sm"
+        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"
       >
         <Column field="title" header="Title" sortable />
         <Column field="destination" header="Destination" sortable />
