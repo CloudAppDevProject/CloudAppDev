@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebaseClient"; // <– dein Firebase Client Setup
 
 export default function Login() {
   const router = useRouter();
@@ -13,11 +15,25 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+
     try {
+      // 1️⃣ Login bei Google Identity Platform (Firebase)
+      const userCred = await signInWithEmailAndPassword(auth, form.email, form.password);
+
+      // 2️⃣ ID-Token von Google holen (JWT)
+      const token = await userCred.user.getIdToken();
+
+      // 3️⃣ Dein Backend aufrufen, Token mitsenden
       const res = await fetch("/api/user?action=login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // <– wichtig: Token im Header
+        },
+        body: JSON.stringify({
+          email: form.email,
+        }),
       });
 
       if (!res.ok) {
@@ -25,12 +41,19 @@ export default function Login() {
         throw new Error(errData.error || "Login failed");
       }
 
+      // 4️⃣ Antwort vom Backend lesen (z. B. dein User-Objekt aus Prisma)
       const loggedInUser = await res.json();
-      setUser(loggedInUser);
-      setError("");
+
+      // 5️⃣ Benutzer im Context speichern
+      setUser({
+        ...loggedInUser,
+        token, // optional: für spätere API-Aufrufe im Frontend
+      });
+
       router.push("/");
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || "Login failed");
       setUser(null);
     }
   }
@@ -57,7 +80,12 @@ export default function Login() {
         />
         <div className="flex gap-4">
           <Button type="submit" label="Login" />
-          <Button type="button" onClick={() => router.push("/register")} label="Register" severity="secondary" />
+          <Button
+            type="button"
+            onClick={() => router.push("/register")}
+            label="Register"
+            severity="secondary"
+          />
         </div>
       </form>
 
