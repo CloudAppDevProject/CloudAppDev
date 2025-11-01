@@ -38,10 +38,8 @@ export default function ItineraryDetail() {
                 const signedImages = await Promise.all(
                   loc.images.map(async (url) => {
                     if (url.startsWith("gs://")) {
-                      // Extract path after bucket name
-                      const path = url.replace("gs://", "");
                       try {
-                        const resp = await fetch(`/api/avatar?path=${encodeURIComponent(path)}`);
+                        const resp = await fetch(`/api/image?path=${encodeURIComponent(url)}`);
                         if (resp.ok) {
                           const { url: signedUrl } = await resp.json();
                           return signedUrl;

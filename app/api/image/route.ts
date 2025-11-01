@@ -6,13 +6,10 @@ const BASE64_KEY = process.env.GOOGLE_CLOUD_CREDENTIALS_BASE64;
 const BUCKET_NAME =
   process.env.GOOGLE_CLOUD_STORAGE_BUCKET || "pictures-clouddev";
 
- // Base64-Schlüssel dekodieren und den JSON-Inhalt parsen
-const serviceAccountJson = Buffer.from(BASE64_KEY!, "base64").toString(
-    "utf8"
-);
+// Base64-Schlüssel dekodieren und den JSON-Inhalt parsen
+const serviceAccountJson = Buffer.from(BASE64_KEY!, "base64").toString("utf8");
 const credentials = JSON.parse(serviceAccountJson);
 
-    
 const storage = new Storage({
   projectId: PROJECT_ID,
   credentials: credentials,
@@ -22,7 +19,13 @@ const bucket = storage.bucket(BUCKET_NAME);
 
 export async function GET(request: Request) {
   if (!storage) {
-    return NextResponse.json({ error: "Storage service initialization failed. Check environment variables and logs." }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          "Storage service initialization failed. Check environment variables and logs.",
+      },
+      { status: 500 }
+    );
   }
 
   const { searchParams } = new URL(request.url);
@@ -33,9 +36,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    const file = storage.bucket(BUCKET_NAME).file(imagePath);
+    const pathParts = imagePath.split("/");
 
-    console.log(`[GCS API] Attempting to generate signed URL for: gs://${BUCKET_NAME}/${imagePath}`);
+    if (pathParts.length < 4) {
+      console.error("Invalid GCS URI format:", imagePath);
+      return;
+    }
+
+    // Der Pfad, den die API Route erwartet (z.B. user_1/2025-10-23/...)
+    const gcsFilePath = pathParts.slice(3).join("/");
+
+    const file = storage.bucket(BUCKET_NAME).file(gcsFilePath);
 
     const [url] = await file.getSignedUrl({
       version: "v4",
@@ -51,10 +62,12 @@ export async function GET(request: Request) {
     let errorMessage = "Failed to generate URL due to server error.";
 
     if (error.code === 403) {
-      errorMessage = "Permission denied (403). Check if the Service Account has 'Storage Object Viewer' role on the bucket/file.";
+      errorMessage =
+        "Permission denied (403). Check if the Service Account has 'Storage Object Viewer' role on the bucket/file.";
       status = 403;
     } else if (error.code === 404) {
-      errorMessage = "Object not found (404). Check the path and bucket name: " + imagePath;
+      errorMessage =
+        "Object not found (404). Check the path and bucket name: " + imagePath;
       status = 404;
     } else if (error.message) {
       errorMessage = `GCS SDK Error: ${error.message}`;
