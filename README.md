@@ -53,14 +53,17 @@ locust -f locust/locustfile.py --host=http://localhost:3000
 ### Firebase Authentication Setup
 1. Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project.
 2. Navigate to "Authentication" and enable the desired sign-in methods (e.g., Email/Password).
-3. In your project settings, find your Firebase configuration and set the following environment variables in your `.env` file:
+3. Scrolle nach unten zum Abschnitt "Your apps" / "Deine Apps"
+Falls du noch keine Web-App registriert hast, klicke auf das </> Symbol (Web), um eine hinzuzufügen
+Wenn du bereits eine Web-App hast, klicke darauf
+4. In your project settings, find your Firebase configuration and set the following environment variables in your `.env` file:
    - `NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_KEY`: Your Firebase API key.
    - `NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_DOMAIN`: Your Firebase Auth domain.
 
 ### Firebase Admin SDK Setup
 1. In the Firebase Console, go to "Project Settings" > "Service Accounts".
 2. Generate a new private key and download the JSON file.
-3. Base64-encode the JSON file and set it as the `GOOGLE_CLOUD_CREDENTIALS_BASE64` environment variable in your `.env` file (same as for Google Cloud Storage).
+3. Base64-encode the JSON file and set it as the `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` environment variable in your `.env` file (same as for Google Cloud Storage).
 4. The Firebase Admin SDK will use this service account for server-side operations.
 
 ## Getting Started
