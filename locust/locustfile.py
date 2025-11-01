@@ -231,14 +231,42 @@ class APIUser(HttpUser):
         
         start_date, end_date = self.get_random_dates()
         
-        response = self.client.post("/api/itineraries", json={
-            "title": f"My Trip to {random.choice(destinations).split(',')[0]}",
-            "destination": random.choice(destinations),
+        # Create itinerary with locations (new feature)
+        destination = random.choice(destinations)
+        location_start_date, location_end_date = self.get_random_dates()
+        
+        # Randomly decide whether to include locations (70% chance)
+        include_locations = random.random() < 0.7
+        
+        itinerary_data = {
+            "title": f"My Trip to {destination.split(',')[0]}",
+            "destination": destination,
             "start_date": start_date,
             "short_desc": "An amazing adventure awaits!",
             "detail_desc": "This is going to be an unforgettable journey filled with exploration, culture, and fun!",
             "userId": self.user_id
-        }, name="Create Itinerary")
+        }
+        
+        # Add locations if randomly selected
+        if include_locations:
+            itinerary_data["locations"] = [
+                {
+                    "name": f"Location 1 - {destination.split(',')[0]}",
+                    "start_date": location_start_date,
+                    "end_date": location_end_date,
+                    "short_desc": "First stop on the journey",
+                    "images": [f"locations/test_location_1_{random.randint(1,100)}.jpg"]
+                },
+                {
+                    "name": f"Location 2 - {destination.split(',')[0]}",
+                    "start_date": location_end_date,
+                    "end_date": end_date,
+                    "short_desc": "Second amazing location",
+                    "images": [f"locations/test_location_2_{random.randint(1,100)}.jpg", f"locations/test_location_2b_{random.randint(1,100)}.jpg"]
+                }
+            ]
+        
+        response = self.client.post("/api/itineraries", json=itinerary_data, name="Create Itinerary (with locations)")
         
         # If successful, add the new itinerary ID to available IDs
         if response.status_code == 201:
@@ -252,6 +280,76 @@ class APIUser(HttpUser):
                         shared_state.itinerary_ids.append(new_id)
             except:
                 pass
+    
+    @task(1)
+    def test_avatar_endpoint(self):
+        """Test avatar fetching endpoint (new feature)"""
+        if not self.user_id:
+            return
+        
+        # Test with a sample avatar path
+        avatar_paths = [
+            "avatars/emma_avatar.jpg",
+            "avatars/liam_avatar.jpg", 
+            "avatars/sofia_avatar.jpg",
+            "avatars/noah_avatar.jpg"
+        ]
+        
+        avatar_path = random.choice(avatar_paths)
+        self.client.get(
+            f"/api/avatar?path={avatar_path}",
+            name="Fetch Avatar URL"
+        )
+    
+    @task(1)
+    def test_image_endpoint(self):
+        """Test image fetching endpoint (new feature)"""
+        if not self.user_id:
+            return
+        
+        # Test with sample location image paths
+        image_paths = [
+            "gs://pictures-clouddev/locations/rome_colosseum_1.jpg",
+            "gs://pictures-clouddev/locations/tokyo_sensoji_1.jpg",
+            "gs://pictures-clouddev/locations/paris_louvre_1.jpg"
+        ]
+        
+        image_path = random.choice(image_paths)
+        self.client.get(
+            f"/api/image?path={image_path}",
+            name="Fetch Image URL"
+        )
+    
+    @task(1)
+    def test_batch_likes_query(self):
+        """Test batch likes query endpoint (new feature)"""
+        if not self.user_id and not self.available_itinerary_ids:
+            return
+        
+        # Get 3-5 random itinerary IDs for batch query
+        num_ids = min(random.randint(3, 5), len(self.available_itinerary_ids))
+        if num_ids > 0:
+            batch_ids = random.sample(self.available_itinerary_ids, num_ids)
+            ids_param = ",".join(map(str, batch_ids))
+            
+            self.client.get(
+                f"/api/likes?itineraryIds={ids_param}&userId={self.user_id}",
+                name="Batch Likes Query"
+            )
+    
+    @task(1)
+    def test_pagination(self):
+        """Test pagination with different page sizes (new feature)"""
+        if not self.user_id:
+            return
+        
+        page = random.randint(1, 5)
+        limit = random.choice([5, 10, 20, 50])
+        
+        self.client.get(
+            f"/api/itineraries?page={page}&limit={limit}&currentUserId={self.user_id}&includeLikes=true",
+            name="Paginated Browse"
+        )
 
 
 # ============================================================================
@@ -365,7 +463,7 @@ class NewUserJourney(TaskSet):
     
     @task(1)
     def create_first_itinerary(self):
-        """Step 6: Create their first itinerary"""
+        """Step 6: Create their first itinerary with locations"""
         if not self.user_id:
             return
         
@@ -381,13 +479,34 @@ class NewUserJourney(TaskSet):
         start_date = (datetime.now() + timedelta(days=start_offset)).strftime("%Y-%m-%d")
         end_date = (datetime.now() + timedelta(days=start_offset + stay_length)).strftime("%Y-%m-%d")
         
+        # Calculate location dates
+        mid_offset = start_offset + (stay_length // 2)
+        mid_date = (datetime.now() + timedelta(days=mid_offset)).strftime("%Y-%m-%d")
+        
+        # Create itinerary with locations (new users are likely to use new features)
         response = self.client.post("/api/itineraries", json={
             "title": f"My First Trip to {destination.split(',')[0]}",
             "destination": destination,
             "start_date": start_date,
             "short_desc": f"Excited to visit {destination}!",
             "detail_desc": f"Planning my first adventure to {destination}. Can't wait to explore!",
-            "userId": self.user_id
+            "userId": self.user_id,
+            "locations": [
+                {
+                    "name": f"First Stop in {destination.split(',')[0]}",
+                    "start_date": start_date,
+                    "end_date": mid_date,
+                    "short_desc": "Starting the journey here!",
+                    "images": [f"locations/user_{self.user_id}_location1.jpg"]
+                },
+                {
+                    "name": f"Final Destination in {destination.split(',')[0]}",
+                    "start_date": mid_date,
+                    "end_date": end_date,
+                    "short_desc": "Ending on a high note!",
+                    "images": [f"locations/user_{self.user_id}_location2.jpg"]
+                }
+            ]
         }, name="Journey: Create First Itinerary")
         
         # Add new itinerary ID to available IDs
@@ -538,7 +657,7 @@ class ActiveUserJourney(TaskSet):
     
     @task(2)
     def add_new_itinerary(self):
-        """Add a new itinerary to their collection"""
+        """Add a new itinerary with locations to their collection"""
         if not self.user_id:
             return
         
@@ -547,18 +666,38 @@ class ActiveUserJourney(TaskSet):
             "Bali, Indonesia", "New York, USA", "London, UK", "Sydney, Australia"
         ]
         
+        destination = random.choice(destinations)
         start_offset = random.randint(10, 90)
         stay_length = random.randint(3, 14)
         start_date = (datetime.now() + timedelta(days=start_offset)).strftime("%Y-%m-%d")
         end_date = (datetime.now() + timedelta(days=start_offset + stay_length)).strftime("%Y-%m-%d")
         
+        # Active users often add multiple locations
+        num_locations = random.randint(2, 4)
+        locations = []
+        
+        for i in range(num_locations):
+            loc_start_offset = start_offset + (stay_length // num_locations) * i
+            loc_end_offset = start_offset + (stay_length // num_locations) * (i + 1)
+            loc_start = (datetime.now() + timedelta(days=loc_start_offset)).strftime("%Y-%m-%d")
+            loc_end = (datetime.now() + timedelta(days=loc_end_offset)).strftime("%Y-%m-%d")
+            
+            locations.append({
+                "name": f"Stop {i+1} - {destination.split(',')[0]}",
+                "start_date": loc_start,
+                "end_date": loc_end,
+                "short_desc": f"Exploring location {i+1}",
+                "images": [f"locations/active_user_{self.user_id}_loc{i}.jpg"]
+            })
+        
         response = self.client.post("/api/itineraries", json={
-            "title": f"Another Amazing Trip to {random.choice(destinations).split(',')[0]}",
-            "destination": random.choice(destinations),
+            "title": f"Another Amazing Trip to {destination.split(',')[0]}",
+            "destination": destination,
             "start_date": start_date,
             "short_desc": "Can't wait for this adventure!",
             "detail_desc": "Planning another incredible journey. Here's my itinerary!",
-            "userId": self.user_id
+            "userId": self.user_id,
+            "locations": locations
         }, name="Journey: Create Itinerary")
         
         # Add new itinerary ID to available IDs
@@ -574,17 +713,34 @@ class ActiveUserJourney(TaskSet):
     
     @task(3)
     def view_and_comment(self):
-        """View itineraries and leave comments"""
+        """View itineraries with locations and leave comments"""
         if not self.user_id:
             return
         
         itinerary_id = self.get_random_itinerary_id()
         if itinerary_id:
-            # View the itinerary
-            self.client.get(
+            # View the itinerary (now includes locations data)
+            response = self.client.get(
                 f"/api/itineraries?id={itinerary_id}&currentUserId={self.user_id}",
                 name="Journey: View Detail"
             )
+            
+            # Check if itinerary has locations and fetch images if present
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if data and 'locations' in data and data['locations']:
+                        # Simulate viewing location images
+                        for location in data['locations'][:2]:  # View first 2 locations
+                            if location.get('images'):
+                                for image_path in location['images'][:1]:  # View first image
+                                    self.client.get(
+                                        f"/api/image?path=gs://pictures-clouddev/{image_path}",
+                                        name="Journey: View Location Image"
+                                    )
+                except:
+                    pass
+            
             time.sleep(random.uniform(2, 4))
             
             # View existing comments
@@ -601,7 +757,9 @@ class ActiveUserJourney(TaskSet):
                     "I love this place!",
                     "Great itinerary, very helpful!",
                     "Thanks for sharing your experience!",
-                    "Looks amazing! 🌟"
+                    "Looks amazing! 🌟",
+                    "Love the location photos! 📸",
+                    "The places you visited look incredible!"
                 ]
                 
                 self.client.post("/api/comments", json={
