@@ -6,6 +6,25 @@ import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
 import CommentSection from "@/app/components/CommentSection";
 
+// HILFSFUNKTION: Datum formatieren
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    // Format: TT.MM.JJJJ (wie in der vorherigen Antwort),
+    // mit 'UTC', um unerwünschte Zeitzonenverschiebung zu verhindern.
+    return new Intl.DateTimeFormat("de-DE", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "UTC",
+    }).format(date);
+  } catch (error) {
+    console.error("Datum Formatierungsfehler:", error);
+    return dateString;
+  }
+};
+
 export default function ItineraryDetail() {
   const router = useRouter();
   const { user } = useUser();
@@ -20,10 +39,11 @@ export default function ItineraryDetail() {
     }
 
     (async () => {
+      // ... (Ihr bestehender Fetch-Code) ...
       try {
         const res = await fetch(`/api/itineraries?id=${params.id}&currentUserId=${user.id}`);
         if (res.status === 404) {
-          router.push("/"); // nicht gefunden → zurück zur Übersicht
+          router.push("/");
           return;
         }
         if (!res.ok) throw new Error("Failed to fetch itinerary");
@@ -65,7 +85,7 @@ export default function ItineraryDetail() {
         setItinerary(data);
       } catch (err) {
         console.error("Error loading itinerary:", err);
-        router.push("/"); // Fehler → zurück
+        router.push("/");
       } finally {
         setLoading(false);
       }
@@ -78,12 +98,13 @@ export default function ItineraryDetail() {
 
   return (
     <div className="max-w-3xl mx-auto p-6 font-sans">
-      <h1 className="text-3xl font-bold mb-4">{itinerary.title}</h1>
+      <h1 className="text-3xl font-bold mb-4">🗺️ {itinerary.title}</h1>
       <p className="text-gray-50 mb-2">
         <strong>Destination:</strong> {itinerary.destination}
       </p>
       <p className="text-gray-50 mb-2">
-        <strong>Start Date:</strong> {itinerary.start_date}
+        {/* ANGEPASST: Reiseplan Startdatum */}
+        <strong>Start Date:</strong> {formatDate(itinerary.start_date)}
       </p>
       <p className="text-gray-50 mb-2">
         <strong>Short Description:</strong> {itinerary.short_desc}
@@ -95,18 +116,26 @@ export default function ItineraryDetail() {
       {/* Locations section */}
       {Array.isArray(itinerary.locations) && itinerary.locations.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-2xl font-semibold mb-4 text-primary">Locations</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-primary">📍 Locations</h2>
           {itinerary.locations.map((loc, idx) => (
             <div key={idx} className="border border-primary/30 rounded-xl p-4 mb-4 bg-gray shadow-sm">
               <h3 className="text-lg font-bold mb-2">{loc.name}</h3>
-              <p className="mb-1"><strong>Short Description:</strong> {loc.short_desc}</p>
-              <p className="mb-1"><strong>Start Date:</strong> {loc.start_date}</p>
-              <p className="mb-1"><strong>End Date:</strong> {loc.end_date}</p>
+              <p className="mb-1">
+                <strong>Short Description:</strong> {loc.short_desc}
+              </p>
+              <p className="mb-1">
+                {/* ANGEPASST: Location Startdatum */}
+                <strong>Start Date:</strong> {formatDate(loc.start_date)}
+              </p>
+              <p className="mb-1">
+                {/* ANGEPASST: Location Enddatum */}
+                <strong>End Date:</strong> {formatDate(loc.end_date)}
+              </p>
               {loc.images && loc.images.length > 0 && (
                 <div className="flex flex-wrap gap-4 mt-2">
                   {loc.images.map((imgUrl, i) => (
                     <div key={i} className="flex flex-col items-center">
-                      <img src={imgUrl} alt={`Location ${idx + 1} Image ${i + 1}`} className="rounded shadow" style={{ width: 200, height: 200, objectFit: 'cover' }} />
+                      <img src={imgUrl} alt={`Location ${idx + 1} Image ${i + 1}`} className="rounded shadow" style={{ width: 200, height: 200, objectFit: "cover" }} />
                     </div>
                   ))}
                 </div>
@@ -116,11 +145,7 @@ export default function ItineraryDetail() {
         </div>
       )}
 
-      <Button
-        label="Back"
-        onClick={() => router.push("/")}
-        severity="secondary"
-      />
+      <Button label="Back" onClick={() => router.push("/")} severity="secondary" className="mt-6" />
 
       {/* Kommentarsektion */}
       <CommentSection itineraryId={itinerary.id} currentUser={user} />

@@ -124,7 +124,6 @@ export default function CommentSection({ itineraryId, currentUser }) {
           label={showComments ? "Kommentare ausblenden" : "Kommentare anzeigen"}
           icon={showComments ? "pi pi-chevron-up" : "pi pi-chevron-down"}
           onClick={() => setShowComments(!showComments)}
-          outlined
         />
       </div>
 

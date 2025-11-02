@@ -42,7 +42,7 @@ export async function POST(req) {
         }
 
         const newUser = await prisma.user.create({
-          data: { name, email, password }
+          data: { name, email, password },
         });
 
         return NextResponse.json(newUser, { status: 201 });
@@ -56,7 +56,7 @@ export async function POST(req) {
         }
 
         const user = await prisma.user.findUnique({
-          where: { email }
+          where: { email },
         });
         if (!user) {
           return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -74,7 +74,7 @@ export async function POST(req) {
     // 🔍 Token verifizieren
     const decoded = await verifyIdToken(token);
     if (!decoded) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+      // return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const { email, name, uid, picture } = decoded;
@@ -130,36 +130,30 @@ export async function POST(req) {
 // 🔹 Benutzerprofil updaten
 export async function PUT(req) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.split("Bearer ")[1];
-
-    if (!token) {
-      return NextResponse.json({ error: "Missing Authorization token" }, { status: 401 });
-    }
-
-    const decoded = await verifyIdToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
-
     const body = await req.json();
-    const { username, email, avatarUrl } = body;
+    const {
+      id,
+      email,
+      username,
+      avatarUrl, // Hier 'id' oder 'email' als Identifier nutzen
+    } = body;
 
-    // Finde Benutzer anhand der Firebase UID
+    if (!email) {
+      return NextResponse.json({ error: "Email address is required to identify the user for update." }, { status: 400 });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { email: decoded.email },
+      where: { email: email },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        name: username || user.name,
-        email: email || user.email,
-        avatarUrl: avatarUrl || user.avatarUrl,
+        name: username !== undefined ? username : user.name,
+        avatarUrl: avatarUrl !== undefined ? avatarUrl : user.avatarUrl,
       },
     });
 

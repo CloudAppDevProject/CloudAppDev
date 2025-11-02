@@ -76,9 +76,7 @@ export default function NewItinerary() {
       })
       .filter(Boolean);
 
-    const signedImages = (await Promise.all(rawUrls.map(signOne))).filter(
-      Boolean
-    );
+    const signedImages = (await Promise.all(rawUrls.map(signOne))).filter(Boolean);
 
     setForm((prev) => {
       const locations = [...prev.locations];
@@ -98,10 +96,7 @@ export default function NewItinerary() {
   function addLocation() {
     setForm((prev) => ({
       ...prev,
-      locations: [
-        ...prev.locations,
-        { name: "", start_date: "", end_date: "", short_desc: "", images: [] },
-      ],
+      locations: [...prev.locations, { name: "", start_date: "", end_date: "", short_desc: "", images: [] }],
     }));
   }
 
@@ -160,33 +155,17 @@ export default function NewItinerary() {
 
   return (
     <div className="max-w-3xl mx-auto p-6 font-sans bg-gray shadow-lg rounded-xl">
-      <h1 className="text-3xl font-bold mb-6 text-primary">
-        Add New Itinerary
-      </h1>
+      <h1 className="text-3xl font-bold mb-6 text-primary">Add New Itinerary</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <span className="p-float-label">
-            <InputText
-              id="title"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full"
-              required
-            />
+            <InputText id="title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full" required />
             <label htmlFor="title">Title</label>
           </span>
 
           <span className="p-float-label">
-            <InputText
-              id="destination"
-              value={form.destination}
-              onChange={(e) =>
-                setForm({ ...form, destination: e.target.value })
-              }
-              className="w-full"
-              required
-            />
+            <InputText id="destination" value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} className="w-full" required />
             <label htmlFor="destination">Destination</label>
           </span>
 
@@ -204,24 +183,13 @@ export default function NewItinerary() {
           </span>
 
           <span className="p-float-label">
-            <InputText
-              id="short_desc"
-              value={form.short_desc}
-              onChange={(e) => setForm({ ...form, short_desc: e.target.value })}
-              className="w-full"
-              maxLength={80}
-            />
+            <InputText id="short_desc" value={form.short_desc} onChange={(e) => setForm({ ...form, short_desc: e.target.value })} className="w-full" maxLength={80} />
             <label htmlFor="short_desc">Short Description</label>
           </span>
         </div>
 
         <span className="p-float-label">
-          <InputText
-            id="detail_desc"
-            value={form.detail_desc}
-            onChange={(e) => setForm({ ...form, detail_desc: e.target.value })}
-            className="w-full"
-          />
+          <InputText id="detail_desc" value={form.detail_desc} onChange={(e) => setForm({ ...form, detail_desc: e.target.value })} className="w-full" />
           <label htmlFor="detail_desc">Detail Description</label>
         </span>
 
@@ -230,48 +198,29 @@ export default function NewItinerary() {
           <h2 className="text-xl font-semibold mb-2 text-primary">Locations</h2>
 
           {form.locations.map((loc, idx) => (
-            <div
-              key={idx}
-              className="border border-primary/30 rounded-xl p-4 mb-2 bg-gray shadow-sm"
-            >
+            <div key={idx} className="border border-primary/30 rounded-xl p-4 mb-2 bg-gray shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                 <span className="p-float-label">
-                  <InputText
-                    id={`loc-name-${idx}`}
-                    value={loc.name}
-                    onChange={(e) =>
-                      handleLocationChange(idx, "name", e.target.value)
-                    }
-                    className="w-full"
-                    required
-                  />
-                  <label htmlFor={`loc-name-${idx}`}>
-                    Location name/address
-                  </label>
+                  <InputText id={`loc-name-${idx}`} value={loc.name} onChange={(e) => handleLocationChange(idx, "name", e.target.value)} className="w-full" required />
+                  <label htmlFor={`loc-name-${idx}`}>Location name/address</label>
                 </span>
 
                 <span className="p-float-label">
                   <InputText
                     id={`loc-short-desc-${idx}`}
                     value={loc.short_desc || ""}
-                    onChange={(e) =>
-                      handleLocationChange(idx, "short_desc", e.target.value)
-                    }
+                    onChange={(e) => handleLocationChange(idx, "short_desc", e.target.value)}
                     className="w-full"
                     maxLength={80}
                   />
-                  <label htmlFor={`loc-short-desc-${idx}`}>
-                    Short Description
-                  </label>
+                  <label htmlFor={`loc-short-desc-${idx}`}>Short Description</label>
                 </span>
 
                 <span className="p-float-label">
                   <Calendar
                     id={`loc-start-date-${idx}`}
                     value={loc.start_date}
-                    onChange={(e) =>
-                      handleLocationChange(idx, "start_date", e.value)
-                    }
+                    onChange={(e) => handleLocationChange(idx, "start_date", e.value)}
                     className="w-full"
                     dateFormat="yy-mm-dd"
                     showIcon
@@ -284,9 +233,7 @@ export default function NewItinerary() {
                   <Calendar
                     id={`loc-end-date-${idx}`}
                     value={loc.end_date}
-                    onChange={(e) =>
-                      handleLocationChange(idx, "end_date", e.value)
-                    }
+                    onChange={(e) => handleLocationChange(idx, "end_date", e.value)}
                     className="w-full"
                     dateFormat="yy-mm-dd"
                     showIcon
@@ -297,14 +244,9 @@ export default function NewItinerary() {
               </div>
 
               <div>
-                <label className="block mb-2 font-semibold text-primary">
-                  Upload Images for this location
-                </label>
+                <label className="block mb-2 font-semibold text-primary">Upload Images for this location</label>
 
-                <ImageUploader
-                  maxFiles={5}
-                  onUploaded={(imgs) => handleLocationImagesChange(idx, imgs)}
-                />
+                <ImageUploader maxFiles={5} onUploaded={(imgs) => handleLocationImagesChange(idx, imgs)} />
               </div>
 
               {/* Preview signed URLs only */}
@@ -313,10 +255,7 @@ export default function NewItinerary() {
                   {loc.images
                     .filter((img) => img?.signed_url)
                     .map((img, i) => (
-                      <div
-                        key={`${idx}-${i}`}
-                        className="w-[140px] h-[140px] overflow-hidden rounded-lg shadow"
-                      >
+                      <div key={`${idx}-${i}`} className="w-[140px] h-[140px] overflow-hidden rounded-lg shadow">
                         <img
                           src={img.signed_url}
                           alt={`Preview ${i + 1}`}
@@ -333,26 +272,17 @@ export default function NewItinerary() {
 
               {form.locations.length > 1 && (
                 <div className="mt-4">
-                  <Button
-                    type="button"
-                    label="Remove Location"
-                    className="p-button-danger"
-                    onClick={() => removeLocation(idx)}
-                  />
+                  <Button type="button" label="Remove Location" className="p-button-danger" onClick={() => removeLocation(idx)} />
                 </div>
               )}
             </div>
           ))}
-
-          <Button
-            type="button"
-            label="+ Add Location"
-            className="p-button-primary"
-            onClick={addLocation}
-          />
         </div>
+        <div className="flex justify-between items-center">
+          <Button type="button" label="Add Location" className="p-button-secondary" onClick={addLocation} />
 
-        <Button label="Add Itinerary" type="submit" />
+          <Button label="Add Itinerary" type="submit" />
+        </div>
       </form>
     </div>
   );

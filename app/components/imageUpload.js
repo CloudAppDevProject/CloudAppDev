@@ -88,7 +88,7 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
           label="Upload"
           onClick={onTemplateUpload}
           disabled={isUploading || files.length === 0}
-          className="p-button-success p-button-rounded p-button-outlined ml-2"
+          className="p-button-success p-button-rounded ml-2"
         />
         {cancelButton}
         <div className="flex align-items-center gap-3 ml-auto">
@@ -108,7 +108,7 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
         <small>{new Date().toLocaleDateString()}</small>
         <div className="flex align-items-center" style={{ width: "20%" }}></div>
         <Tag value={props.formatSize} severity="info" className="px-3 py-2" />
-        <Button type="button" icon="pi pi-times" className="p-button-outlined p-button-rounded p-button-danger ml-auto" onClick={() => onTemplateRemove(file, props.onRemove)} />
+        <Button type="button" icon="pi pi-times" className="p-button-rounded p-button-danger ml-auto" onClick={() => onTemplateRemove(file, props.onRemove)} />
       </div>
     );
   };
@@ -135,12 +135,12 @@ export default function ImageUploader({ maxFiles = 1, onUploaded }) {
   const chooseOptions = {
     icon: "pi pi-fw pi-images",
     iconOnly: true,
-    className: "custom-choose-btn p-button-rounded p-button-outlined",
+    className: "custom-choose-btn p-button-rounded",
   };
   const cancelOptions = {
     icon: "pi pi-fw pi-times",
     iconOnly: true,
-    className: "custom-cancel-btn p-button-danger p-button-rounded p-button-outlined",
+    className: "custom-cancel-btn p-button-danger p-button-rounded",
   };
 
   return (
