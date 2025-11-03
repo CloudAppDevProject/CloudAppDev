@@ -69,3 +69,10 @@ letsencrypt/
 **/locust/__pycache__
 .venv/
 locust/reports/*
+
+# terraform
+**/.terraform/
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
