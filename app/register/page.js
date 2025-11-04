@@ -7,6 +7,9 @@ import { InputText } from "primereact/inputtext";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient"; // Dein Firebase Client Setup
 
+// Force dynamic rendering - don't prerender this page at build time
+export const dynamic = 'force-dynamic';
+
 export default function Register() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "" });

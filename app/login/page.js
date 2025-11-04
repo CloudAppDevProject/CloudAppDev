@@ -7,6 +7,9 @@ import { Button } from "primereact/button";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient"; // <– dein Firebase Client Setup
 
+// Force dynamic rendering - don't prerender this page at build time
+export const dynamic = 'force-dynamic';
+
 export default function Login() {
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });

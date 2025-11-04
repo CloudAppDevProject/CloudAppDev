@@ -8,6 +8,9 @@ import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
 
+// Force dynamic rendering - don't prerender this page at build time
+export const dynamic = 'force-dynamic';
+
 export default function NewItinerary() {
   const router = useRouter();
   const { user } = useUser();
