@@ -69,3 +69,5 @@ letsencrypt/
 **/locust/__pycache__
 .venv/
 locust/reports/*
+.opencode
+CloudAppDev/*
