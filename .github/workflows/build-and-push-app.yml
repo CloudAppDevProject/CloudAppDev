@@ -78,6 +78,9 @@ jobs:
           # Build args for flexibility (optional: can override from secrets)
           build-args: |
             DATABASE_URL_BUILD=${{ secrets.DATABASE_URL_BUILD || 'postgresql://build:build@localhost:5432/build?schema=public' }}
+            GCS_CREDENTIALS_BUILD=${{ secrets.GCS_CREDENTIALS_BUILD || 'build-dummy-credentials' }}
+            GCS_PROJECT_BUILD=${{ secrets.GCS_PROJECT_BUILD || 'build-project' }}
+            GCS_BUCKET_BUILD=${{ secrets.GCS_BUCKET_BUILD || 'build-bucket' }}
       
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"

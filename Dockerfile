@@ -19,19 +19,30 @@ COPY . .
 
 # Build arguments for flexibility
 ARG DATABASE_URL_BUILD="postgresql://build:build@localhost:5432/build?schema=public"
+ARG GCS_CREDENTIALS_BUILD="build-dummy-credentials"
+ARG GCS_PROJECT_BUILD="build-project"
+ARG GCS_BUCKET_BUILD="build-bucket"
 
 # Disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Generate Prisma Client with build-time DATABASE_URL
+# Set build-time environment variables (won't be used for actual connections)
 ENV DATABASE_URL=$DATABASE_URL_BUILD
+ENV GOOGLE_CLOUD_CREDENTIALS_BASE64=$GCS_CREDENTIALS_BUILD
+ENV GOOGLE_CLOUD_PROJECT_ID=$GCS_PROJECT_BUILD
+ENV GOOGLE_CLOUD_STORAGE_BUCKET=$GCS_BUCKET_BUILD
+
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Build Next.js (Next.js won't actually connect to DB during build)
+# Build Next.js (Next.js won't actually connect to DB/GCS during build)
 RUN npm run build
 
-# Clear build-time DATABASE_URL for security
+# Clear build-time sensitive variables for security
 ENV DATABASE_URL=
+ENV GOOGLE_CLOUD_CREDENTIALS_BASE64=
+ENV GOOGLE_CLOUD_PROJECT_ID=
+ENV GOOGLE_CLOUD_STORAGE_BUCKET=
 
 # Production image, copy all the files and run next
 FROM base AS runner

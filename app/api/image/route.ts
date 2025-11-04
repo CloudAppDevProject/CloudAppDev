@@ -6,16 +6,31 @@ const BASE64_KEY = process.env.GOOGLE_CLOUD_CREDENTIALS_BASE64;
 const BUCKET_NAME =
   process.env.GOOGLE_CLOUD_STORAGE_BUCKET || "pictures-clouddev";
 
-// Base64-Schlüssel dekodieren und den JSON-Inhalt parsen
-const serviceAccountJson = Buffer.from(BASE64_KEY!, "base64").toString("utf8");
-const credentials = JSON.parse(serviceAccountJson);
+// Defensive initialization: Only initialize Storage if credentials are available
+let storage: Storage | null = null;
+let bucket: ReturnType<Storage['bucket']> | null = null;
 
-const storage = new Storage({
-  projectId: PROJECT_ID,
-  credentials: credentials,
-});
+try {
+  if (BASE64_KEY && !BASE64_KEY.includes('dummy') && !BASE64_KEY.includes('build')) {
+    // Base64-Schlüssel dekodieren und den JSON-Inhalt parsen
+    const serviceAccountJson = Buffer.from(BASE64_KEY, "base64").toString("utf8");
+    const credentials = JSON.parse(serviceAccountJson);
 
-const bucket = storage.bucket(BUCKET_NAME);
+    storage = new Storage({
+      projectId: PROJECT_ID,
+      credentials: credentials,
+    });
+
+    bucket = storage.bucket(BUCKET_NAME);
+    console.log("[GCS API] Storage initialized successfully");
+  } else {
+    console.warn("[GCS API] ⚠️  GCS credentials not available - skipping Storage initialization");
+  }
+} catch (error) {
+  console.error("[GCS API] Failed to initialize Storage:", error);
+  storage = null;
+  bucket = null;
+}
 
 export async function GET(request: Request) {
   if (!storage) {
