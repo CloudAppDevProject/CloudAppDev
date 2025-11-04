@@ -12,7 +12,12 @@ on:
       - 'Dockerfile'
       - 'package.json'
       - '.github/workflows/build-and-push-app.yml'
-  
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Manual tag for the Docker image'
+        required: false
+        default: 'manual'
   
 env:
   IMAGE_NAME: cloudappdev
