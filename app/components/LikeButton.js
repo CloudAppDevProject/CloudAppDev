@@ -56,7 +56,7 @@ export default function LikeButton({ itineraryId, userId, initialLiked, initialC
     <div className="flex items-center gap-2">
       <Button
         icon={liked ? "pi pi-heart-fill" : "pi pi-heart"}
-        className={liked ? "p-button-danger" : "p-button-outlined p-button-secondary"}
+        className={liked ? "p-button-danger" : "p-button-secondary"}
         onClick={handleLikeToggle}
         loading={loading}
         disabled={loading}

@@ -71,3 +71,10 @@ letsencrypt/
 locust/reports/*
 .opencode
 CloudAppDev/*
+
+# terraform
+**/.terraform/
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
