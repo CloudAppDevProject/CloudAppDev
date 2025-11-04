@@ -16,14 +16,22 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Build arguments for flexibility
+ARG DATABASE_URL_BUILD="postgresql://build:build@localhost:5432/build?schema=public"
+
 # Disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Generate Prisma Client
+# Generate Prisma Client with build-time DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL_BUILD
 RUN npx prisma generate
 
-# Build Next.js
+# Build Next.js (Next.js won't actually connect to DB during build)
 RUN npm run build
+
+# Clear build-time DATABASE_URL for security
+ENV DATABASE_URL=
 
 # Production image, copy all the files and run next
 FROM base AS runner

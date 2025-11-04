@@ -118,7 +118,7 @@ switch ($Workload) {
             -Name "periodic_workload" `
             -Users 100 `
             -SpawnRate 10 `
-            -Duration "10m" `
+            -Duration "5m" `
             -Description "Periodic workload - normal recurring usage patterns"
     }
     

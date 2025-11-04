@@ -75,6 +75,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+          # Build args for flexibility (optional: can override from secrets)
+          build-args: |
+            DATABASE_URL_BUILD=${{ secrets.DATABASE_URL_BUILD || 'postgresql://build:build@localhost:5432/build?schema=public' }}
       
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
