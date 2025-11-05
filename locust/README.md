@@ -120,3 +120,5 @@ Basic stats, charts, and tables.
 python locust/generate_enhanced_report.py locust/reports/<test_name>
 ```
 
+---
+

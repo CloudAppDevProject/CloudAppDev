@@ -8,7 +8,7 @@ echo "🚀 Starting production deployment..."
 
 # 1. Stop all running containers
 echo "⏹️  Stopping containers..."
-sudo docker compose down
+sudo docker-compose down
 
 # 2. Pull latest code (if not already done)
 echo "📥 Pulling latest changes..."

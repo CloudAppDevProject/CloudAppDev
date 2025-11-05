@@ -124,3 +124,48 @@ Local deployment with Nginx reverse proxy and optional SSL via Certbot. Configur
 ### Vercel
 
 Alternatively, deploy on the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme). See [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for details.
+
+## 📊 Performance-Analyse: IaaS vs PaaS
+
+### Test-Setup
+- **IaaS**: https://cloudappdev.cloudappdev.site
+- **PaaS**: https://cloudappdev-paas-frontend-577052020137.europe-west1.run.app
+- **Workload**: Once-in-a-lifetime (Lastspitze)
+
+### Ergebnisse
+
+#### IaaS (cloudappdev.cloudappdev.site)
+- **Requests**: 13.647 total, 450 failures (3,3%)
+- **Response Time**: 
+  - Median: 8.100 ms
+  - Average: 9.304 ms
+  - 95th percentile: 40.000 ms
+  - Max: 92.000 ms
+- **RPS**: 24,6
+
+**Verhalten**: Mit steigender Last werden die Antwortzeiten allmählich länger. Bei Spitzenlasten gibt es Timeouts und Fehler, aber die Fehlerquote bleibt niedrig.
+
+#### PaaS Standard (paas-frontend)
+- **Requests**: 15.515 total, 8.062 failures (52%)
+- **Response Time**:
+  - Median: 7.900 ms
+  - Average: 7.555 ms
+  - 95th percentile: 18.000 ms
+  - Max: 29.000 ms
+- **RPS**: 88,0
+
+**Verhalten**: Deutlich höhere Fehlerrate (>50%) obwohl die Antwortzeiten teilweise besser sind. Das System wird stark durch Cloud SQL gebremst und kann die Last nicht bewältigen.
+
+#### PaaS Erhöht (nach Cloud SQL Ressourcen-Erhöhung)
+Siehe `paasincresed.html` - Nach Erhöhung der Cloud SQL Ressourcen verbessert sich die Performance deutlich, und der Datenbank-Flaschenhals wird kleiner.
+
+### Fazit
+
+**IaaS** zeigt ein vorhersehbares Verhalten: Mit steigender Last werden die Antwortzeiten langsam länger, und es gibt vereinzelt Timeouts/Fehler (3,3%). Das System verhält sich stabil und nachvollziehbar.
+
+**PaaS** wird stark durch Cloud SQL gebremst - obwohl erfolgreiche Requests schneller sind, scheitern über 50% aller Anfragen. Die verwaltete Datenbank wird zum harten Flaschenhals.
+
+**PaaS mit mehr Ressourcen** zeigt, dass mehr Cloud SQL Leistung das Problem löst. Allerdings muss man bei PaaS die Datenbank-Ressourcen genau richtig planen.
+
+**Empfehlung**: Bei Lastspitzen bietet IaaS bessere Kontrolle und Fehlertoleranz, während PaaS eine sorgfältigere Ressourcen-Planung erfordert.
+
