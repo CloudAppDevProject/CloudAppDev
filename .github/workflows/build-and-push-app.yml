@@ -75,13 +75,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
-          # Build args for flexibility (optional: can override from secrets)
+          # Build args - Server-side variables (defaults are fine for build)
+          # ⚠️ CRITICAL: Client-side NEXT_PUBLIC_* variables MUST be set from secrets!
+          # These are baked into the JavaScript bundle at build time
           build-args: |
             DATABASE_URL_BUILD=${{ secrets.DATABASE_URL_BUILD || 'postgresql://build:build@localhost:5432/build?schema=public' }}
             MONGODB_URI_BUILD=${{ secrets.MONGODB_URI_BUILD || 'mongodb://build:build@localhost:27017/build' }}
             GCS_CREDENTIALS_BUILD=${{ secrets.GCS_CREDENTIALS_BUILD || 'build-dummy-credentials' }}
             GCS_PROJECT_BUILD=${{ secrets.GCS_PROJECT_BUILD || 'build-project' }}
             GCS_BUCKET_BUILD=${{ secrets.GCS_BUCKET_BUILD || 'build-bucket' }}
+            FIREBASE_CREDENTIALS_BUILD=${{ secrets.FIREBASE_CREDENTIALS_BUILD || 'build-dummy-firebase' }}
+            FIREBASE_API_KEY_BUILD=${{ secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_KEY }}
+            FIREBASE_AUTH_DOMAIN_BUILD=${{ secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_DOMAIN }}
+            FIREBASE_PROJECT_BUILD=${{ secrets.NEXT_PUBLIC_GOOGLE_CLOUD_PROJECT_ID }}
       
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"

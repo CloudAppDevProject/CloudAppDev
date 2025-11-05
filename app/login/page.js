@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
@@ -14,11 +14,28 @@ export default function Login() {
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
   const { setUser } = useUser();
+
+  useEffect(() => {
+    // Check if Firebase is initialized
+    if (!auth) {
+      setError("Firebase authentication is not available. Please check your configuration.");
+      console.error("[Login] Firebase auth is null");
+    } else {
+      setIsFirebaseReady(true);
+    }
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+
+    // Validate Firebase is ready
+    if (!auth) {
+      setError("Authentication service is not available. Please try again later.");
+      return;
+    }
 
     try {
       // 1️⃣ Login bei Google Identity Platform (Firebase)
@@ -82,7 +99,11 @@ export default function Login() {
           required
         />
         <div className="flex gap-4">
-          <Button type="submit" label="Login" />
+          <Button 
+            type="submit" 
+            label={isFirebaseReady ? 'Login' : 'Loading...'}
+            disabled={!isFirebaseReady}
+          />
           <Button
             type="button"
             onClick={() => router.push("/register")}
@@ -92,7 +113,18 @@ export default function Login() {
         </div>
       </form>
 
-      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+      
+      {!isFirebaseReady && !error && (
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+          <span className="block sm:inline">⏳ Initializing authentication service...</span>
+        </div>
+      )}
     </div>
   );
 }
