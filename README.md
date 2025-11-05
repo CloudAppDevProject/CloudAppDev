@@ -197,8 +197,6 @@ Siehe `paasincresed.html` - Nach Erhöhung der Cloud SQL Ressourcen verbessert s
 
 **Empfehlung**: Bei Lastspitzen bietet IaaS bessere Kontrolle und Fehlertoleranz, während PaaS eine sorgfältigere Ressourcen-Planung erfordert.
 
-## Terraform
-
 ## Terraform Infrastructure Setup
 
 This project includes infrastructure-as-code provisioning using [Terraform](https://www.terraform.io/). The Terraform configuration is located in the `terraform/` directory and is designed to automate cloud resource management, typically for Google Cloud Platform (GCP).
