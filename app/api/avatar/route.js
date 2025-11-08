@@ -11,9 +11,13 @@ const BUCKET_NAME = process.env.GOOGLE_CLOUD_STORAGE_BUCKET || "pictures-cloudde
 // Die 'storage' Variable muss hier mit 'let' deklariert werden, damit sie von GET zugreifbar ist.
 let storage;
 
-// 2. Initialisierungslogik (wird nur einmal beim Start des Servers ausgeführt)
+// 2. Defensive Initialisierungslogik - nur mit echten Credentials
 try {
-  if (projectId && base64Key) {
+  // Skip initialization during build or with dummy credentials
+  if (!base64Key || base64Key.includes('dummy') || base64Key.includes('build')) {
+    console.warn("[GCS API] ⚠️  GCS credentials not available - skipping Storage initialization");
+    storage = null;
+  } else if (projectId && base64Key) {
     // Base64-Schlüssel dekodieren und den JSON-Inhalt parsen
     const serviceAccountJson = Buffer.from(base64Key, "base64").toString("utf8");
     const credentials = JSON.parse(serviceAccountJson);
@@ -25,15 +29,13 @@ try {
     });
     console.log("[GCS API] Storage initialized successfully with explicit credentials.");
   } else {
-    // Fallback für lokale Entwicklung oder Default Credentials
-    // Nur nutzen, wenn keine Base64-Keys vorhanden sind
-    storage = new Storage();
-    console.log("[GCS API] Storage initialized using default credentials.");
+    console.warn("[GCS API] Missing credentials, skipping initialization");
+    storage = null;
   }
 } catch (e) {
   // Fängt Fehler beim Parsen oder Initialisieren (z.B. ungültiger JSON-Key)
   console.error("[GCS API] ERROR: Failed to initialize Storage service.", e);
-  storage = undefined; // Setze auf undefined, um den 500er im GET-Handler auszulösen.
+  storage = null; // Setze auf null, um den 500er im GET-Handler auszulösen.
 }
 
 export async function GET(request) {

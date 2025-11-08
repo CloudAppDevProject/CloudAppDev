@@ -5,6 +5,9 @@ import { useUser } from "@context/UserContext";
 import { useRouter } from "next/navigation";
 import ProfileForm from "../components/profileForm";
 
+// Force dynamic rendering - don't prerender this page at build time
+export const dynamic = 'force-dynamic';
+
 export default function ProfilePage() {
   const { user, setUser } = useUser();
   const router = useRouter();
