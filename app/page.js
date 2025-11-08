@@ -7,7 +7,7 @@ import ItineraryTable from "@/app/components/itineraryTable";
 
 export default function MyItinerariesPage() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
 
   const [itineraries, setItineraries] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -21,6 +21,8 @@ export default function MyItinerariesPage() {
 
   // --- Daten laden ---
   useEffect(() => {
+    console.log("MyItinerariesPage: usr changed:", user);
+    if (userLoading) return;
     if (!user?.id) {
       router.push("/login");
       return;

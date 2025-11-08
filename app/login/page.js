@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient"; // <– dein Firebase Client Setup
+import { auth } from "@/lib/firebaseClient";
 
 // Force dynamic rendering - don't prerender this page at build time
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
-  const { setUser } = useUser();
+  const { refresh } = useUser(); // <-- statt setUser
 
   useEffect(() => {
     // Check if Firebase is initialized
@@ -38,43 +38,32 @@ export default function Login() {
     }
 
     try {
-      // 1️⃣ Login bei Google Identity Platform (Firebase)
+      // 1) Firebase Login
       const userCred = await signInWithEmailAndPassword(auth, form.email, form.password);
-
-      // 2️⃣ ID-Token von Google holen (JWT)
+      // 2) ID Token holen
       const token = await userCred.user.getIdToken();
-
-      // 3️⃣ Dein Backend aufrufen, Token mitsenden
+      // 3) Backend informieren -> setzt HttpOnly-Cookie
       const res = await fetch("/api/user?action=login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // <– wichtig: Token im Header
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          email: form.email,
-        }),
+        body: JSON.stringify({ email: form.email }),
+        credentials: "include",
       });
-
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || "Login failed");
       }
-
-      // 4️⃣ Antwort vom Backend lesen (z. B. dein User-Objekt aus Prisma)
-      const loggedInUser = await res.json();
-
-      // 5️⃣ Benutzer im Context speichern
-      setUser({
-        ...loggedInUser,
-        token, // optional: für spätere API-Aufrufe im Frontend
-      });
+      // 4) Context aus Cookie neu laden
+      await refresh();
 
       router.push("/");
     } catch (err) {
       console.error(err);
       setError(err.message || "Login failed");
-      setUser(null);
+      await refresh(); // sorgt dafür, dass Context sicher auf null steht
     }
   }
 

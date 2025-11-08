@@ -27,12 +27,13 @@ const formatDate = (dateString) => {
 
 export default function ItineraryDetail() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
   const params = useParams();
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (userLoading) return;
     if (!user) {
       router.push("/login");
       return;

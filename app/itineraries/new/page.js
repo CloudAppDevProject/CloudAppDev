@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export default function NewItinerary() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
 
   const [form, setForm] = useState({
     title: "",
@@ -32,6 +32,7 @@ export default function NewItinerary() {
     ],
   });
 
+  if (userLoading) return null;
   if (!user) {
     router.push("/login");
     return null;

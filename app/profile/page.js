@@ -9,12 +9,13 @@ import ProfileForm from "../components/profileForm";
 export const dynamic = 'force-dynamic';
 
 export default function ProfilePage() {
-  const { user, setUser } = useUser();
+  const { user, setUser, loading: userLoading } = useUser();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (userLoading) return;
     if (!user) {
       router.push("/login");
       return;

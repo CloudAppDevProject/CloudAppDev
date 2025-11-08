@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import React from "react";
 import { PrimeReactProvider } from "primereact/api";
 import { ThemeProvider } from "@components/theme-provider";
 import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";
@@ -30,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="de">
       <body className={`${geistSans.variable} ${geistMono.variable} flex flex-col min-h-screen antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <PrimeReactProvider>

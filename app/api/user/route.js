@@ -1,165 +1,227 @@
-import { prisma } from "@lib/prisma";
-import { NextResponse } from "next/server";
-import { verifyIdToken } from "@/lib/firebaseAdmin";
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import * as jose from 'jose';
+import { prisma } from '@/lib/prisma'; // ggf. anpassen
+import { verifyIdToken } from '@/lib/firebaseAdmin'; // ggf. anpassen
 
-// 🔹 Alle Benutzer abrufen (Admin-only oder Testzweck)
-export async function GET() {
+const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'dev-secret');
+const alg = 'HS256';
+
+async function signSession(payload) {
+  return new jose.SignJWT(payload)
+    .setProtectedHeader({ alg })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(secret);
+}
+
+async function verifySession(token) {
   try {
-    const users = await prisma.user.findMany({
-      orderBy: { id: "desc" },
-    });
-    return NextResponse.json(users);
-  } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const { payload } = await jose.jwtVerify(token, secret);
+    return payload;
+  } catch {
+    return null;
   }
 }
 
-// 🔹 Login & Registrierung über Google Identity Platform (mit Fallback für traditionelle Auth)
+function setSessionCookie(res, token) {
+  res.cookies.set('session', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production', // in dev false, damit Cookie lokal klappt
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+  });
+}
+
+function clearSessionCookie(res) {
+  res.cookies.set('session', '', {
+    httpOnly: true,
+    path: '/',
+    expires: new Date(0),
+  });
+}
+
+// USER LADEN
+export async function GET() {
+  const token = (await cookies()).get('session')?.value;
+  if (!token) {
+    return NextResponse.json({ user: null }, { status: 401 });
+  }
+  const payload = await verifySession(token);
+  if (!payload) {
+    return NextResponse.json({ user: null }, { status: 401 });
+  }
+  return NextResponse.json({
+    user: {
+      id: payload.id,
+      email: payload.email,
+      name: payload.name,
+      avatarUrl: payload.avatarUrl || null,
+    },
+  });
+}
+
+// LOGIN / REGISTER (Firebase oder Fallback)
 export async function POST(req) {
   const { searchParams } = new URL(req.url);
-  const action = searchParams.get("action");
+  const action = searchParams.get('action');
 
   try {
-    // Token aus Authorization-Header holen
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.split("Bearer ")[1];
+    const authHeader = req.headers.get('authorization');
+    const firebaseIdToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : null;
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
 
-    // 🔄 FALLBACK: Traditionelle Authentifizierung für Load Testing & Legacy Support
-    if (!token) {
-      // Traditional registration (for load testing and backward compatibility)
-      if (action === "register") {
+    // FALLBACK ohne Firebase
+    if (!firebaseIdToken) {
+      if (action === 'register') {
         const { name, email, password } = body;
         if (!name || !email || !password) {
-          return NextResponse.json({ error: "Name, Email and Password are required" }, { status: 400 });
+          return NextResponse.json({ error: 'Name, Email and Password are required' }, { status: 400 });
         }
-
-        // Check if user already exists
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) {
-          return NextResponse.json({ error: "User already exists" }, { status: 400 });
+          return NextResponse.json({ error: 'User already exists' }, { status: 400 });
         }
-
+        // WARN: Passwort noch nicht gehasht
         const newUser = await prisma.user.create({
           data: { name, email, password },
         });
 
-        return NextResponse.json(newUser, { status: 201 });
+        const jwt = await signSession({
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          avatarUrl: newUser.avatarUrl || null,
+        });
+
+        const res = NextResponse.json({
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          avatarUrl: newUser.avatarUrl || null,
+        }, { status: 201 });
+        setSessionCookie(res, jwt);
+        return res;
       }
 
-      // Traditional login (for load testing and backward compatibility)
-      if (action === "login") {
+      if (action === 'login') {
         const { email, password } = body;
         if (!email || !password) {
-          return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
+          return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
         }
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
+        const user = await prisma.user.findUnique({ where: { email } });
         if (!user) {
-          return NextResponse.json({ error: "User not found" }, { status: 404 });
+          return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
+        // TODO: Passwort-Hash prüfen
 
-        // Note: In production, you should verify the password hash here
-        // For load testing purposes, we skip password verification
-        return NextResponse.json(user);
+        const jwt = await signSession({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl || null,
+        });
+
+        const res = NextResponse.json({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl || null,
+        }, { status: 200 });
+        setSessionCookie(res, jwt);
+        return res;
       }
 
-      return NextResponse.json({ error: "Unknown action or missing authentication" }, { status: 400 });
+      return NextResponse.json({ error: 'Unknown action or missing authentication' }, { status: 400 });
     }
 
-    // 🔐 FIREBASE AUTHENTICATION PATH
-    // 🔍 Token verifizieren
-    const decoded = await verifyIdToken(token);
+    // FIREBASE PATH
+    const decoded = await verifyIdToken(firebaseIdToken);
     if (!decoded) {
-      // return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
-
     const { email, name, uid, picture } = decoded;
 
-    // Action unterscheiden
-    if (action === "login") {
-      // Falls der User noch nicht existiert, automatisch anlegen
-      let user = await prisma.user.findUnique({ where: { email } });
+    if (!email) {
+      return NextResponse.json({ error: 'Firebase token missing email' }, { status: 400 });
+    }
 
+    if (action === 'login') {
+      let user = await prisma.user.findUnique({ where: { email } });
       if (!user) {
         user = await prisma.user.create({
           data: {
             email,
-            name: name || "Unnamed Traveller",
+            name: name || 'Unnamed Traveller',
             googleUid: uid,
             avatarUrl: picture || null,
           },
         });
       }
 
-      return NextResponse.json(user);
+      const jwt = await signSession({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl || null,
+      });
+
+      const res = NextResponse.json({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl || null,
+      }, { status: 200 });
+      setSessionCookie(res, jwt);
+      return res;
     }
 
-    if (action === "register") {
-      // Registrierung wird im Client über Identity Platform gemacht,
-      // hier kannst du aber zusätzliche Profilinfos speichern.
+    if (action === 'register') {
       const { displayName, avatarUrl } = body;
-
-      let existing = await prisma.user.findUnique({ where: { email } });
+      const existing = await prisma.user.findUnique({ where: { email } });
       if (existing) {
-        return NextResponse.json({ error: "User already exists" }, { status: 400 });
+        return NextResponse.json({ error: 'User already exists' }, { status: 400 });
       }
-
       const newUser = await prisma.user.create({
         data: {
-          name: displayName || name || "New Traveller",
-          email,
-          googleUid: uid,
-          avatarUrl: avatarUrl || picture || null,
+          name: displayName || name || 'New Traveller',
+            email,
+            googleUid: uid,
+            avatarUrl: avatarUrl || picture || null,
         },
       });
 
-      return NextResponse.json(newUser, { status: 201 });
+      const jwt = await signSession({
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        avatarUrl: newUser.avatarUrl || null,
+      });
+
+      const res = NextResponse.json({
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        avatarUrl: newUser.avatarUrl || null,
+      }, { status: 201 });
+      setSessionCookie(res, jwt);
+      return res;
     }
 
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (err) {
-    console.error("POST /api/user error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('POST /api/user error:', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
-// 🔹 Benutzerprofil updaten
-export async function PUT(req) {
-  try {
-    const body = await req.json();
-    const {
-      id,
-      email,
-      username,
-      avatarUrl, // Hier 'id' oder 'email' als Identifier nutzen
-    } = body;
-
-    if (!email) {
-      return NextResponse.json({ error: "Email address is required to identify the user for update." }, { status: 400 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: email },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        name: username !== undefined ? username : user.name,
-        avatarUrl: avatarUrl !== undefined ? avatarUrl : user.avatarUrl,
-      },
-    });
-
-    return NextResponse.json(updatedUser);
-  } catch (err) {
-    console.error("PUT /api/user error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+// LOGOUT
+export async function DELETE() {
+  const res = NextResponse.json({ ok: true });
+  clearSessionCookie(res);
+  return res;
 }
