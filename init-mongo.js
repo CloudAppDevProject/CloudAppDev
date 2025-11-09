@@ -51,12 +51,14 @@ async function initMongo() {
       await db.createCollection("comments");
       await db.collection("comments").createIndex({ itinerary_id: 1 });
       await db.collection("comments").createIndex({ user_id: 1 });
+      await db.collection("comments").createIndex({ created_at: -1 });
       console.log("✅ Comments collection created with indexes");
     } else {
       console.log("ℹ️  Comments collection already exists");
       // Ensure indexes exist
       await db.collection("comments").createIndex({ itinerary_id: 1 });
       await db.collection("comments").createIndex({ user_id: 1 });
+      await db.collection("comments").createIndex({ created_at: -1 });
     }
 
     console.log("✅ MongoDB initialization complete");

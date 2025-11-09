@@ -12,12 +12,29 @@ const MONGODB_URI = process.env.MONGODB_URI;
 async function main() {
   console.log('🌱 Starting database seeding...\n');
 
-  // Clear existing data
-  console.log('🗑️  Clearing existing data...');
-  await prisma.comment.deleteMany({});
+  // Clear existing data from PostgreSQL
+  console.log('🗑️  Clearing existing PostgreSQL data...');
   await prisma.itinerary.deleteMany({});
   await prisma.user.deleteMany({});
-  console.log('✅ Existing data cleared\n');
+  console.log('✅ Existing PostgreSQL data cleared');
+
+  // Clear existing data from MongoDB
+  console.log('🗑️  Clearing existing MongoDB data...');
+  if (MONGODB_URI) {
+    const mongoClient = new MongoClient(MONGODB_URI);
+    try {
+      await mongoClient.connect();
+      const db = mongoClient.db(process.env.MONGO_INITDB_DATABASE || 'clouddev');
+      await db.collection('comments').deleteMany({});
+      await db.collection('likes').deleteMany({});
+      console.log('✅ Existing MongoDB data cleared');
+    } catch (err) {
+      console.log('⚠️  MongoDB clearing skipped:', err.message);
+    } finally {
+      await mongoClient.close();
+    }
+  }
+  console.log();
 
   // Create diverse users (mix of Google Auth and traditional)
   console.log('👥 Creating users...');
@@ -757,221 +774,88 @@ async function main() {
   ]);
   console.log(`✅ Created ${itineraries.length} itineraries with locations\n`);
 
-  // Create realistic comments
-  console.log('💬 Creating comments...');
-  const comments = await Promise.all([
-    // Comments on Emma's Rome trip
-    prisma.comment.create({
-      data: {
-        user_id: users[1].id, // Liam
-        itinerary_id: itineraries[0].id,
-        content: 'Rome is absolutely magical! Make sure to book your Colosseum tickets in advance to skip the lines. Also, don\'t miss the sunset view from Gianicolo Hill!',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[3].id, // Noah
-        itinerary_id: itineraries[0].id,
-        content: 'If you have time, take a day trip to Tivoli to see Villa d\'Este. The gardens are stunning! Also, try the gelato at Giolitti - it\'s been there since 1900.',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[0].id, // Emma responding
-        itinerary_id: itineraries[0].id,
-        content: 'Thanks for the tips! I\'ve already booked Colosseum tickets. Will definitely add Tivoli to the plan!',
-      },
-    }),
+  // Create realistic comments in MongoDB
+  console.log('💬 Creating comments in MongoDB...');
+  if (MONGODB_URI) {
+    const mongoClient = new MongoClient(MONGODB_URI);
+    try {
+      await mongoClient.connect();
+      const db = mongoClient.db(process.env.MONGO_INITDB_DATABASE || 'clouddev');
+      const commentsCollection = db.collection('comments');
 
-    // Comments on Liam's Tokyo trip
-    prisma.comment.create({
-      data: {
-        user_id: users[6].id, // Ava
-        itinerary_id: itineraries[2].id,
-        content: 'Tokyo is incredible! Don\'t miss the robot restaurant in Shinjuku - it\'s wild. Also, get a JR Pass if you\'re planning to visit Kyoto too.',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[4].id, // Olivia
-        itinerary_id: itineraries[2].id,
-        content: 'For the best sushi experience, try Sushi Dai at Toyosu Market (moved from Tsukiji). Worth the early morning wait!',
-      },
-    }),
+      const commentData = [
+        // Comments on Emma's Rome trip
+        { userId: users[1].id, userName: users[1].name, userEmail: users[1].email, itineraryId: itineraries[0].id, content: 'Rome is absolutely magical! Make sure to book your Colosseum tickets in advance to skip the lines. Also, don\'t miss the sunset view from Gianicolo Hill!' },
+        { userId: users[3].id, userName: users[3].name, userEmail: users[3].email, itineraryId: itineraries[0].id, content: 'If you have time, take a day trip to Tivoli to see Villa d\'Este. The gardens are stunning! Also, try the gelato at Giolitti - it\'s been there since 1900.' },
+        { userId: users[0].id, userName: users[0].name, userEmail: users[0].email, itineraryId: itineraries[0].id, content: 'Thanks for the tips! I\'ve already booked Colosseum tickets. Will definitely add Tivoli to the plan!' },
 
-    // Comments on Sofia's Iceland trip
-    prisma.comment.create({
-      data: {
-        user_id: users[2].id, // Sofia
-        itinerary_id: itineraries[4].id,
-        content: 'So excited for this trip! Anyone have recommendations for hiking gear rental in Reykjavik?',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[5].id, // Ethan
-        itinerary_id: itineraries[4].id,
-        content: 'Check out Iceland Mountain Guides - they rent quality gear and also offer guided tours if you want. The weather can change quickly, so layers are essential!',
-      },
-    }),
+        // Comments on Liam's Tokyo trip
+        { userId: users[6].id, userName: users[6].name, userEmail: users[6].email, itineraryId: itineraries[2].id, content: 'Tokyo is incredible! Don\'t miss the robot restaurant in Shinjuku - it\'s wild. Also, get a JR Pass if you\'re planning to visit Kyoto too.' },
+        { userId: users[4].id, userName: users[4].name, userEmail: users[4].email, itineraryId: itineraries[2].id, content: 'For the best sushi experience, try Sushi Dai at Toyosu Market (moved from Tsukiji). Worth the early morning wait!' },
 
-    // Comments on Noah's Southeast Asia trip
-    prisma.comment.create({
-      data: {
-        user_id: users[7].id, // Lucas
-        itinerary_id: itineraries[6].id,
-        content: 'This sounds amazing! I did a similar route last year. In Bangkok, stay in Khao San Road area for the backpacker vibe. Also, Pai in northern Thailand is a hidden gem!',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[0].id, // Emma
-        itinerary_id: itineraries[6].id,
-        content: 'Three months! That\'s the dream. Make sure to get travel insurance that covers multiple countries. SafetyWing is popular with backpackers.',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[3].id, // Noah responding
-        itinerary_id: itineraries[6].id,
-        content: 'Thanks for the advice! I\'ll check out Pai and definitely getting comprehensive insurance.',
-      },
-    }),
+        // Comments on Sofia's Iceland trip
+        { userId: users[2].id, userName: users[2].name, userEmail: users[2].email, itineraryId: itineraries[4].id, content: 'So excited for this trip! Anyone have recommendations for hiking gear rental in Reykjavik?' },
+        { userId: users[5].id, userName: users[5].name, userEmail: users[5].email, itineraryId: itineraries[4].id, content: 'Check out Iceland Mountain Guides - they rent quality gear and also offer guided tours if you want. The weather can change quickly, so layers are essential!' },
 
-    // Comments on Olivia's New Zealand trip
-    prisma.comment.create({
-      data: {
-        user_id: users[1].id, // Liam
-        itinerary_id: itineraries[8].id,
-        content: 'New Zealand is on my bucket list! Are you renting a campervan or car? I\'ve heard campervans give you so much freedom.',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[4].id, // Olivia responding
-        itinerary_id: itineraries[8].id,
-        content: 'Going with a campervan! Booked through Jucy - they have great deals and the freedom to stay at DOC campsites is worth it.',
-      },
-    }),
+        // Comments on Noah's Southeast Asia trip
+        { userId: users[7].id, userName: users[7].name, userEmail: users[7].email, itineraryId: itineraries[6].id, content: 'This sounds amazing! I did a similar route last year. In Bangkok, stay in Khao San Road area for the backpacker vibe. Also, Pai in northern Thailand is a hidden gem!' },
+        { userId: users[0].id, userName: users[0].name, userEmail: users[0].email, itineraryId: itineraries[6].id, content: 'Three months! That\'s the dream. Make sure to get travel insurance that covers multiple countries. SafetyWing is popular with backpackers.' },
+        { userId: users[3].id, userName: users[3].name, userEmail: users[3].email, itineraryId: itineraries[6].id, content: 'Thanks for the advice! I\'ll check out Pai and definitely getting comprehensive insurance.' },
 
-    // Comments on Ethan's Trans-Siberian trip
-    prisma.comment.create({
-      data: {
-        user_id: users[2].id, // Sofia
-        itinerary_id: itineraries[10].id,
-        content: 'This is such a unique trip! How did you manage to get the Russian visa? I heard it\'s quite complicated.',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[5].id, // Ethan responding
-        itinerary_id: itineraries[10].id,
-        content: 'Used an agency called Real Russia - they handle all the visa paperwork and train bookings. Made it much easier!',
-      },
-    }),
+        // Comments on Olivia's New Zealand trip
+        { userId: users[1].id, userName: users[1].name, userEmail: users[1].email, itineraryId: itineraries[8].id, content: 'New Zealand is on my bucket list! Are you renting a campervan or car? I\'ve heard campervans give you so much freedom.' },
+        { userId: users[4].id, userName: users[4].name, userEmail: users[4].email, itineraryId: itineraries[8].id, content: 'Going with a campervan! Booked through Jucy - they have great deals and the freedom to stay at DOC campsites is worth it.' },
 
-    // Comments on Ava's Vienna trip
-    prisma.comment.create({
-      data: {
-        user_id: users[7].id, // Lucas
-        itinerary_id: itineraries[13].id,
-        content: 'Vienna is beautiful! If you love classical music, try to get standing room tickets at the Opera - they\'re only €10 and the acoustics are amazing from anywhere.',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[6].id, // Ava
-        itinerary_id: itineraries[13].id,
-        content: 'That\'s a great tip! I didn\'t know about the standing room tickets. Definitely doing that!',
-      },
-    }),
+        // Comments on Ethan's Trans-Siberian trip
+        { userId: users[2].id, userName: users[2].name, userEmail: users[2].email, itineraryId: itineraries[10].id, content: 'This is such a unique trip! How did you manage to get the Russian visa? I heard it\'s quite complicated.' },
+        { userId: users[5].id, userName: users[5].name, userEmail: users[5].email, itineraryId: itineraries[10].id, content: 'Used an agency called Real Russia - they handle all the visa paperwork and train bookings. Made it much easier!' },
 
-    // Comments on Lucas's Paris trip
-    prisma.comment.create({
-      data: {
-        user_id: users[0].id, // Emma
-        itinerary_id: itineraries[14].id,
-        content: 'Paris during Fashion Week must be incredible! Are you going to any shows or just soaking in the atmosphere?',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[4].id, // Olivia
-        itinerary_id: itineraries[14].id,
-        content: 'Don\'t miss the Musée de l\'Orangerie for Monet\'s Water Lilies - it\'s less crowded than the main museums but equally stunning.',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[7].id, // Lucas responding
-        itinerary_id: itineraries[14].id,
-        content: '@Emma - Got tickets to two shows through connections! @Olivia - Thanks, adding it to my list!',
-      },
-    }),
+        // Comments on Ava's Vienna trip
+        { userId: users[7].id, userName: users[7].name, userEmail: users[7].email, itineraryId: itineraries[13].id, content: 'Vienna is beautiful! If you love classical music, try to get standing room tickets at the Opera - they\'re only €10 and the acoustics are amazing from anywhere.' },
+        { userId: users[6].id, userName: users[6].name, userEmail: users[6].email, itineraryId: itineraries[13].id, content: 'That\'s a great tip! I didn\'t know about the standing room tickets. Definitely doing that!' },
 
-    // Comments on Maria's Costa Rica trip
-    prisma.comment.create({
-      data: {
-        user_id: users[4].id, // Olivia
-        itinerary_id: itineraries[16].id,
-        content: 'Costa Rica is amazing for adventure! The zip-lining in Monteverde is absolutely thrilling. Make sure to do the night walk in the cloud forest too!',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[3].id, // Noah
-        itinerary_id: itineraries[16].id,
-        content: 'Love the eco-tourism focus! Costa Rica does sustainable tourism so well. Don\'t miss the sloth sanctuary!',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[8].id, // Maria responding
-        itinerary_id: itineraries[16].id,
-        content: 'Thanks for the tips! Night walk sounds incredible, definitely adding that to the plan!',
-      },
-    }),
+        // Comments on Lucas's Paris trip
+        { userId: users[0].id, userName: users[0].name, userEmail: users[0].email, itineraryId: itineraries[14].id, content: 'Paris during Fashion Week must be incredible! Are you going to any shows or just soaking in the atmosphere?' },
+        { userId: users[4].id, userName: users[4].name, userEmail: users[4].email, itineraryId: itineraries[14].id, content: 'Don\'t miss the Musée de l\'Orangerie for Monet\'s Water Lilies - it\'s less crowded than the main museums but equally stunning.' },
+        { userId: users[7].id, userName: users[7].name, userEmail: users[7].email, itineraryId: itineraries[14].id, content: '@Emma - Got tickets to two shows through connections! @Olivia - Thanks, adding it to my list!' },
 
-    // Comments on Yuki's Seoul trip
-    prisma.comment.create({
-      data: {
-        user_id: users[1].id, // Liam
-        itinerary_id: itineraries[17].id,
-        content: 'Seoul is fantastic! The food scene is incredible - try Korean fried chicken and visit a pojangmacha (street food tent). Also, Bukchon Hanok Village is beautiful!',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[6].id, // Ava
-        itinerary_id: itineraries[17].id,
-        content: 'So jealous! Korean skincare shopping in Myeongdong is the best. Stock up on sheet masks and try the makeup stores!',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[9].id, // Yuki responding
-        itinerary_id: itineraries[17].id,
-        content: 'Already making a list of all the food I want to try! And yes, my suitcase will be full of K-beauty products 😄',
-      },
-    }),
+        // Comments on Maria's Costa Rica trip
+        { userId: users[4].id, userName: users[4].name, userEmail: users[4].email, itineraryId: itineraries[16].id, content: 'Costa Rica is amazing for adventure! The zip-lining in Monteverde is absolutely thrilling. Make sure to do the night walk in the cloud forest too!' },
+        { userId: users[3].id, userName: users[3].name, userEmail: users[3].email, itineraryId: itineraries[16].id, content: 'Love the eco-tourism focus! Costa Rica does sustainable tourism so well. Don\'t miss the sloth sanctuary!' },
+        { userId: users[8].id, userName: users[8].name, userEmail: users[8].email, itineraryId: itineraries[16].id, content: 'Thanks for the tips! Night walk sounds incredible, definitely adding that to the plan!' },
 
-    // Cross-comments showing community engagement
-    prisma.comment.create({
-      data: {
-        user_id: users[8].id, // Maria
-        itinerary_id: itineraries[2].id, // Liam's Tokyo
-        content: 'Your photos of the cherry blossoms are stunning! 🌸 When is the best time to see them?',
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        user_id: users[9].id, // Yuki
-        itinerary_id: itineraries[1].id, // Emma's Barcelona
-        content: 'Gaudí\'s architecture is on my bucket list! Did you book Park Güell tickets in advance?',
-      },
-    }),
-  ]);
-  console.log(`✅ Created ${comments.length} comments\n`);
+        // Comments on Yuki's Seoul trip
+        { userId: users[1].id, userName: users[1].name, userEmail: users[1].email, itineraryId: itineraries[17].id, content: 'Seoul is fantastic! The food scene is incredible - try Korean fried chicken and visit a pojangmacha (street food tent). Also, Bukchon Hanok Village is beautiful!' },
+        { userId: users[6].id, userName: users[6].name, userEmail: users[6].email, itineraryId: itineraries[17].id, content: 'So jealous! Korean skincare shopping in Myeongdong is the best. Stock up on sheet masks and try the makeup stores!' },
+        { userId: users[9].id, userName: users[9].name, userEmail: users[9].email, itineraryId: itineraries[17].id, content: 'Already making a list of all the food I want to try! And yes, my suitcase will be full of K-beauty products 😄' },
+
+        // Cross-comments showing community engagement
+        { userId: users[8].id, userName: users[8].name, userEmail: users[8].email, itineraryId: itineraries[2].id, content: 'Your photos of the cherry blossoms are stunning! 🌸 When is the best time to see them?' },
+        { userId: users[9].id, userName: users[9].name, userEmail: users[9].email, itineraryId: itineraries[1].id, content: 'Gaudí\'s architecture is on my bucket list! Did you book Park Güell tickets in advance?' },
+      ];
+
+      const mongoComments = commentData.map(comment => ({
+        user_id: comment.userId,
+        itinerary_id: comment.itineraryId,
+        content: comment.content,
+        created_at: new Date(),
+        user: {
+          id: comment.userId,
+          name: comment.userName,
+          email: comment.userEmail
+        }
+      }));
+
+      const result = await commentsCollection.insertMany(mongoComments);
+      console.log(`✅ Created ${result.insertedCount} comments in MongoDB\n`);
+    } catch (err) {
+      console.log('⚠️  MongoDB comments seeding skipped:', err.message);
+    } finally {
+      await mongoClient.close();
+    }
+  } else {
+    console.log('⚠️  MongoDB URI not set, skipping comments seeding\n');
+  }
 
   // Seed MongoDB likes
   if (MONGODB_URI) {
@@ -1079,8 +963,8 @@ async function main() {
   console.log(`   • ${users.length} users created (${users.filter(u => u.googleUid).length} with Google Auth)`);
   console.log(`   • ${itineraries.length} itineraries created`);
   console.log(`   • ${totalLocations} locations created across all itineraries`);
-  console.log(`   • ${comments.length} comments created`);
-  console.log('   • Likes created in MongoDB (if configured)\n');
+  console.log('   • 27 comments created in MongoDB');
+  console.log('   • 43 likes created in MongoDB\n');
 }
 
 main()
