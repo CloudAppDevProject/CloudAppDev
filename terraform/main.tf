@@ -213,6 +213,7 @@ resource "google_storage_bucket" "images" {
   }
   public_access_prevention    = "enforced"
   uniform_bucket_level_access = true
+  force_destroy = true
 }
 
 resource "google_firestore_database" "no_sql_db" {
