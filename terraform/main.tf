@@ -17,24 +17,6 @@ resource "google_compute_network" "vpc_network" {
   name = "terraform-network"
 }
 
-resource "google_compute_instance" "vm_instance" {
-  name         = "${var.project_name}-iaas-frontend"
-  machine_type = "f1-micro"
-
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-11"
-    }
-  }
-
-  network_interface {
-    network = google_compute_network.vpc_network.name
-    // Empty access_config leads to public IP being created
-    access_config {
-    }
-  }
-}
-
 resource "google_cloud_run_v2_service" "paas_frontend" {
   name     = "${var.project_name}-paas-frontend"
   location = var.region
