@@ -23,7 +23,10 @@ cp .env.microservices .env
 # 3. Start all services
 docker-compose -f docker-compose.microservices.yml up -d
 
-# 4. Check status
+# 4. Seed all databases with test data (ONE COMMAND!)
+npm run seed:microservices
+
+# 5. Check status
 docker-compose -f docker-compose.microservices.yml ps
 ```
 
@@ -37,10 +40,32 @@ docker-compose -f docker-compose.microservices.yml ps
 
 ## Architecture
 
-- **User Service**: PostgreSQL + Firebase Auth
-- **Itinerary Service**: PostgreSQL + Google Cloud Storage
-- **Social Service**: MongoDB
+- **User Service**: PostgreSQL (port 5433) + Firebase Auth
+- **Itinerary Service**: PostgreSQL (port 5434) + Google Cloud Storage
+- **Social Service**: MongoDB (port 27017)
 - **Communication**: Container-to-container via Docker network
+
+## Database Seeding
+
+Seed all three microservices with realistic test data:
+
+```bash
+npm run seed:microservices
+```
+
+This will:
+
+- ✅ Start Docker services if not running
+- ✅ Seed User Service with 10 users
+- ✅ Seed Itinerary Service with 18 itineraries and locations
+- ✅ Seed Social Service with comments and likes
+
+**Test Users:**
+
+- `emma.rodriguez@example.com` / Traditional auth
+- `liam.chen@example.com` / Google auth
+- `sofia.andersson@example.com` / Traditional auth
+- ...and 7 more diverse users
 
 ## Stop Services
 

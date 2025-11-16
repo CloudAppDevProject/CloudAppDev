@@ -9,7 +9,8 @@
     "start": "next start",
     "db:deploy": "npx prisma migrate deploy && npx prisma generate",
     "db:seed": "npx prisma db seed",
-    "db:init-mongo": "node init-mongo.js"
+    "db:init-mongo": "node init-mongo.js",
+    "seed:microservices": "cd scripts && npm install --silent && npm run seed"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.17.2",
