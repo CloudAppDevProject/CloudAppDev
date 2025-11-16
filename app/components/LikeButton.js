@@ -36,10 +36,12 @@ export default function LikeButton({ itineraryId, userId, initialLiked, initialC
 
       const data = await response.json();
 
-      // Update local state
-      const newLiked = data.action === "liked";
+      // Update local state using the API response
+      const newLiked = data.liked;
+      const newCount = data.likeCount;
+      
       setLiked(newLiked);
-      setLikeCount((prev) => (newLiked ? prev + 1 : prev - 1));
+      setLikeCount(newCount);
 
       // Notify parent component if callback provided
       if (onLikeChange) {

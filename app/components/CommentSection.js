@@ -31,7 +31,7 @@ export default function CommentSection({ itineraryId, currentUser }) {
       const res = await fetch(`/api/comments?itineraryId=${itineraryId}`);
       if (res.ok) {
         const data = await res.json();
-        setCommentCount(data.length);
+        setCommentCount(data.total || 0);
       }
     } catch (err) {
       console.error("Error loading comment count:", err);
@@ -44,7 +44,8 @@ export default function CommentSection({ itineraryId, currentUser }) {
       const res = await fetch(`/api/comments?itineraryId=${itineraryId}`);
       if (res.ok) {
         const data = await res.json();
-        setComments(data);
+        setComments(data.comments || []);
+        setCommentCount(data.total || 0);
       }
     } catch (err) {
       console.error("Error loading comments:", err);
@@ -65,7 +66,7 @@ export default function CommentSection({ itineraryId, currentUser }) {
         body: JSON.stringify({
           userId: currentUser.id,
           itineraryId: itineraryId,
-          content: newComment.trim()
+          text: newComment.trim()
         })
       });
 
@@ -169,17 +170,17 @@ export default function CommentSection({ itineraryId, currentUser }) {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-semibold text-sm">
-                          {comment.user.name}
+                          User {comment.userId}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {formatDate(comment.created_at)}
+                          {formatDate(comment.createdAt)}
                         </span>
                       </div>
                       <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                        {comment.content}
+                        {comment.text}
                       </p>
                     </div>
-                    {comment.user_id === currentUser.id && (
+                    {comment.userId === currentUser.id && (
                       <Button
                         icon="pi pi-trash"
                         onClick={() => handleDeleteComment(comment.id)}

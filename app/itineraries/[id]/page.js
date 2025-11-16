@@ -51,6 +51,21 @@ export default function ItineraryDetail() {
 
         const data = await res.json();
 
+        // Fetch likes for this itinerary
+        try {
+          const likesRes = await fetch(`/api/likes?itineraryId=${data.id}`);
+          const likesData = await likesRes.json();
+          data.likeCount = likesData.total || 0;
+          
+          const userLikedRes = await fetch(`/api/likes?userId=${user.id}&itineraryId=${data.id}`);
+          const userLikedData = await userLikedRes.json();
+          data.userHasLiked = userLikedData.hasLiked || false;
+        } catch (err) {
+          console.error('Failed to fetch likes:', err);
+          data.likeCount = 0;
+          data.userHasLiked = false;
+        }
+
         // Fetch signed URLs for gs:// images in locations
         if (Array.isArray(data.locations)) {
           const locationsWithSignedImages = await Promise.all(

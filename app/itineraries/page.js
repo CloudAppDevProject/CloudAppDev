@@ -32,15 +32,47 @@ export default function AllItinerariesPage() {
       try {
         const page = lazyState.page;
         const limit = lazyState.rows;
-        let url = `/api/itineraries?currentUserId=${user.id}&page=${page}&limit=${limit}&includeLikes=true`;
+        let url = `/api/itineraries?page=${page}&limit=${limit}`;
         if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch itineraries: ${res.status}`);
 
         const response = await res.json();
-        setItineraries(response.data);
-        setTotalRecords(response.pagination.totalCount);
+        const itinerariesData = response.data || [];
+        
+        // Fetch likes for each itinerary from Social Service
+        const itinerariesWithLikes = await Promise.all(
+          itinerariesData.map(async (itinerary) => {
+            try {
+              // Get like count
+              const likesRes = await fetch(`/api/likes?itineraryId=${itinerary.id}`);
+              const likesData = await likesRes.json();
+              const likeCount = likesData.total || 0;
+              
+              // Check if current user liked this itinerary
+              const userLikedRes = await fetch(`/api/likes?userId=${user.id}&itineraryId=${itinerary.id}`);
+              const userLikedData = await userLikedRes.json();
+              const userHasLiked = userLikedData.hasLiked || false;
+              
+              return {
+                ...itinerary,
+                likeCount,
+                userHasLiked,
+              };
+            } catch (err) {
+              console.error(`Failed to fetch likes for itinerary ${itinerary.id}:`, err);
+              return {
+                ...itinerary,
+                likeCount: 0,
+                userHasLiked: false,
+              };
+            }
+          })
+        );
+        
+        setItineraries(itinerariesWithLikes);
+        setTotalRecords(response.pagination.total || response.pagination.totalCount || 0);
       } catch (err) {
         console.error("Error fetching itineraries:", err);
         setItineraries([]);

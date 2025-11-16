@@ -1,158 +1,105 @@
-import { NextResponse } from "next/server";
-import { connectToMongoDB } from "@/lib/mongodb";
+import { NextResponse } from 'next/server';
+
+const SOCIAL_SERVICE_URL = process.env.SOCIAL_SERVICE_URL || 'http://localhost:8082/api/v1';
 
 /**
- * POST /api/likes
- * Toggle like for an itinerary
- * Body: { userId: number, itineraryId: number }
+ * POST /api/likes - Toggle like
+ * Body: { userId: string, itineraryId: string }
  */
 export async function POST(request) {
   try {
-    const { userId, itineraryId } = await request.json();
+    const body = await request.json();
 
-    if (!userId || !itineraryId) {
-      return NextResponse.json(
-        { error: "userId and itineraryId are required" },
-        { status: 400 }
-      );
-    }
-
-    const { db } = await connectToMongoDB();
-    const likesCollection = db.collection("likes");
-
-    // Check if like already exists
-    const existingLike = await likesCollection.findOne({
-      user_id: userId,
-      itinerary_id: itineraryId,
+    const response = await fetch(`${SOCIAL_SERVICE_URL}/likes/toggle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     });
 
-    if (existingLike) {
-      // Unlike: Remove the like
-      await likesCollection.deleteOne({
-        user_id: userId,
-        itinerary_id: itineraryId,
-      });
-
-      return NextResponse.json({
-        success: true,
-        action: "unliked",
-        message: "Like removed successfully",
-      });
-    } else {
-      // Like: Add new like
-      await likesCollection.insertOne({
-        user_id: userId,
-        itinerary_id: itineraryId,
-        created_at: new Date(),
-      });
-
-      return NextResponse.json({
-        success: true,
-        action: "liked",
-        message: "Like added successfully",
-      });
-    }
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error("Error toggling like:", error);
-    return NextResponse.json(
-      { error: "Failed to toggle like", details: error.message },
-      { status: 500 }
-    );
+    console.error('Social Service Error:', error);
+    return NextResponse.json({ error: 'Failed to toggle like' }, { status: 500 });
   }
 }
 
 /**
- * GET /api/likes?itineraryId=123
- * Get like count and user's like status for an itinerary
- * 
- * GET /api/likes?itineraryIds=1,2,3&userId=5 (Batch query for multiple itineraries)
+ * GET /api/likes?itineraryId=X - Get likes for itinerary
+ * GET /api/likes?userId=X - Get user's liked itineraries
+ * GET /api/likes?userId=X&itineraryId=Y - Check if user liked itinerary
  */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const itineraryId = searchParams.get("itineraryId");
-    const itineraryIds = searchParams.get("itineraryIds");
-    const userId = parseInt(searchParams.get("userId"));
+    const itineraryId = searchParams.get('itineraryId');
+    const userId = searchParams.get('userId');
 
-    const { db } = await connectToMongoDB();
-    const likesCollection = db.collection("likes");
+    let url = `${SOCIAL_SERVICE_URL}/likes`;
 
-    // Batch query for multiple itineraries
-    if (itineraryIds) {
-      const ids = itineraryIds.split(",").map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-      
-      if (ids.length === 0) {
-        return NextResponse.json(
-          { error: "Valid itineraryIds are required" },
-          { status: 400 }
-        );
-      }
-
-      // Fetch all likes for the given itineraries in one query
-      const allLikes = await likesCollection
-        .find({ itinerary_id: { $in: ids } })
-        .toArray();
-
-      // Group likes by itinerary
-      const likesMap = {};
-      const userLikesSet = new Set();
-
-      allLikes.forEach(like => {
-        if (!likesMap[like.itinerary_id]) {
-          likesMap[like.itinerary_id] = 0;
-        }
-        likesMap[like.itinerary_id]++;
-
-        if (userId && like.user_id === userId) {
-          userLikesSet.add(like.itinerary_id);
-        }
-      });
-
-      // Build response for each itinerary
-      const result = ids.map(id => ({
-        itineraryId: id,
-        likeCount: likesMap[id] || 0,
-        userHasLiked: userLikesSet.has(id),
-      }));
-
-      return NextResponse.json(result);
+    if (itineraryId && userId) {
+      // Check if user liked itinerary
+      url += `/check?userId=${userId}&itineraryId=${itineraryId}`;
+    } else if (itineraryId) {
+      // Get likes for itinerary
+      url += `/itinerary/${itineraryId}`;
+    } else if (userId) {
+      // Get user's liked itineraries
+      url += `/user/${userId}`;
+    } else {
+      return NextResponse.json({ error: 'itineraryId or userId required' }, { status: 400 });
     }
 
-    // Single itinerary query
-    if (!itineraryId) {
-      return NextResponse.json(
-        { error: "itineraryId or itineraryIds is required" },
-        { status: 400 }
-      );
-    }
-
-    const parsedItineraryId = parseInt(itineraryId);
-
-    // Get total like count
-    const likeCount = await likesCollection.countDocuments({
-      itinerary_id: parsedItineraryId,
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
-    // Check if current user has liked
-    let userHasLiked = false;
-    if (userId) {
-      const userLike = await likesCollection.findOne({
-        user_id: userId,
-        itinerary_id: parsedItineraryId,
-      });
-      userHasLiked = !!userLike;
+    const data = await response.json();
+    
+    // Normalize response: if checking like status, add hasLiked for frontend compatibility
+    if (itineraryId && userId && data.liked !== undefined) {
+      data.hasLiked = data.liked;
     }
-
-    return NextResponse.json({
-      itineraryId: parsedItineraryId,
-      likeCount,
-      userHasLiked,
-    });
+    
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error("Error fetching likes:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch likes", details: error.message },
-      { status: 500 }
-    );
+    console.error('Social Service Error:', error);
+    return NextResponse.json({ error: 'Failed to fetch likes' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/likes?itineraryId=X - Delete all likes for itinerary
+ * DELETE /api/likes?userId=X - Delete all likes by user
+ */
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const itineraryId = searchParams.get('itineraryId');
+    const userId = searchParams.get('userId');
+
+    let url = `${SOCIAL_SERVICE_URL}/likes`;
+
+    if (itineraryId) {
+      url += `/itinerary/${itineraryId}`;
+    } else if (userId) {
+      url += `/user/${userId}`;
+    } else {
+      return NextResponse.json({ error: 'itineraryId or userId required' }, { status: 400 });
+    }
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+    });
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Social Service Error:', error);
+    return NextResponse.json({ error: 'Failed to delete likes' }, { status: 500 });
   }
 }

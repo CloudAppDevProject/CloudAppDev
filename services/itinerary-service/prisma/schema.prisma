@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Itinerary {
+  id          Int        @id @default(autoincrement())
+  user_id     Int
+  title       String
+  destination String
+  start_date  String
+  short_desc  String?
+  detail_desc String?
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+  locations   Location[]
+
+  @@index([user_id])
+  @@index([destination])
+  @@index([created_at])
+}
+
+model Location {
+  id           Int       @id @default(autoincrement())
+  itinerary_id Int
+  name         String
+  start_date   String
+  end_date     String
+  short_desc   String?
+  images       String[]  @db.VarChar(500)
+  latitude     Float?
+  longitude    Float?
+  created_at   DateTime  @default(now())
+  itinerary    Itinerary @relation(fields: [itinerary_id], references: [id], onDelete: Cascade)
+
+  @@index([itinerary_id])
+}

@@ -31,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de">
-      <body className={`${geistSans.variable} ${geistMono.variable} flex flex-col min-h-screen antialiased`}>
+    <html lang="de" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} flex flex-col min-h-screen antialiased`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <PrimeReactProvider>
             <UserProvider>

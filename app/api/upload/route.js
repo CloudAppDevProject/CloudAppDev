@@ -8,7 +8,7 @@ import { performServerUpload } from "@/lib/server-upload";
  * ==========================================
  */
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
-const ALLOWED_TYPES = ["audio/wav", "audio/mpeg", "audio/mp4", "audio/webm", "image/jpeg", "image/png", "application/pdf"];
+const ALLOWED_TYPES = ["audio/wav", "audio/mpeg", "audio/mp4", "audio/webm", "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
 
 // Simple in-memory rate limiting (per IP)
 const uploadAttempts = new Map();

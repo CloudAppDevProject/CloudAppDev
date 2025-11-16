@@ -1,0 +1,134 @@
+version: '3.9'
+
+services:
+  # ==================== DATABASES ====================
+  postgres-users:
+    image: postgres:16-alpine
+    container_name: cloudappdev_postgres_users
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: devpass123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-users-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d users_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-itineraries:
+    image: postgres:16-alpine
+    container_name: cloudappdev_postgres_itineraries
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: itineraries_db
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: devpass123
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-itineraries-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d itineraries_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongodb-social:
+    image: mongo:8.0
+    container_name: cloudappdev_mongodb_social
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=social_db
+    volumes:
+      - mongodb-social-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==================== MICROSERVICES ====================
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudappdev_user_service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+      - DATABASE_URL=postgresql://appuser:devpass123@postgres-users:5432/users_db?schema=public
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+      - JWT_EXPIRATION=7d
+      - FIREBASE_SERVICE_ACCOUNT_JSON_BASE64=${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64}
+      - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
+      - GOOGLE_CLOUD_CREDENTIALS_BASE64=${GOOGLE_CLOUD_CREDENTIALS_BASE64}
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+    volumes:
+      - ./services/user-service:/app
+      - /app/node_modules
+    depends_on:
+      postgres-users:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+
+  itinerary-service:
+    build:
+      context: ./services/itinerary-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudappdev_itinerary_service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - NODE_ENV=development
+      - PORT=8081
+      - DATABASE_URL=postgresql://appuser:devpass123@postgres-itineraries:5432/itineraries_db?schema=public
+      - USER_SERVICE_URL=http://user-service:8080
+      - SOCIAL_SERVICE_URL=http://social-service:8082
+      - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
+      - GOOGLE_CLOUD_CREDENTIALS_BASE64=${GOOGLE_CLOUD_CREDENTIALS_BASE64}
+      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+    volumes:
+      - ./services/itinerary-service:/app
+      - /app/node_modules
+    depends_on:
+      postgres-itineraries:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+
+  social-service:
+    build:
+      context: ./services/social-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudappdev_social_service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - NODE_ENV=development
+      - PORT=8082
+      - MONGODB_URI=mongodb://mongodb-social:27017/social_db
+      - USER_SERVICE_URL=http://user-service:8080
+      - ITINERARY_SERVICE_URL=http://itinerary-service:8081
+    volumes:
+      - ./services/social-service:/app
+      - /app/node_modules
+    depends_on:
+      mongodb-social:
+        condition: service_healthy
+    command: npm run start:dev
+
+volumes:
+  postgres-users-data:
+  postgres-itineraries-data:
+  mongodb-social-data:
