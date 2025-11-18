@@ -128,6 +128,22 @@ services:
         condition: service_healthy
     command: npm run start:dev
 
+  travel-info-service:
+    build:
+      context: ./services/travel-info-service
+      dockerfile: Dockerfile
+    container_name: cloudappdev_travel_info_service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - NODE_ENV=production
+      - PORT=8083
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+    depends_on:
+      user-service:
+        condition: service_started
+
 volumes:
   postgres-users-data:
   postgres-itineraries-data:

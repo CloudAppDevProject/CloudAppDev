@@ -79,3 +79,10 @@ terraform.tfstate
 terraform.tfstate.*
 *.tfvars
 /scripts/node_modules
+
+# services
+/services/**/node_modules
+/services/**/dist
+/services/**/build
+/services/**/.env
+/services/**/coverage
