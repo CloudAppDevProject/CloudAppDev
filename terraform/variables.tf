@@ -9,49 +9,28 @@ variable "zone" {
 // Empty variable will prompt for the value on apply/plan
 // unless set in `terraform.tfvars` file
 variable "project" {
-
+  description = "The GCS Project id"
 }
 
 variable "project_name" {
   default = "cloudappdev"
 }
 
-variable "db_password" {
-
-}
-
-variable "db_user" {
-
-}
-
-variable "db_name" {
-
-}
-
 variable "node_env" {
-
+  default = "production"
 }
 
 variable "frontend_version" {
-
+  default = "latest"
 }
 
-variable "mongodb_user" {
 
+// TESTING
+variable "cloudflare_zone_id" {
+  default = "ddbd47810ae075fc0bc55a4ef05a91ec"
 }
 
-variable "firebase_service_account" {
-
+variable "hostname" {
+  default = "cloudappdev.site"
 }
 
-variable "firebase_project_id" {
-
-}
-
-variable "firebase_auth_key" {
-
-}
-
-variable "firebase_auth_domain" {
-
-}
