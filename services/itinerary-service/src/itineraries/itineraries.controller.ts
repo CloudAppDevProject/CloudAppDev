@@ -9,14 +9,24 @@ import {
   Query,
   HttpException,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ItinerariesService } from './itineraries.service';
 import { CreateItineraryDto } from './dto/create-itinerary.dto';
 import { UpdateItineraryDto } from './dto/update-itinerary.dto';
+import { StorageService } from '../storage/storage.service';
 
-@Controller('itineraries')
+@Controller()
 export class ItinerariesController {
-  constructor(private readonly itinerariesService: ItinerariesService) {}
+  constructor(
+    private readonly itinerariesService: ItinerariesService,
+    private readonly storageService: StorageService,
+  ) {}
 
   @Post()
   async create(@Body() createItineraryDto: CreateItineraryDto) {
@@ -43,6 +53,68 @@ export class ItinerariesController {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
     });
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 20 * 1024 * 1024 }), // 20MB
+          new FileTypeValidator({ 
+            fileType: /(image\/(jpeg|png|webp|gif)|application\/pdf)/ 
+          }),
+        ],
+      }),
+    )
+    file: any,
+    @Body('userId') userId: string,
+  ) {
+    try {
+      if (!userId) {
+        throw new HttpException('userId is required', HttpStatus.BAD_REQUEST);
+      }
+
+      const gcsUri = await this.storageService.uploadFile(
+        file.buffer,
+        userId,
+        file.originalname,
+        file.mimetype,
+      );
+
+      return {
+        success: true,
+        gcsUri,
+        fileName: file.originalname,
+        message: 'File uploaded successfully',
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Upload failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('signed-url')
+  async getSignedUrl(@Query('path') path: string) {
+    try {
+      if (!path) {
+        throw new HttpException('path parameter is required', HttpStatus.BAD_REQUEST);
+      }
+
+      const signedUrl = await this.storageService.getSignedUrl(path);
+
+      return {
+        url: signedUrl,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to generate signed URL',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Get(':id')

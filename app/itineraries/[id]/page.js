@@ -75,7 +75,8 @@ export default function ItineraryDetail() {
                   loc.images.map(async (url) => {
                     if (url.startsWith("gs://")) {
                       try {
-                        const resp = await fetch(`/api/image?path=${encodeURIComponent(url)}`);
+                        const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
+                        const resp = await fetch(`${gatewayUrl}/api/v1/itineraries/signed-url?path=${encodeURIComponent(url)}`);
                         if (resp.ok) {
                           const { url: signedUrl } = await resp.json();
                           return signedUrl;

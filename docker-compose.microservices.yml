@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # ==================== DATABASES ====================
   postgres-users:
@@ -69,10 +67,8 @@ services:
       - DATABASE_URL=postgresql://appuser:devpass123@postgres-users:5432/users_db?schema=public
       - JWT_SECRET=dev-jwt-secret-change-in-production
       - JWT_EXPIRATION=7d
-      - FIREBASE_SERVICE_ACCOUNT_JSON_BASE64=${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64}
-      - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
-      - GOOGLE_CLOUD_CREDENTIALS_BASE64=${GOOGLE_CLOUD_CREDENTIALS_BASE64}
-      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+    env_file:
+      - ./services/user-service/.env
     volumes:
       - ./services/user-service:/app
       - /app/node_modules
@@ -93,11 +89,10 @@ services:
       - NODE_ENV=development
       - PORT=8081
       - DATABASE_URL=postgresql://appuser:devpass123@postgres-itineraries:5432/itineraries_db?schema=public
-      - USER_SERVICE_URL=http://user-service:8080
-      - SOCIAL_SERVICE_URL=http://social-service:8082
-      - GOOGLE_CLOUD_STORAGE_BUCKET=${GOOGLE_CLOUD_STORAGE_BUCKET}
-      - GOOGLE_CLOUD_CREDENTIALS_BASE64=${GOOGLE_CLOUD_CREDENTIALS_BASE64}
-      - GOOGLE_CLOUD_PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID}
+      - USER_SERVICE_URL=http://api-gateway:80/api/v1/users
+      - SOCIAL_SERVICE_URL=http://api-gateway:80/api/v1/social
+    env_file:
+      - ./services/itinerary-service/.env
     volumes:
       - ./services/itinerary-service:/app
       - /app/node_modules
@@ -118,8 +113,8 @@ services:
       - NODE_ENV=development
       - PORT=8082
       - MONGODB_URI=mongodb://mongodb-social:27017/social_db
-      - USER_SERVICE_URL=http://user-service:8080
-      - ITINERARY_SERVICE_URL=http://itinerary-service:8081
+      - USER_SERVICE_URL=http://api-gateway:80/api/v1/users
+      - ITINERARY_SERVICE_URL=http://api-gateway:80/api/v1/itineraries
     volumes:
       - ./services/social-service:/app
       - /app/node_modules
@@ -136,13 +131,30 @@ services:
     restart: unless-stopped
     ports:
       - "8083:8083"
-    environment:
-      - NODE_ENV=production
-      - PORT=8083
-      - WEATHER_API_KEY=${WEATHER_API_KEY}
+    env_file:
+      - ./services/travel-info-service/.env
     depends_on:
       user-service:
         condition: service_started
+
+  # ==================== API GATEWAY ====================
+  api-gateway:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.gateway
+    container_name: cloudappdev_api_gateway
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    depends_on:
+      - user-service
+      - itinerary-service
+      - social-service
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
 volumes:
   postgres-users-data:

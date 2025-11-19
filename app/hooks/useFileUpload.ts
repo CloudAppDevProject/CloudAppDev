@@ -9,7 +9,9 @@ interface UploadResult {
   error?: string;
 }
 
-export const useFileUpload = () => {
+type ServiceType = 'user' | 'itinerary';
+
+export const useFileUpload = (service: ServiceType = 'user') => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
@@ -28,8 +30,8 @@ export const useFileUpload = () => {
         formData.append("fileName", fileName);
       }
 
-      // Upload with progress tracking
-      const result = await uploadWithProgress(formData);
+      // Upload with progress tracking to specific service
+      const result = await uploadWithProgress(formData, service);
       setUploadResult(result);
       return result;
     } catch (error: any) {
@@ -45,7 +47,7 @@ export const useFileUpload = () => {
     }
   };
 
-  const uploadWithProgress = (formData: FormData): Promise<UploadResult> => {
+  const uploadWithProgress = (formData: FormData, targetService: ServiceType): Promise<UploadResult> => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
@@ -78,7 +80,12 @@ export const useFileUpload = () => {
       xhr.onerror = () => reject(new Error("Network error during upload"));
       xhr.ontimeout = () => reject(new Error("Upload timeout"));
 
-      xhr.open("POST", "/api/upload");
+      // Route to appropriate service through API Gateway
+      const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
+      const servicePath = targetService === 'user' ? 'users' : 'itineraries';
+      const uploadEndpoint = `${gatewayUrl}/api/v1/${servicePath}/upload`;
+      
+      xhr.open("POST", uploadEndpoint);
       xhr.timeout = 120000; // 2 minute timeout
       xhr.send(formData);
     });

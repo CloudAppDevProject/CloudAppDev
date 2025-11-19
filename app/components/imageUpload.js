@@ -11,14 +11,15 @@ import { useUser } from "@context/UserContext";
 
 /**
  * ImageUploader using PrimeReact UI but custom upload logic via useFileUpload()
+ * @param service - Which service to upload to: 'user' or 'itinerary' (default: 'user')
  */
-export default function ImageUploader({ maxFiles = 1, onUploaded }) {
+export default function ImageUploader({ maxFiles = 1, onUploaded, service = 'user' }) {
   const toast = useRef(null);
   const fileUploadRef = useRef(null);
   const { user } = useUser();
 
   const [files, setFiles] = useState([]);
-  const { uploadFile, uploadProgress, isUploading, uploadResult, resetUpload } = useFileUpload();
+  const { uploadFile, uploadProgress, isUploading, uploadResult, resetUpload } = useFileUpload(service);
 
   // Called when user selects files
   const onTemplateSelect = (e) => {

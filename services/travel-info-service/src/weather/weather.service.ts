@@ -22,10 +22,13 @@ type ForecastRequestOptions = {
 export class WeatherService {
   private readonly logger = new Logger(WeatherService.name);
   private readonly baseUrl = 'https://api.weatherapi.com/v1/forecast.json';
-  private readonly apiKey =
-    process.env.WEATHER_API_KEY ?? '543a48100c0e4ebf89093146251811';
+  private readonly apiKey = process.env.WEATHER_API_KEY;
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly httpService: HttpService) {
+    if (!this.apiKey) {
+      this.logger.error('WEATHER_API_KEY is not set - weather service will not work');
+    }
+  }
 
   async getForecast({ query, days = 3, lang = 'DE' }: ForecastRequestOptions) {
     const trimmedQuery = query?.trim();

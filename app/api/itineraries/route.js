@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-const ITINERARY_SERVICE_URL = process.env.ITINERARY_SERVICE_URL || 'http://localhost:8081/api/v1';
+const ITINERARY_SERVICE_URL = process.env.ITINERARY_SERVICE_URL || 'http://localhost:8000/api/v1/itineraries';
 
 export async function POST(req) {
   try {
     const body = await req.json();
     
-    const response = await fetch(`${ITINERARY_SERVICE_URL}/itineraries`, {
+    const response = await fetch(`${ITINERARY_SERVICE_URL}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -31,10 +31,10 @@ export async function GET(req) {
     const page = searchParams.get('page');
     const limit = searchParams.get('limit');
 
-    let url = `${ITINERARY_SERVICE_URL}/itineraries`;
+    let url = `${ITINERARY_SERVICE_URL}`;
     
     if (id) {
-      url = `${ITINERARY_SERVICE_URL}/itineraries/${id}`;
+      url = `${ITINERARY_SERVICE_URL}/${id}`;
     } else {
       const params = new URLSearchParams();
       if (userId) params.append('userId', userId);
@@ -70,7 +70,7 @@ export async function PATCH(req) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const response = await fetch(`${ITINERARY_SERVICE_URL}/itineraries/${id}`, {
+    const response = await fetch(`${ITINERARY_SERVICE_URL}/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ export async function DELETE(req) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const response = await fetch(`${ITINERARY_SERVICE_URL}/itineraries/${id}`, {
+    const response = await fetch(`${ITINERARY_SERVICE_URL}/${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

@@ -1,8 +1,11 @@
 // API Configuration for Microservices
+// All requests go through the API Gateway on port 8000
+const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
+
 export const API_SERVICES = {
-  USER_SERVICE: process.env.NEXT_PUBLIC_USER_SERVICE_URL || 'http://localhost:8080/api/v1',
-  ITINERARY_SERVICE: process.env.NEXT_PUBLIC_ITINERARY_SERVICE_URL || 'http://localhost:8081/api/v1',
-  SOCIAL_SERVICE: process.env.NEXT_PUBLIC_SOCIAL_SERVICE_URL || 'http://localhost:8082/api/v1',
+  USER_SERVICE: `${API_GATEWAY_URL}/api/v1/users`,
+  ITINERARY_SERVICE: `${API_GATEWAY_URL}/api/v1/itineraries`,
+  SOCIAL_SERVICE: `${API_GATEWAY_URL}/api/v1/social`,
 };
 
 // Helper function for API requests with error handling

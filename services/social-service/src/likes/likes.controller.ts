@@ -10,7 +10,7 @@ import {
 import { LikesService } from './likes.service';
 import { ToggleLikeDto } from '../dto/toggle-like.dto';
 
-@Controller('api/v1/likes')
+@Controller('likes')
 export class LikesController {
   constructor(private readonly likesService: LikesService) {}
 

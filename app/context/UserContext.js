@@ -14,18 +14,35 @@ export function UserProvider({ children }) {
 
   const fetchMe = useCallback(async () => {
     try {
-      console.log("Fetching /api/user to get current user");
-      const res = await fetch("/api/user", { credentials: "include" });
-      const data = await res.json(); // nur einmal!
+      // Get JWT token from localStorage
+      const token = localStorage.getItem('access_token');
+      
+      if (!token) {
+        console.log("[UserContext] No access token found");
+        setUser(null);
+        setLoading(false);
+        return;
+      }
 
-      console.log("Fetched /api/user, status:", res.status, "data:", data);
+      console.log("[UserContext] Fetching /api/user with token");
+      const res = await fetch("/api/user", { 
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
 
-      if (res.ok) {
+      console.log("[UserContext] Fetched /api/user, status:", res.status);
+
+      if (res.ok && data.user) {
         setUser(data.user);
       } else {
         setUser(null);
+        // Clear invalid token
+        localStorage.removeItem('access_token');
       }
-    } catch {
+    } catch (error) {
+      console.error("[UserContext] Error fetching user:", error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -39,7 +56,10 @@ export function UserProvider({ children }) {
   const refresh = useCallback(fetchMe, [fetchMe]);
 
   const logout = useCallback(async () => {
-    await fetch("/api/user", { method: "DELETE", credentials: "include" });
+    // Clear JWT token from localStorage
+    localStorage.removeItem('access_token');
+    // Notify backend (optional)
+    await fetch("/api/user?action=logout", { method: "POST" });
     setUser(null);
   }, []);
 

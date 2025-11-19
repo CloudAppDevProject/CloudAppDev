@@ -6,8 +6,6 @@ import { InputText } from "primereact/inputtext";
 import { Password } from "primereact/password";
 import { Button } from "primereact/button";
 import ImageUploader from "./imageUpload";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient";
 
 // --- HILFSFUNKTIONEN FÜR SIGNED URLS (übernommen aus NewItinerary) ---
 
@@ -15,10 +13,11 @@ import { auth } from "@/lib/firebaseClient";
 const isHttp = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
 const isGs = (u) => typeof u === "string" && /^gs:\/\//i.test(u);
 
-/** Get signed URL from /api/image */
+/** Get signed URL from User Service through API Gateway */
 const getSignedUrl = async (url) => {
   try {
-    const resp = await fetch(`/api/image?path=${encodeURIComponent(url)}`);
+    const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
+    const resp = await fetch(`${gatewayUrl}/api/v1/users/signed-url?path=${encodeURIComponent(url)}`);
     if (!resp.ok) throw new Error("signing failed");
     const data = await resp.json();
     const signed = data?.url;
@@ -146,7 +145,10 @@ export default function ProfileForm({ user, onUpdate }) {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      // Clear JWT token from localStorage
+      localStorage.removeItem('access_token');
+      // Clear any session data
+      await fetch('/api/user?action=logout', { method: 'POST' });
       router.push("/login");
     } catch (error) {
       console.error("Logout Error:", error);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const SOCIAL_SERVICE_URL = process.env.SOCIAL_SERVICE_URL || 'http://localhost:8082/api/v1';
+const SOCIAL_SERVICE_URL = process.env.SOCIAL_SERVICE_URL || 'http://localhost:8000/api/v1/social';
 
 /**
  * POST /api/likes - Toggle like

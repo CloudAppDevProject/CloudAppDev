@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient";
+import { API_SERVICES } from "@/lib/api-config";
 
 // Force dynamic rendering - don't prerender this page at build time
 export const dynamic = 'force-dynamic';
@@ -14,42 +13,22 @@ export default function Login() {
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
-  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
-  const { refresh } = useUser(); // <-- statt setUser
-
-  useEffect(() => {
-    // Check if Firebase is initialized
-    if (!auth) {
-      setError("Firebase authentication is not available. Please check your configuration.");
-      console.error("[Login] Firebase auth is null");
-    } else {
-      setIsFirebaseReady(true);
-    }
-  }, []);
+  const [isLoading, setIsLoading] = useState(false);
+  const { refresh } = useUser();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-
-    // Validate Firebase is ready
-    if (!auth) {
-      setError("Authentication service is not available. Please try again later.");
-      return;
-    }
+    setIsLoading(true);
 
     try {
-      // 1) Firebase Login
-      const userCred = await signInWithEmailAndPassword(auth, form.email, form.password);
-      // 2) ID Token holen
-      const token = await userCred.user.getIdToken();
-      // 3) Backend informieren -> setzt HttpOnly-Cookie
-      const res = await fetch("/api/user?action=login", {
+      // Login via User Service through API Gateway
+      const res = await fetch(`${API_SERVICES.USER_SERVICE}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ email: form.email }),
+        body: JSON.stringify({ email: form.email, password: form.password }),
         credentials: "include",
       });
       if (!res.ok) {
@@ -61,9 +40,11 @@ export default function Login() {
 
       router.push("/");
     } catch (err) {
-      console.error(err);
+      console.error("[Login] Error:", err);
       setError(err.message || "Login failed");
-      await refresh(); // sorgt dafür, dass Context sicher auf null steht
+      await refresh(); // Ensures context is reset on error
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -90,8 +71,8 @@ export default function Login() {
         <div className="flex gap-4">
           <Button 
             type="submit" 
-            label={isFirebaseReady ? 'Login' : 'Loading...'}
-            disabled={!isFirebaseReady}
+            label={isLoading ? 'Logging in...' : 'Login'}
+            disabled={isLoading}
           />
           <Button
             type="button"
@@ -106,12 +87,6 @@ export default function Login() {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
           <strong className="font-bold">Error: </strong>
           <span className="block sm:inline">{error}</span>
-        </div>
-      )}
-      
-      {!isFirebaseReady && !error && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
-          <span className="block sm:inline">⏳ Initializing authentication service...</span>
         </div>
       )}
     </div>

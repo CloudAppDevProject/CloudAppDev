@@ -42,10 +42,11 @@ export default function NewItinerary() {
   const isHttp = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
   const isGs = (u) => typeof u === "string" && /^gs:\/\//i.test(u);
 
-  /** Get signed URL from /api/image */
+  /** Get signed URL from Itinerary Service through API Gateway */
   const getSignedUrl = async (url) => {
     try {
-      const resp = await fetch(`/api/image?path=${encodeURIComponent(url)}`);
+      const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
+      const resp = await fetch(`${gatewayUrl}/api/v1/itineraries/signed-url?path=${encodeURIComponent(url)}`);
       if (!resp.ok) throw new Error("signing failed");
       const data = await resp.json();
       const signed = data?.url;
@@ -250,7 +251,7 @@ export default function NewItinerary() {
               <div>
                 <label className="block mb-2 font-semibold text-primary">Upload Images for this location</label>
 
-                <ImageUploader maxFiles={5} onUploaded={(imgs) => handleLocationImagesChange(idx, imgs)} />
+                <ImageUploader maxFiles={5} onUploaded={(imgs) => handleLocationImagesChange(idx, imgs)} service="itinerary" />
               </div>
 
               {/* Preview signed URLs only */}

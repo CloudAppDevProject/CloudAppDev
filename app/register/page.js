@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Password } from "primereact/password";
 import { InputText } from "primereact/inputtext";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient"; // Dein Firebase Client Setup
+import { API_SERVICES } from "@/lib/api-config";
 
 // Force dynamic rendering - don't prerender this page at build time
 export const dynamic = 'force-dynamic';
@@ -14,67 +13,46 @@ export default function Register() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
-  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
-
-  useEffect(() => {
-    // Check if Firebase is initialized
-    if (!auth) {
-      setError("Firebase authentication is not available. Please check your configuration.");
-      console.error("[Register] Firebase auth is null");
-    } else {
-      setIsFirebaseReady(true);
-    }
-  }, []);
+  const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-
-    // Validate Firebase is ready
-    if (!auth) {
-      setError("Authentication service is not available. Please try again later.");
-      return;
-    }
+    setIsLoading(true);
 
     try {
-      // 1️⃣ User in Firebase Auth erstellen
-      const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-
-      // 2️⃣ Optional: Display Name setzen
-      if (form.name) {
-        await updateProfile(userCredential.user, { displayName: form.name });
-      }
-
-      // 3️⃣ ID-Token vom Client holen
-      const idToken = await userCredential.user.getIdToken(true);
-      console.log("ID Token:", idToken);
-
-      // 4️⃣ Token ans Backend senden, damit User in Prisma angelegt wird
-      const res = await fetch("/api/user?action=register", {
+      // Register via User Service through API Gateway
+      const res = await fetch(`${API_SERVICES.USER_SERVICE}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`, // 🔑 wichtig
         },
-        body: JSON.stringify({ displayName: form.name }),
+        body: JSON.stringify({ 
+          email: form.email, 
+          password: form.password,
+          name: form.name 
+        }),
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Registration failed");
+        const errData = await res.json().catch(() => ({ message: "Registration failed" }));
+        throw new Error(errData.message || "Registration failed");
       }
 
-      const newUser = await res.json();
+      const { access_token, user } = await res.json();
+      console.log("[Register] User registered:", user);
 
-      // 5️⃣ Optional: User in Context speichern, falls du globalen User-Context hast
-      // setUser({ ...newUser, token: idToken });
+      // Store JWT token in localStorage
+      localStorage.setItem('access_token', access_token);
 
-      // 6️⃣ Form zurücksetzen und zu Login navigieren
+      // Redirect to home page (user is now logged in)
       setForm({ name: "", email: "", password: "" });
-      router.push("/login");
+      router.push("/");
     } catch (err) {
-      console.error(err);
+      console.error("[Register] Error:", err);
       setError(err.message || "Registration failed");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -121,9 +99,9 @@ export default function Register() {
         <button 
           type="submit" 
           className="bg-blue-600 text-white px-4 py-2 rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
-          disabled={!isFirebaseReady}
+          disabled={isLoading}
         >
-          {isFirebaseReady ? 'Register' : 'Loading...'}
+          {isLoading ? 'Registering...' : 'Register'}
         </button>
       </form>
 
@@ -131,12 +109,6 @@ export default function Register() {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
           <strong className="font-bold">Error: </strong>
           <span className="block sm:inline">{error}</span>
-        </div>
-      )}
-      
-      {!isFirebaseReady && !error && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
-          <span className="block sm:inline">⏳ Initializing authentication service...</span>
         </div>
       )}
     </div>

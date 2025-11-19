@@ -5,8 +5,8 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Global prefix for all routes
-  app.setGlobalPrefix('api/v1');
+  // Global prefix for all routes (API Gateway ready)
+  app.setGlobalPrefix('api/v1/itineraries');
   
   // Enable CORS for frontend
   app.enableCors({

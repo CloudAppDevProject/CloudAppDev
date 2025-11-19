@@ -5,6 +5,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
+  // Global prefix for all routes (API Gateway ready)
+  app.setGlobalPrefix('api/v1/social');
+  
   // Enable CORS for all services
   app.enableCors({
     origin: process.env.CORS_ORIGIN || '*',
