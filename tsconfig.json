@@ -29,5 +29,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/api/itineraries/route.js"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "services", "nginx", "locust", "terraform", "scripts", ".next", "dist", "build"]
 }

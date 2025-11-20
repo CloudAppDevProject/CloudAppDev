@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # package manager
-package-lock.json
+# package-lock.json  # Commented out - lock files should be committed for reproducible builds
 
 # vscode
 .vscode/settings.json
