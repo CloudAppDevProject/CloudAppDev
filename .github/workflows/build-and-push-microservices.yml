@@ -98,37 +98,37 @@ jobs:
             "frontend")
               echo "image-name=cloudappdev-frontend" >> $GITHUB_OUTPUT
               echo "context=." >> $GITHUB_OUTPUT
-              echo "dockerfile=./Dockerfile" >> $GITHUB_OUTPUT
+              echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Next.js Frontend Application" >> $GITHUB_OUTPUT
               ;;
             "user-service")
               echo "image-name=cloudappdev-user-service" >> $GITHUB_OUTPUT
               echo "context=./services/user-service" >> $GITHUB_OUTPUT
-              echo "dockerfile=./services/user-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev User Management Microservice" >> $GITHUB_OUTPUT
               ;;
             "itinerary-service")
               echo "image-name=cloudappdev-itinerary-service" >> $GITHUB_OUTPUT
               echo "context=./services/itinerary-service" >> $GITHUB_OUTPUT
-              echo "dockerfile=./services/itinerary-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Itinerary Management Microservice" >> $GITHUB_OUTPUT
               ;;
             "social-service")
               echo "image-name=cloudappdev-social-service" >> $GITHUB_OUTPUT
               echo "context=./services/social-service" >> $GITHUB_OUTPUT
-              echo "dockerfile=./services/social-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Social Features Microservice" >> $GITHUB_OUTPUT
               ;;
             "travel-info-service")
               echo "image-name=cloudappdev-travel-info-service" >> $GITHUB_OUTPUT
               echo "context=./services/travel-info-service" >> $GITHUB_OUTPUT
-              echo "dockerfile=./services/travel-info-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Travel Information Microservice" >> $GITHUB_OUTPUT
               ;;
             "api-gateway")
               echo "image-name=cloudappdev-api-gateway" >> $GITHUB_OUTPUT
               echo "context=./nginx" >> $GITHUB_OUTPUT
-              echo "dockerfile=./nginx/Dockerfile.gateway" >> $GITHUB_OUTPUT
+              echo "dockerfile=Dockerfile.gateway" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev NGINX API Gateway" >> $GITHUB_OUTPUT
               ;;
             *)
