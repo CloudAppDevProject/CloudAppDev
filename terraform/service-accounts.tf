@@ -8,13 +8,16 @@ resource "google_service_account" "run_sa" {
 }
 
 
-// Allow public access if you want a public URL
-resource "google_cloud_run_service_iam_member" "invoker" {
-  location = google_cloud_run_v2_service.paas_frontend.location
-  service  = google_cloud_run_v2_service.paas_frontend.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+# // Allow public access if you want a public URL
+//
+// Uncomment for paas frontend
+// 
+# resource "google_cloud_run_service_iam_member" "invoker" {
+#   location = google_cloud_run_v2_service.paas_frontend.location
+#   service  = google_cloud_run_v2_service.paas_frontend.name
+#   role     = "roles/run.invoker"
+#   member   = "allUsers"
+# }
 
 // Service Account key base 64 encoded
 resource "google_service_account_key" "run_sa_key" {
