@@ -1,0 +1,256 @@
+name: Build and Push All Services to GCR
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'prisma/**'
+      - 'public/**'
+      - 'services/**'
+      - 'nginx/**'
+      - 'Dockerfile'
+      - 'package.json'
+      - '.github/workflows/build-and-push-microservices.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Manual tag for the Docker images'
+        required: false
+        default: 'manual'
+      services:
+        description: 'Services to build (comma-separated: frontend,user,itinerary,social,travel-info,gateway or "all")'
+        required: false
+        default: 'all'
+
+env:
+  ARTIFACT_REGISTRY_HOSTNAME: europe-west1-docker.pkg.dev
+  REPOSITORY_NAME: docker-repo
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set-matrix.outputs.services }}
+      version: ${{ steps.version.outputs.version }}
+      short-sha: ${{ steps.version.outputs.short-sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          # Get short SHA
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          
+          # Generate semantic version based on commits
+          VERSION=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "0.1.0")
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          BUILD_VERSION="${VERSION}.${COMMIT_COUNT}"
+          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
+          
+          echo "Generated version: ${BUILD_VERSION}"
+          echo "Short SHA: ${SHORT_SHA}"
+
+      - name: Set service matrix
+        id: set-matrix
+        run: |
+          SERVICES_INPUT="${{ github.event.inputs.services }}"
+          
+          if [ -z "$SERVICES_INPUT" ] || [ "$SERVICES_INPUT" = "all" ]; then
+            # Build all services
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+          else
+            # Convert comma-separated input to JSON array
+            SERVICES=$(echo "$SERVICES_INPUT" | jq -R -c 'split(",") | map(. | gsub("^\\s+|\\s+$";""))')
+          fi
+          
+          echo "services=${SERVICES}" >> $GITHUB_OUTPUT
+          echo "Building services: ${SERVICES}"
+
+  build-and-push:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.prepare.outputs.services) }}
+      fail-fast: false
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set service configuration
+        id: config
+        run: |
+          case "${{ matrix.service }}" in
+            "frontend")
+              echo "image-name=cloudappdev-frontend" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "dockerfile=./Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Next.js Frontend Application" >> $GITHUB_OUTPUT
+              ;;
+            "user-service")
+              echo "image-name=cloudappdev-user-service" >> $GITHUB_OUTPUT
+              echo "context=./services/user-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/user-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev User Management Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "itinerary-service")
+              echo "image-name=cloudappdev-itinerary-service" >> $GITHUB_OUTPUT
+              echo "context=./services/itinerary-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/itinerary-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Itinerary Management Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "social-service")
+              echo "image-name=cloudappdev-social-service" >> $GITHUB_OUTPUT
+              echo "context=./services/social-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/social-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Social Features Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "travel-info-service")
+              echo "image-name=cloudappdev-travel-info-service" >> $GITHUB_OUTPUT
+              echo "context=./services/travel-info-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/travel-info-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Travel Information Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "api-gateway")
+              echo "image-name=cloudappdev-api-gateway" >> $GITHUB_OUTPUT
+              echo "context=./nginx" >> $GITHUB_OUTPUT
+              echo "dockerfile=./nginx/Dockerfile.gateway" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev NGINX API Gateway" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown service: ${{ matrix.service }}"
+              exit 1
+              ;;
+          esac
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Google Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ steps.config.outputs.image-name }}
+          flavor: |
+            latest=auto
+          tags: |
+            # Tag with 'latest' on master branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Tag with branch name
+            type=ref,event=branch
+            # Tag with version number
+            type=raw,value=${{ needs.prepare.outputs.version }}
+            # Tag with version + SHA
+            type=raw,value=${{ needs.prepare.outputs.version }}-${{ needs.prepare.outputs.short-sha }}
+            # Tag with git SHA (short)
+            type=sha,prefix=sha-,format=short
+            # Tag with semver for version tags
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # Tag with PR number for pull requests
+            type=ref,event=pr,prefix=pr-
+            # Tag with manual input if workflow_dispatch
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+          labels: |
+            org.opencontainers.image.title=${{ steps.config.outputs.image-name }}
+            org.opencontainers.image.description=${{ steps.config.outputs.description }}
+            org.opencontainers.image.vendor=CloudAppDev
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            com.cloudappdev.service=${{ matrix.service }}
+            com.cloudappdev.build.number=${{ github.run_number }}
+            com.cloudappdev.git.sha=${{ github.sha }}
+            com.cloudappdev.git.branch=${{ github.ref_name }}
+      
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.config.outputs.context }}
+          file: ${{ steps.config.outputs.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          platforms: linux/amd64
+          target: production
+          # Build args for frontend only
+          build-args: |
+            ${{ matrix.service == 'frontend' && format('DATABASE_URL_BUILD={0}', secrets.DATABASE_URL_BUILD || 'postgresql://build:build@localhost:5432/build?schema=public') || '' }}
+            ${{ matrix.service == 'frontend' && format('MONGODB_URI_BUILD={0}', secrets.MONGODB_URI_BUILD || 'mongodb://build:build@localhost:27017/build') || '' }}
+            ${{ matrix.service == 'frontend' && format('GCS_CREDENTIALS_BUILD={0}', secrets.GCS_CREDENTIALS_BUILD || 'build-dummy-credentials') || '' }}
+            ${{ matrix.service == 'frontend' && format('GCS_PROJECT_BUILD={0}', secrets.GCS_PROJECT_BUILD || 'build-project') || '' }}
+            ${{ matrix.service == 'frontend' && format('GCS_BUCKET_BUILD={0}', secrets.GCS_BUCKET_BUILD || 'build-bucket') || '' }}
+            ${{ matrix.service == 'frontend' && format('FIREBASE_CREDENTIALS_BUILD={0}', secrets.FIREBASE_CREDENTIALS_BUILD || 'build-dummy-firebase') || '' }}
+            ${{ matrix.service == 'frontend' && format('FIREBASE_API_KEY_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_KEY) || '' }}
+            ${{ matrix.service == 'frontend' && format('FIREBASE_AUTH_DOMAIN_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_DOMAIN) || '' }}
+            ${{ matrix.service == 'frontend' && format('FIREBASE_PROJECT_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_PROJECT_ID) || '' }}
+      
+      - name: Image digest
+        run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
+      
+      - name: Service summary
+        run: |
+          echo "## 🐳 ${{ matrix.service }} Built Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.config.outputs.image-name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**SHA:** \`${{ needs.prepare.outputs.short-sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    needs: [prepare, build-and-push]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Build summary
+        run: |
+          echo "## 📦 Multi-Service Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**SHA:** \`${{ needs.prepare.outputs.short-sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services Built:" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare.outputs.services }}" | jq -r '.[]' | while read service; do
+            echo "- ✅ ${service}" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Deployment Commands:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull all images with version tag:" >> $GITHUB_STEP_SUMMARY
+          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-frontend:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-user-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-itinerary-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-social-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-travel-info-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-api-gateway:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

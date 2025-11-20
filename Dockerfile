@@ -70,7 +70,7 @@ ENV GOOGLE_CLOUD_STORAGE_BUCKET=
 ENV FIREBASE_SERVICE_ACCOUNT_JSON_BASE64=
 
 # Production image, copy all the files and run next
-FROM base AS runner
+FROM base AS production
 WORKDIR /app
 ENV NODE_ENV=production
 # Disable telemetry during runtime.
