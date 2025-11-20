@@ -17,14 +17,24 @@ on:
       - '.github/workflows/build-and-push-microservices.yml'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Manual tag for the Docker images'
-        required: false
-        default: 'manual'
       services:
-        description: 'Services to build (comma-separated: frontend,user,itinerary,social,travel-info,gateway or "all")'
+        description: 'Services to build'
         required: false
+        type: choice
         default: 'all'
+        options:
+          - all
+          - changed-only
+          - frontend
+          - user-service
+          - itinerary-service
+          - social-service
+          - travel-info-service
+          - api-gateway
+      tag:
+        description: 'Custom tag for Docker images (optional)'
+        required: false
+        default: ''
 
 env:
   ARTIFACT_REGISTRY_HOSTNAME: europe-west1-docker.pkg.dev
@@ -42,20 +52,62 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      
+      - name: Detect changed files
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'app/**'
+              - 'lib/**'
+              - 'prisma/**'
+              - 'public/**'
+              - 'Dockerfile'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'next.config.ts'
+            user-service:
+              - 'services/user-service/**'
+            itinerary-service:
+              - 'services/itinerary-service/**'
+            social-service:
+              - 'services/social-service/**'
+            travel-info-service:
+              - 'services/travel-info-service/**'
+            api-gateway:
+              - 'nginx/**'
+            workflow:
+              - '.github/workflows/build-and-push-microservices.yml'
 
       - name: Generate version
         id: version
         run: |
-          # Get short SHA
+          # Get short SHA for reference
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           
-          # Generate semantic version based on commits
-          VERSION=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "0.1.0")
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          BUILD_VERSION="${VERSION}.${COMMIT_COUNT}"
-          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
+          # Try to get latest git tag, otherwise start at v0.1.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           
+          # Remove 'v' prefix if present
+          VERSION=${LATEST_TAG#v}
+          
+          # If no tags exist or on master/main, increment patch version
+          if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
+            # Parse version components
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            BUILD_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          else
+            # For develop branch, add build number
+            BUILD_NUMBER="${{ github.run_number }}"
+            BUILD_VERSION="${VERSION}-dev.${BUILD_NUMBER}"
+          fi
+          
+          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
           echo "Generated version: ${BUILD_VERSION}"
           echo "Short SHA: ${SHORT_SHA}"
 
@@ -64,19 +116,55 @@ jobs:
         run: |
           SERVICES_INPUT="${{ github.event.inputs.services }}"
           
-          if [ -z "$SERVICES_INPUT" ] || [ "$SERVICES_INPUT" = "all" ]; then
-            # Build all services
+          # Manual trigger with "all" - force build everything
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
             SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            echo "Manual trigger (all) - building all services"
+          # Manual trigger with specific service
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$SERVICES_INPUT" ] && [ "$SERVICES_INPUT" != "all" ] && [ "$SERVICES_INPUT" != "changed-only" ]; then
+            SERVICES="[\"$SERVICES_INPUT\"]"
+            echo "Manual trigger - building: ${SERVICES}"
+          # Workflow file changed or manual "changed-only" - build everything as safety measure
+          elif [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            echo "⚠️ Workflow changed - building all services for safety"
           else
-            # Convert comma-separated input to JSON array
-            SERVICES=$(echo "$SERVICES_INPUT" | jq -R -c 'split(",") | map(. | gsub("^\\s+|\\s+$";""))')
+            # Build only changed services
+            SERVICES="[]"
+            
+            if [ "${{ steps.changes.outputs.frontend }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["frontend"]')
+            fi
+            if [ "${{ steps.changes.outputs.user-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["user-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.itinerary-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["itinerary-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.social-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["social-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.travel-info-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["travel-info-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.api-gateway }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["api-gateway"]')
+            fi
+            
+            # If no services changed, build nothing
+            if [ "$SERVICES" = "[]" ]; then
+              echo "No service files changed - skipping build"
+            else
+              echo "Building changed services: ${SERVICES}"
+            fi
           fi
           
           echo "services=${SERVICES}" >> $GITHUB_OUTPUT
-          echo "Building services: ${SERVICES}"
 
   build-and-push:
     needs: prepare
+    # Skip job if no services to build
+    if: needs.prepare.outputs.services != '[]'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -157,22 +245,14 @@ jobs:
           tags: |
             # Tag with 'latest' on master branch
             type=raw,value=latest,enable={{is_default_branch}}
-            # Tag with branch name
-            type=ref,event=branch
-            # Tag with version number
+            # Tag with semantic version (e.g., 0.1.2 or 0.1.0-dev.42)
             type=raw,value=${{ needs.prepare.outputs.version }}
-            # Tag with version + SHA
-            type=raw,value=${{ needs.prepare.outputs.version }}-${{ needs.prepare.outputs.short-sha }}
-            # Tag with git SHA (short)
-            type=sha,prefix=sha-,format=short
-            # Tag with semver for version tags
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            # Tag with PR number for pull requests
-            type=ref,event=pr,prefix=pr-
+            # Tag with major.minor (e.g., 0.1)
+            type=raw,value=${{ needs.prepare.outputs.version }},suffix=,enable=${{ !contains(needs.prepare.outputs.version, 'dev') }},pattern={{major}}.{{minor}}
+            # Tag with short SHA for reference (e.g., sha-abc1234)
+            type=raw,value=sha-${{ needs.prepare.outputs.short-sha }}
             # Tag with manual input if workflow_dispatch
-            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
           labels: |
             org.opencontainers.image.title=${{ steps.config.outputs.image-name }}
             org.opencontainers.image.description=${{ steps.config.outputs.description }}
@@ -231,6 +311,9 @@ jobs:
     steps:
       - name: Build summary
         run: |
+          SERVICES='${{ needs.prepare.outputs.services }}'
+          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+          
           echo "## 📦 Multi-Service Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
@@ -238,10 +321,27 @@ jobs:
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Services Built:" >> $GITHUB_STEP_SUMMARY
-          echo "${{ needs.prepare.outputs.services }}" | jq -r '.[]' | while read service; do
-            echo "- ✅ ${service}" >> $GITHUB_STEP_SUMMARY
-          done
+          
+          # Services that were built
+          BUILT_COUNT=$(echo "$SERVICES" | jq 'length')
+          if [ "$BUILT_COUNT" -gt 0 ]; then
+            echo "### ✅ Services Built ($BUILT_COUNT):" >> $GITHUB_STEP_SUMMARY
+            echo "$SERVICES" | jq -r '.[]' | while read service; do
+              echo "- ✅ ${service}" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Services that were skipped
+          SKIPPED=$(echo "$ALL_SERVICES" | jq -c --argjson built "$SERVICES" '. - $built')
+          SKIPPED_COUNT=$(echo "$SKIPPED" | jq 'length')
+          if [ "$SKIPPED_COUNT" -gt 0 ]; then
+            echo "### ⏭️ Services Skipped ($SKIPPED_COUNT - no changes detected):" >> $GITHUB_STEP_SUMMARY
+            echo "$SKIPPED" | jq -r '.[]' | while read service; do
+              echo "- ⏭️ ${service}" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🚀 Deployment Commands:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
