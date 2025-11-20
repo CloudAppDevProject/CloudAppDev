@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps
@@ -21,7 +21,7 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install production dependencies only
 RUN npm ci --only=production --legacy-peer-deps

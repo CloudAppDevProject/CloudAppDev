@@ -195,7 +195,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           platforms: linux/amd64
-          target: production
+          target: ${{ matrix.service != 'api-gateway' && 'production' || '' }}
           # Build args for frontend only
           build-args: |
             ${{ matrix.service == 'frontend' && format('DATABASE_URL_BUILD={0}', secrets.DATABASE_URL_BUILD || 'postgresql://build:build@localhost:5432/build?schema=public') || '' }}

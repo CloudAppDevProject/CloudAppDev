@@ -1,7 +1,7 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
 COPY tsconfig*.json nest-cli.json ./
@@ -15,7 +15,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=8083
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
