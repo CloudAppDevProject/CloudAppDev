@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: itinerary-service
+spec:
+  selector:
+    matchLabels:
+      app: itinerary-service
+  template:
+    metadata:
+      labels:
+        app: itinerary-service
+    spec:
+      containers:
+      - name: itinerary-service
+        image: <Image>
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8081
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: NODE_ENV
+        - name: DATABASE_URL
+          value: "DATABASE_URL=postgresql://appuser:devpass123@127.0.0.1:3306/itineraries_db?schema=public"
+        - name: SOCIAL_SERVICE_URL
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: SOCIAL_SERVICE_URL
+        - name: USER_SERVICE_URL
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: USER_SERVICE_URL
+        - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+        - name: GOOGLE_CLOUD_STORAGE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: GOOGLE_CLOUD_STORAGE_BUCKET
+        - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: GOOGLE_CLOUD_CREDENTIALS_BASE64
+        - name: GOOGLE_CLOUD_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: GOOGLE_CLOUD_PROJECT_ID
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sqlproxy:2.8.0
+        args:
+          - "--port=3306"
+          - "swqs-camping:europe-west1:camping-mysql"
+        securityContext:
+          runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            memory: "512Mi"

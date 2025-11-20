@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: itinerary-service-service
+spec:
+  selector:
+    app: itinerary-service
+  ports:
+  - port: 8080
+    targetPort: 8080

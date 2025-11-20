@@ -24,8 +24,6 @@ variable "frontend_version" {
   default = "latest"
 }
 
-
-// TESTING
 variable "cloudflare_zone_id" {
   default = "ddbd47810ae075fc0bc55a4ef05a91ec"
 }
@@ -34,3 +32,5 @@ variable "hostname" {
   default = "cloudappdev.site"
 }
 
+data "google_project" "project" {
+}
