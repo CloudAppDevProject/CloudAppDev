@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cloudappdev-seeder
+  namespace: default
+  labels:
+    app: cloudappdev-seeder
+    component: database-seeding
+spec:
+  # Job should not be retried automatically on failure (manual intervention required)
+  backoffLimit: 0
+  
+  # Clean up completed jobs after 1 hour
+  ttlSecondsAfterFinished: 3600
+  
+  template:
+    metadata:
+      labels:
+        app: cloudappdev-seeder
+    spec:
+      restartPolicy: Never
+      
+      # Service account with database access permissions
+      serviceAccountName: cloudappdev-service-account
+      
+      containers:
+      - name: seeder
+        image: europe-west1-docker.pkg.dev/PROJECT_ID/docker-repo/seeder:latest
+        imagePullPolicy: Always
+        
+        # Environment variables from secrets
+        env:
+        # User Service Database
+        - name: USER_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: user-database-url
+        
+        # Itinerary Service Database
+        - name: ITINERARY_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: itinerary-database-url
+        
+        # Social Service MongoDB
+        - name: SOCIAL_MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: cloudappdev-secrets
+              key: social-mongodb-uri
+        
+        # Seed data location (built into image)
+        - name: SEED_DATA_PATH
+          value: "/app/seed-data/dataset.json"
+        
+        # Resource limits to prevent runaway processes
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+# Optional: ConfigMap for seed data (alternative to baking into image)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seed-dataset
+  namespace: default
+data:
+  dataset.json: |
+    # Paste your seed-data/dataset.json content here
+    # OR use kubectl create configmap seed-dataset --from-file=seed-data/dataset.json

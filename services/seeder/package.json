@@ -1,0 +1,15 @@
+{
+  "name": "cloudappdev-seeder",
+  "version": "1.0.0",
+  "description": "Unified seeding container for CloudAppDev microservices",
+  "type": "module",
+  "main": "seed.js",
+  "scripts": {
+    "seed": "cd ../user-service && npx prisma generate && cd ../itinerary-service && npx prisma generate && cd ../seeder && node seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0",
+    "mongodb": "^6.0.0",
+    "prisma": "^6.1.0"
+  }
+}

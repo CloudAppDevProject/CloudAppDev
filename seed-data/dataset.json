@@ -1,0 +1,434 @@
+{
+  "users": [
+    {
+      "key": "emma-rodriguez",
+      "name": "Emma Rodriguez",
+      "email": "emma.rodriguez@example.com",
+      "password": "password123"
+    },
+    {
+      "key": "liam-chen",
+      "name": "Liam Chen",
+      "email": "liam.chen@example.com",
+      "googleUid": "google_liam_uid_001"
+    },
+    {
+      "key": "sofia-andersson",
+      "name": "Sofia Andersson",
+      "email": "sofia.andersson@example.com",
+      "password": "password123"
+    },
+    {
+      "key": "noah-patel",
+      "name": "Noah Patel",
+      "email": "noah.patel@example.com",
+      "googleUid": "google_noah_uid_002"
+    },
+    {
+      "key": "olivia-schmidt",
+      "name": "Olivia Schmidt",
+      "email": "olivia.schmidt@example.com",
+      "password": "password123"
+    },
+    {
+      "key": "ethan-kowalski",
+      "name": "Ethan Kowalski",
+      "email": "ethan.kowalski@example.com",
+      "googleUid": "google_ethan_uid_003"
+    },
+    {
+      "key": "ava-nakamura",
+      "name": "Ava Nakamura",
+      "email": "ava.nakamura@example.com",
+      "password": "password123"
+    },
+    {
+      "key": "lucas-dubois",
+      "name": "Lucas Dubois",
+      "email": "lucas.dubois@example.com",
+      "googleUid": "google_lucas_uid_004"
+    },
+    {
+      "key": "maria-garcia",
+      "name": "Maria Garcia",
+      "email": "maria.garcia@example.com",
+      "password": "password123"
+    },
+    {
+      "key": "yuki-tanaka",
+      "name": "Yuki Tanaka",
+      "email": "yuki.tanaka@example.com",
+      "googleUid": "google_yuki_uid_005"
+    }
+  ],
+  "itineraries": [
+    {
+      "key": "discover-ancient-rome",
+      "userKey": "emma-rodriguez",
+      "title": "Discovering Ancient Rome",
+      "destination": "Rome, Italy",
+      "start_date": "2025-03-15",
+      "short_desc": "A week exploring the eternal city",
+      "detail_desc": "Starting with the Colosseum and Roman Forum, followed by Vatican City tours.",
+      "locations": [
+        {
+          "name": "Colosseum & Roman Forum",
+          "start_date": "2025-03-15",
+          "end_date": "2025-03-16",
+          "short_desc": "Ancient Roman ruins and gladiator arena",
+          "images": ["locations/rome_colosseum_1.jpg", "locations/rome_forum_1.jpg"]
+        },
+        {
+          "name": "Vatican City",
+          "start_date": "2025-03-17",
+          "end_date": "2025-03-18",
+          "short_desc": "Sistine Chapel and St. Peter's Basilica",
+          "images": ["locations/vatican_sistine_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "barcelona-architecture-tour",
+      "userKey": "emma-rodriguez",
+      "title": "Barcelona Architecture Tour",
+      "destination": "Barcelona, Spain",
+      "start_date": "2025-05-20",
+      "short_desc": "Gaudí masterpieces and Catalan culture",
+      "detail_desc": "Deep dive into Barcelona's modernist architecture.",
+      "locations": [
+        {
+          "name": "Sagrada Familia",
+          "start_date": "2025-05-20",
+          "end_date": "2025-05-20",
+          "short_desc": "Gaudí's unfinished masterpiece basilica",
+          "images": ["locations/barcelona_sagrada_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "tokyo-tech-tradition",
+      "userKey": "liam-chen",
+      "title": "Tokyo Tech & Tradition",
+      "destination": "Tokyo, Japan",
+      "start_date": "2025-04-10",
+      "short_desc": "Blending futuristic and traditional Tokyo",
+      "detail_desc": "Experiencing Tokyo's contrasts.",
+      "locations": [
+        {
+          "name": "Senso-ji Temple & Asakusa",
+          "start_date": "2025-04-10",
+          "end_date": "2025-04-11",
+          "short_desc": "Tokyo's oldest Buddhist temple",
+          "images": ["locations/tokyo_sensoji_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "kyoto-cultural-immersion",
+      "userKey": "liam-chen",
+      "title": "Kyoto Cultural Immersion",
+      "destination": "Kyoto, Japan",
+      "start_date": "2025-04-18",
+      "short_desc": "Traditional temples and tea ceremonies",
+      "detail_desc": "Visiting Fushimi Inari shrine.",
+      "locations": [
+        {
+          "name": "Fushimi Inari Shrine",
+          "start_date": "2025-04-18",
+          "end_date": "2025-04-19",
+          "short_desc": "Thousands of vermillion torii gates",
+          "images": ["locations/kyoto_fushimi_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "icelandic-adventure",
+      "userKey": "sofia-andersson",
+      "title": "Icelandic Adventure",
+      "destination": "Reykjavik, Iceland",
+      "start_date": "2025-06-05",
+      "short_desc": "Northern nature at its finest",
+      "detail_desc": "Road trip around the Golden Circle.",
+      "locations": [
+        {
+          "name": "Golden Circle - Gullfoss",
+          "start_date": "2025-06-05",
+          "end_date": "2025-06-06",
+          "short_desc": "Majestic two-tier waterfall",
+          "images": ["locations/iceland_gullfoss_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "norwegian-fjords-expedition",
+      "userKey": "sofia-andersson",
+      "title": "Norwegian Fjords Expedition",
+      "destination": "Bergen, Norway",
+      "start_date": "2025-07-12",
+      "short_desc": "Breathtaking fjords and hiking",
+      "detail_desc": "Exploring Bergen's colorful Bryggen wharf.",
+      "locations": [
+        {
+          "name": "Bergen Bryggen Wharf",
+          "start_date": "2025-07-12",
+          "end_date": "2025-07-13",
+          "short_desc": "UNESCO World Heritage colorful buildings",
+          "images": ["locations/norway_bryggen_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "backpacking-southeast-asia",
+      "userKey": "noah-patel",
+      "title": "Backpacking Southeast Asia",
+      "destination": "Bangkok, Thailand",
+      "start_date": "2025-11-01",
+      "short_desc": "3-month adventure through Thailand, Vietnam, Cambodia",
+      "detail_desc": "Starting in Bangkok with temple tours.",
+      "locations": [
+        {
+          "name": "Bangkok Temples & Street Food",
+          "start_date": "2025-11-01",
+          "end_date": "2025-11-07",
+          "short_desc": "Grand Palace, Wat Pho, floating markets",
+          "images": ["locations/bangkok_temple_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "mumbai-food-safari",
+      "userKey": "noah-patel",
+      "title": "Mumbai Food Safari",
+      "destination": "Mumbai, India",
+      "start_date": "2025-09-15",
+      "short_desc": "Culinary journey through Indian flavors",
+      "detail_desc": "Street food tours in Chowpatty Beach.",
+      "locations": [
+        {
+          "name": "Chowpatty Beach Street Food",
+          "start_date": "2025-09-15",
+          "end_date": "2025-09-16",
+          "short_desc": "Pani puri, bhel puri, and sunset views",
+          "images": ["locations/mumbai_chowpatty_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "new-zealand-south-island",
+      "userKey": "olivia-schmidt",
+      "title": "New Zealand South Island Road Trip",
+      "destination": "Christchurch, New Zealand",
+      "start_date": "2025-12-05",
+      "short_desc": "Epic landscapes and adventure sports",
+      "detail_desc": "Campervan journey through South Island.",
+      "locations": [
+        {
+          "name": "Queenstown Adventure Sports",
+          "start_date": "2025-12-05",
+          "end_date": "2025-12-08",
+          "short_desc": "Bungee jumping, skiing, and lake views",
+          "images": ["locations/queenstown_bungee_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "great-barrier-reef",
+      "userKey": "olivia-schmidt",
+      "title": "Australian Great Barrier Reef",
+      "destination": "Cairns, Australia",
+      "start_date": "2026-01-15",
+      "short_desc": "Diving and tropical rainforest",
+      "detail_desc": "Scuba diving and snorkeling at the Great Barrier Reef.",
+      "locations": [
+        {
+          "name": "Great Barrier Reef Diving",
+          "start_date": "2026-01-15",
+          "end_date": "2026-01-17",
+          "short_desc": "World's largest coral reef system",
+          "images": ["locations/barrier_reef_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "trans-siberian-railway",
+      "userKey": "ethan-kowalski",
+      "title": "Trans-Siberian Railway Journey",
+      "destination": "Moscow to Vladivostok, Russia",
+      "start_date": "2025-08-01",
+      "short_desc": "Epic train journey across Russia",
+      "detail_desc": "Week-long train adventure from Moscow through Siberia.",
+      "locations": [
+        {
+          "name": "Moscow Red Square",
+          "start_date": "2025-08-01",
+          "end_date": "2025-08-02",
+          "short_desc": "Kremlin, St. Basil's Cathedral",
+          "images": ["locations/moscow_red_square_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "polish-heritage-tour",
+      "userKey": "ethan-kowalski",
+      "title": "Polish Heritage Tour",
+      "destination": "Krakow, Poland",
+      "start_date": "2025-05-08",
+      "short_desc": "History and culture of Poland",
+      "detail_desc": "Exploring Krakow's medieval old town.",
+      "locations": [
+        {
+          "name": "Krakow Old Town & Main Square",
+          "start_date": "2025-05-08",
+          "end_date": "2025-05-09",
+          "short_desc": "Medieval market square and St. Mary's Basilica",
+          "images": ["locations/krakow_square_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "swiss-alps-skiing",
+      "userKey": "ava-nakamura",
+      "title": "Swiss Alps Skiing Holiday",
+      "destination": "Zermatt, Switzerland",
+      "start_date": "2025-02-10",
+      "short_desc": "World-class skiing under the Matterhorn",
+      "detail_desc": "Week of skiing and snowboarding in Zermatt.",
+      "locations": [
+        {
+          "name": "Matterhorn Glacier Paradise",
+          "start_date": "2025-02-10",
+          "end_date": "2025-02-13",
+          "short_desc": "Highest cable car station in Europe",
+          "images": ["locations/zermatt_matterhorn_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "vienna-classical-music",
+      "userKey": "ava-nakamura",
+      "title": "Vienna Classical Music Experience",
+      "destination": "Vienna, Austria",
+      "start_date": "2025-04-22",
+      "short_desc": "Mozart, palaces, and Sachertorte",
+      "detail_desc": "Attending Vienna State Opera performance.",
+      "locations": [
+        {
+          "name": "Vienna State Opera",
+          "start_date": "2025-04-22",
+          "end_date": "2025-04-23",
+          "short_desc": "World-renowned opera house performance",
+          "images": ["locations/vienna_opera_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "paris-fashion-art",
+      "userKey": "lucas-dubois",
+      "title": "Paris Fashion & Art Week",
+      "destination": "Paris, France",
+      "start_date": "2025-03-03",
+      "short_desc": "Haute couture and world-class museums",
+      "detail_desc": "Timing visit with Paris Fashion Week.",
+      "locations": [
+        {
+          "name": "Louvre Museum",
+          "start_date": "2025-03-03",
+          "end_date": "2025-03-04",
+          "short_desc": "Mona Lisa and world-famous art collection",
+          "images": ["locations/paris_louvre_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "provence-lavender-fields",
+      "userKey": "lucas-dubois",
+      "title": "Provence Lavender Fields",
+      "destination": "Provence, France",
+      "start_date": "2025-07-05",
+      "short_desc": "French countryside and lavender season",
+      "detail_desc": "Renting a car to explore Provence lavender fields.",
+      "locations": [
+        {
+          "name": "Valensole Lavender Fields",
+          "start_date": "2025-07-05",
+          "end_date": "2025-07-07",
+          "short_desc": "Endless purple lavender rows at peak bloom",
+          "images": ["locations/provence_lavender_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "costa-rica-eco-adventure",
+      "userKey": "maria-garcia",
+      "title": "Costa Rica Eco Adventure",
+      "destination": "San José, Costa Rica",
+      "start_date": "2025-08-15",
+      "short_desc": "Rainforests, beaches, and wildlife",
+      "detail_desc": "Zip-lining through Monteverde Cloud Forest.",
+      "locations": [
+        {
+          "name": "Monteverde Cloud Forest",
+          "start_date": "2025-08-15",
+          "end_date": "2025-08-17",
+          "short_desc": "Canopy zip-lining and hanging bridges",
+          "images": ["locations/costarica_monteverde_1.jpg"]
+        }
+      ]
+    },
+    {
+      "key": "seoul-modern-culture",
+      "userKey": "yuki-tanaka",
+      "title": "Seoul Modern Culture Trip",
+      "destination": "Seoul, South Korea",
+      "start_date": "2025-10-01",
+      "short_desc": "K-pop, tech, and traditional palaces",
+      "detail_desc": "Exploring Gangnam district.",
+      "locations": [
+        {
+          "name": "Gyeongbokgung Palace",
+          "start_date": "2025-10-01",
+          "end_date": "2025-10-02",
+          "short_desc": "Grand Joseon Dynasty palace",
+          "images": ["locations/seoul_palace_1.jpg"]
+        }
+      ]
+    }
+  ],
+  "social": {
+    "comments": [
+      {
+        "userKey": "liam-chen",
+        "itineraryKey": "discover-ancient-rome",
+        "text": "Rome is absolutely magical! Make sure to book your Colosseum tickets in advance."
+      },
+      {
+        "userKey": "ava-nakamura",
+        "itineraryKey": "tokyo-tech-tradition",
+        "text": "Tokyo is incredible! Don't miss the robot restaurant in Shinjuku."
+      },
+      {
+        "userKey": "emma-rodriguez",
+        "itineraryKey": "backpacking-southeast-asia",
+        "text": "Three months! That's the dream. Make sure to get travel insurance."
+      },
+      {
+        "userKey": "lucas-dubois",
+        "itineraryKey": "vienna-classical-music",
+        "text": "Vienna is beautiful! Standing room tickets at the Opera are only €10."
+      }
+    ],
+    "likes": [
+      { "userKey": "emma-rodriguez", "itineraryKey": "vienna-classical-music" },
+      { "userKey": "liam-chen", "itineraryKey": "kyoto-cultural-immersion" },
+      { "userKey": "liam-chen", "itineraryKey": "backpacking-southeast-asia" },
+      { "userKey": "sofia-andersson", "itineraryKey": "norwegian-fjords-expedition" },
+      { "userKey": "noah-patel", "itineraryKey": "costa-rica-eco-adventure" },
+      { "userKey": "olivia-schmidt", "itineraryKey": "icelandic-adventure" },
+      { "userKey": "ethan-kowalski", "itineraryKey": "discover-ancient-rome" },
+      { "userKey": "ava-nakamura", "itineraryKey": "vienna-classical-music" },
+      { "userKey": "lucas-dubois", "itineraryKey": "tokyo-tech-tradition" },
+      { "userKey": "maria-garcia", "itineraryKey": "icelandic-adventure" },
+      { "userKey": "yuki-tanaka", "itineraryKey": "tokyo-tech-tradition" }
+    ]
+  }
+}

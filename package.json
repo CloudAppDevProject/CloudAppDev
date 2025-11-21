@@ -9,8 +9,7 @@
     "start": "next start",
     "db:deploy": "npx prisma migrate deploy && npx prisma generate",
     "db:seed": "npx prisma db seed",
-    "db:init-mongo": "node init-mongo.js",
-    "seed:microservices": "cd scripts && npm install --silent && npm run seed"
+    "db:init-mongo": "node init-mongo.js"
   },
   "dependencies": {
     "@prisma/client": "^6.17.0",

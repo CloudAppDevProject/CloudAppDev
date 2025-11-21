@@ -93,4 +93,6 @@ export class LikesService {
   async deleteAllLikesByUser(userId: string | number) {
     await this.likeModel.deleteMany({ userId: Number(userId) });
   }
+
+
 }

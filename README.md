@@ -32,6 +32,26 @@ npm run db:init-mongo    # MongoDB
 
 See [MONGODB.md](./MONGODB.md) for detailed MongoDB documentation.
 
+### Database Seeding
+
+**Production/Kubernetes:** Seeding is handled by the unified seeding container in `services/seeder/`. See [services/seeder/QUICKSTART.md](./services/seeder/QUICKSTART.md) for complete documentation.
+
+**Quick Start:**
+
+```bash
+# Kubernetes deployment (recommended for production)
+kubectl apply -f k8s/seeding-job.yaml
+
+# Local development with Docker
+cd services/seeder
+docker build -t cloudappdev-seeder .
+docker run --rm --env-file ../../.env cloudappdev-seeder
+```
+
+**Seed Data:** All seed data is defined in `seed-data/dataset.json` with key-based references for handling ID dependencies across microservices.
+
+**Architecture:** The seeder directly accesses all databases (PostgreSQL for users/itineraries, MongoDB for social data) and manages ID relationships internally, eliminating the need for API orchestration or per-service seeding.
+
 ## Load Testing
 
 This project includes load testing capabilities using [Locust](https://locust.io/). See [locust/README.md](./locust/README.md) for detailed instructions.
