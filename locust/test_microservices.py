@@ -98,7 +98,7 @@ def main():
         print("\nReady for load testing. Run:")
         print("  locust -f locust/locustfile_microservices.py --host=" + GATEWAY_URL)
         print("\nOr run automated tests:")
-        print("  .\\locust\\run_milestone2_tests.ps1 -Host " + GATEWAY_URL)
+        print('  .\\locust\\run_milestone2_tests.ps1 -TargetHost "' + GATEWAY_URL + '"')
     else:
         print("✗ Some services failed health checks.")
         print("\nTroubleshooting steps:")

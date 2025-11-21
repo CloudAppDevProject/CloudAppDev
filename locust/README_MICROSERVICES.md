@@ -45,11 +45,34 @@ pip install -r locust/requirements.txt
 
 ## Files
 
-- **`locustfile_microservices.py`**: Main load test file for microservices architecture
+- **`locustfile_microservices.py`**: Main load test file with custom load shapes
 - **`locustfile.py`**: Legacy monolithic architecture tests
 - **`run_milestone2_tests.ps1`**: PowerShell script to run all Milestone 2 test scenarios
 - **`run_scenarios.ps1`**: Legacy test runner
 - **`reports/`**: Directory for test reports (auto-created)
+
+## Milestone 2 Test Requirements
+
+### 5.1 Periodic Workload (Two Scenarios)
+
+Simulate typical daily traffic patterns with peak and low demand periods **cycling within a single test**.
+
+| Scenario | Peak Users | Low Users | Description |
+|----------|------------|-----------|-------------|
+| **A** | 100 | 10 | Normal traffic pattern |
+| **B** | 1000 | 20 | High traffic pattern |
+
+### 5.2 Once-in-a-Lifetime Workload
+
+Simulate viral traffic spike with **continuous user growth**:
+- Start with 10 base users
+- Constantly add new users at a given rate
+- Determine thresholds:
+  - **Without degradation**: p95 < 500ms, error rate < 1%
+  - **With degradation**: p95 < 2000ms, error rate < 5%
+  - **Failure**: p95 >= 2000ms or error rate >= 5%
+
+---
 
 ## Quick Start
 
@@ -68,173 +91,153 @@ docker-compose -f docker-compose.microservices.yml ps
 
 ### 2. Run Load Tests
 
-#### Option A: Interactive Web UI
+#### Option A: PowerShell Script (Recommended for Milestone 2)
+
+```powershell
+# Run ALL test scenarios (periodic A + B + lifetime)
+.\locust\run_milestone2_tests.ps1 -TestType all
+
+# Run only Periodic Scenario A (100/10 users)
+.\locust\run_milestone2_tests.ps1 -TestType periodic-a
+
+# Run only Periodic Scenario B (1000/20 users)
+.\locust\run_milestone2_tests.ps1 -TestType periodic-b
+
+# Run Once-in-a-Lifetime with custom growth rate
+.\locust\run_milestone2_tests.ps1 -TestType lifetime -GrowthRate 30
+
+# Run against production
+.\locust\run_milestone2_tests.ps1 -TargetHost https://cloudappdev.site -TestType all
+```
+
+#### Option B: Direct Locust Commands with Shapes
 
 ```bash
-# Local testing
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000
+# Periodic Scenario A (100 peak / 10 low - cycling)
+$env:LOCUST_SHAPE="periodic_a"
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless --html=locust/reports/periodic_a.html
 
-# Production testing
-locust -f locust/locustfile_microservices.py --host=https://cloudappdev.site
+# Periodic Scenario B (1000 peak / 20 low - cycling)
+$env:LOCUST_SHAPE="periodic_b"
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless --html=locust/reports/periodic_b.html
+
+# Once-in-a-Lifetime (continuous growth)
+$env:LOCUST_SHAPE="lifetime"
+$env:GROWTH_RATE="20"  # users per minute
+$env:MAX_USERS="3000"
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless --html=locust/reports/lifetime.html
+```
+
+#### Option C: Interactive Web UI (Manual Control)
+
+```bash
+# No shape - use manual --users and --spawn-rate
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000
 ```
 
 Then open browser: **http://localhost:8089**
 
-#### Option B: Headless Mode (Automated)
+---
 
-```bash
-# Quick test (100 users, 5 minutes)
-locust -f locust/locustfile_microservices.py \
-    --host=http://localhost:8000 \
-    --users 100 \
-    --spawn-rate 10 \
-    --run-time 5m \
-    --headless \
-    --html=locust/reports/quick_test.html
+## Test Scenario Details
 
-# Stress test (1000 users, 10 minutes)
-locust -f locust/locustfile_microservices.py \
-    --host=http://localhost:8000 \
-    --users 1000 \
-    --spawn-rate 50 \
-    --run-time 10m \
-    --headless \
-    --html=locust/reports/stress_test.html
+### 5.1.1 Periodic Scenario A (100 peak / 10 low)
+
+**Pattern**: Low(10) → Ramp up → Peak(100) → Ramp down → Low(10) → repeat
+
+```
+Users
+100 ┤     ████████████               ████████████
+    │    ╱            ╲             ╱            ╲
+ 50 ┤   ╱              ╲           ╱              ╲
+    │  ╱                ╲         ╱                ╲
+ 10 ┼══                  ═════════                  ═══
+    └─────────────────────────────────────────────────→ Time
+    0    3m   5m    8m  10m   12m  14m
+        [Cycle 1]           [Cycle 2]
 ```
 
-#### Option C: Automated Milestone 2 Tests
+- **Duration**: ~14 minutes (2 full cycles)
+- **Low phase**: 2 minutes at 10 users
+- **Ramp up**: 1 minute to reach 100 users
+- **Peak phase**: 3 minutes at 100 users
+- **Ramp down**: 1 minute back to 10 users
 
-Run all required test scenarios for Milestone 2 documentation:
+### 5.1.2 Periodic Scenario B (1000 peak / 20 low)
 
-```powershell
-# Run all tests (periodic + once-in-a-lifetime)
-.\locust\run_milestone2_tests.ps1 -Host "http://localhost:8000" -TestType all
+**Pattern**: Low(20) → Ramp up → Peak(1000) → Ramp down → Low(20) → repeat
 
-# Run only periodic workload tests
-.\locust\run_milestone2_tests.ps1 -TestType periodic-low
-.\locust\run_milestone2_tests.ps1 -TestType periodic-high
-
-# Run only once-in-a-lifetime tests
-.\locust\run_milestone2_tests.ps1 -TestType lifetime
+```
+Users
+1000 ┤      ██████████████████             ██████████████████
+     │     ╱                  ╲           ╱                  ╲
+ 500 ┤    ╱                    ╲         ╱                    ╲
+     │   ╱                      ╲       ╱                      ╲
+  20 ┼═══                        ═══════                        ═══
+     └───────────────────────────────────────────────────────────→ Time
+     0     4m    6m     13m   15m    19m   21m    28m   30m
+          [Cycle 1]                 [Cycle 2]
 ```
 
-## Milestone 2 Test Requirements
+- **Duration**: ~30 minutes (2 full cycles)
+- **Low phase**: 4 minutes at 20 users
+- **Ramp up**: 2 minutes to reach 1000 users
+- **Peak phase**: 7 minutes at 1000 users
+- **Ramp down**: 2 minutes back to 20 users
 
-### 5.1 Periodic Workload
+### 5.2 Once-in-a-Lifetime (Continuous Growth)
 
-Simulate typical daily traffic patterns with peak and low demand periods.
+**Pattern**: Start at 10 users, constantly add users at configurable rate
 
-#### Test Scenarios
-
-**5.1.1 Low Traffic Pattern (100 peak / 10 low)**
-```bash
-# Peak period: 100 concurrent users
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
-    --users 100 --spawn-rate 10 --run-time 5m --headless \
-    --html=locust/reports/periodic_100peak.html
-
-# Low demand: 10 concurrent users
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
-    --users 10 --spawn-rate 2 --run-time 3m --headless \
-    --html=locust/reports/periodic_10low.html
+```
+Users
+610 ┤                                              ╱
+    │                                            ╱
+500 ┤                                          ╱
+    │                                        ╱
+400 ┤                                      ╱
+    │                                    ╱
+300 ┤                                  ╱
+    │                                ╱
+200 ┤                              ╱
+    │                            ╱
+100 ┤                          ╱
+    │                        ╱
+ 10 ┼═════════════════════════
+    └─────────────────────────────────────────────→ Time
+    0        10m       20m       30m
 ```
 
-**5.1.2 High Traffic Pattern (1000 peak / 20 low)**
-```bash
-# Peak period: 1000 concurrent users
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
-    --users 1000 --spawn-rate 50 --run-time 10m --headless \
-    --html=locust/reports/periodic_1000peak.html
+**Formula**: `users = 10 + (growth_rate × minutes_elapsed)`
 
-# Low demand: 20 concurrent users
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
-    --users 20 --spawn-rate 2 --run-time 3m --headless \
-    --html=locust/reports/periodic_20low.html
-```
+**Default Configuration**:
+- Base users: 10
+- Growth rate: 20 users/minute
+- Max users: 3000 (safety limit)
+- Max duration: 30 minutes
 
-#### Information to Document
+**Variations**:
+- `lifetime-slow`: 10 users/min, 40 minutes
+- `lifetime-fast`: 50 users/min, 20 minutes
 
-1. **Initial Data**: Application seeded with dataset from `seed-data/dataset.json`
-   - 10 users with diverse profiles
-   - 18 itineraries with locations
-   - Comments and likes on various itineraries
+**Threshold Detection**:
+| Threshold | p95 Response Time | Error Rate | Status |
+|-----------|-------------------|------------|--------|
+| Without Degradation | < 500ms | < 1% | ✅ Healthy |
+| With Degradation | < 2000ms | < 5% | ⚠️ Degraded |
+| Failure | >= 2000ms | >= 5% | ❌ Failed |
 
-2. **Transaction Mix** (by user type):
-   - **50% Casual Browsers**: Quick browsing, searching, viewing
-   - **30% Active Users**: Browse, like, comment, create itineraries
-   - **20% New Users**: Registration, exploration, first itinerary creation
-
-3. **Ramp-up/Ramp-down**:
-   - Use `--spawn-rate` parameter to control ramp-up speed
-   - Recommended: 10 users/second for 100 users, 50 users/second for 1000 users
-   - Test duration: 5-10 minutes per scenario for stable metrics
-
-4. **Metrics to Collect**:
-   - Response times (p50, p95, p99)
-   - Failure rates (by endpoint)
-   - Requests per second
-   - Resource utilization: `kubectl top pods`, `kubectl top nodes`
-
-### 5.2 Once-in-a-lifetime Workload
-
-Simulate viral traffic spike (e.g., featured in media) with constant user growth.
-
-#### Test Strategy
-
-Start with base load and incrementally increase users to find breaking points:
-
-```bash
-# Base load (10 users)
-locust --users 10 --spawn-rate 2 --run-time 2m
-
-# Gradual increases
-locust --users 50 --spawn-rate 5 --run-time 5m
-locust --users 100 --spawn-rate 5 --run-time 5m
-locust --users 250 --spawn-rate 10 --run-time 5m
-locust --users 500 --spawn-rate 10 --run-time 10m
-locust --users 1000 --spawn-rate 15 --run-time 10m
-locust --users 1500 --spawn-rate 20 --run-time 10m
-locust --users 2000 --spawn-rate 20 --run-time 10m
-```
-
-#### Determine Thresholds
-
-Document when the application:
-
-1. **Survives without degradation**:
-   - Response times remain stable (< 500ms p95)
-   - Failure rate < 1%
-   - Resource utilization < 70%
-
-2. **Survives with degradation**:
-   - Response times increase (500ms - 2000ms p95)
-   - Failure rate 1-5%
-   - Resource utilization 70-90%
-
-3. **No longer survives**:
-   - Response times > 2000ms or timeouts
-   - Failure rate > 5%
-   - Resource utilization > 90% or crashes
-
-#### Information to Document
-
-1. **Initial Data**: Same as periodic workload
-
-2. **Transaction Mix**: Same as periodic workload (50% casual, 30% active, 20% new)
-
-3. **Ramp-up Phase**:
-   - Start: 10 users baseline (2 minutes)
-   - Growth rate: 5-20 users/second depending on target
-   - Total duration: 30+ minutes for full test
-
-4. **Metrics to Collect**:
-   - Maximum users without degradation
-   - Maximum users with acceptable degradation
-   - Failure threshold (max users before crashes)
-   - Response time trends as load increases
-   - Resource utilization at each threshold
+---
 
 ## User Behavior Simulation
+
+### Traffic Distribution
+
+| User Type | Weight | Behavior |
+|-----------|--------|----------|
+| Casual Browser | 50% | Quick browsing, searching, viewing (no login) |
+| Active User | 30% | Browse, like, comment, create itineraries |
+| New User | 20% | Registration, exploration, first itinerary |
 
 ### New User Journey (20% weight)
 1. Register new account
@@ -259,9 +262,62 @@ Document when the application:
 3. View popular itineraries
 4. Maybe register (20% conversion rate)
 
+---
+
+## Running Tests
+
+### PowerShell Examples
+
+```powershell
+# All tests (recommended for complete Milestone 2 documentation)
+.\locust\run_milestone2_tests.ps1 -TestType all
+
+# Periodic Scenario A only
+.\locust\run_milestone2_tests.ps1 -TestType periodic-a
+
+# Periodic Scenario B only
+.\locust\run_milestone2_tests.ps1 -TestType periodic-b
+
+# Once-in-a-Lifetime with default growth (20 users/min)
+.\locust\run_milestone2_tests.ps1 -TestType lifetime
+
+# Once-in-a-Lifetime with custom growth rate
+.\locust\run_milestone2_tests.ps1 -TestType lifetime -GrowthRate 30 -MaxUsers 2000
+
+# Slow growth test (find lower threshold)
+.\locust\run_milestone2_tests.ps1 -TestType lifetime-slow
+
+# Fast growth test (stress test)
+.\locust\run_milestone2_tests.ps1 -TestType lifetime-fast
+
+# Against production
+.\locust\run_milestone2_tests.ps1 -TargetHost https://cloudappdev.site -TestType all
+```
+
+### Environment Variable Examples (Bash/Powershell)
+
+```bash
+# Periodic A
+export LOCUST_SHAPE=periodic_a
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+
+# Periodic B
+export LOCUST_SHAPE=periodic_b
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+
+# Once-in-a-Lifetime with custom settings
+export LOCUST_SHAPE=lifetime
+export GROWTH_RATE=30
+export MAX_USERS=2500
+export MAX_DURATION=2400  # 40 minutes
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+```
+
+---
+
 ## Monitoring During Tests
 
-### Application Metrics
+### Kubernetes Metrics
 
 ```bash
 # Monitor pod resource usage
@@ -275,6 +331,19 @@ kubectl logs -f deployment/cloudappdev-user-service
 kubectl logs -f deployment/cloudappdev-itinerary-service
 kubectl logs -f deployment/cloudappdev-social-service
 kubectl logs -f deployment/cloudappdev-api-gateway
+```
+
+### Docker Compose Metrics
+
+```bash
+# View container stats
+docker stats
+
+# Service logs
+docker logs -f cloudappdev_user_service
+docker logs -f cloudappdev_itinerary_service
+docker logs -f cloudappdev_social_service
+docker logs -f cloudappdev_api_gateway
 ```
 
 ### Database Metrics
@@ -293,45 +362,42 @@ docker exec cloudappdev_mongodb_social mongosh --eval \
     "db.serverStatus().connections"
 ```
 
+---
+
 ## Analyzing Results
 
 ### Response Time Analysis
 
-- **Excellent**: p95 < 500ms
-- **Good**: p95 < 1000ms
-- **Acceptable**: p95 < 2000ms
-- **Poor**: p95 > 2000ms
+| Rating | p95 Response Time | Interpretation |
+|--------|-------------------|----------------|
+| Excellent | < 200ms | Optimal performance |
+| Good | < 500ms | Acceptable for production |
+| Acceptable | < 2000ms | Degraded but functional |
+| Poor | > 2000ms | Needs optimization |
 
 ### Failure Rate Analysis
 
-- **Excellent**: < 0.1%
-- **Good**: < 1%
-- **Acceptable**: < 5%
-- **Poor**: > 5%
+| Rating | Error Rate | Interpretation |
+|--------|------------|----------------|
+| Excellent | < 0.1% | Production ready |
+| Good | < 1% | Acceptable |
+| Warning | < 5% | Degraded |
+| Critical | > 5% | Failure threshold |
 
-### Throughput Analysis
-
-Calculate requests per second (RPS) per service:
-- Target: > 100 RPS total
-- Good: > 500 RPS total
-- Excellent: > 1000 RPS total
-
-## Report Generation
+### Report Files
 
 Reports are automatically generated in `locust/reports/`:
 
-- **HTML reports**: Interactive charts and statistics
-- **CSV files**: Raw data for custom analysis
-- **Text reports**: Summary statistics
-
-Example files:
 ```
 locust/reports/
-├── microservices_test_20251121_143022.html
-├── microservices_test_20251121_143022_stats.csv
-├── periodic_100users_peak_20251121_143500.html
-└── lifetime_1000users_20251121_144000.html
+├── periodic_scenario_a_20251121_143022.html
+├── periodic_scenario_a_20251121_143022_stats.csv
+├── periodic_scenario_b_20251121_150000.html
+├── lifetime_growth_20users_per_min_20251121_153000.html
+└── microservices_test_lifetime_20251121_153000.txt
 ```
+
+---
 
 ## Troubleshooting
 
@@ -357,7 +423,16 @@ docker logs cloudappdev_social_service
 npm run seed:microservices
 ```
 
-**3. Slow response times on first requests**
+**3. "No shape" warning**
+```bash
+# If you want to use shapes, set the environment variable
+$env:LOCUST_SHAPE="periodic_a"
+
+# Or use manual mode with --users and --spawn-rate
+locust ... --users 100 --spawn-rate 10 --run-time 5m
+```
+
+**4. Slow response times on first requests**
 ```bash
 # This is normal - services are warming up
 # Run a warmup test first:
@@ -365,14 +440,7 @@ locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
     --users 10 --spawn-rate 2 --run-time 2m --headless
 ```
 
-**4. Locust spawning errors**
-```bash
-# Reduce spawn rate if services can't keep up
-# Instead of --spawn-rate 50, try --spawn-rate 10
-
-# Or increase ramp-up time
-# Add more time between user spawns
-```
+---
 
 ## Comparing Architectures
 
@@ -387,9 +455,9 @@ locust -f locust/locustfile.py --host=http://localhost:3000 \
     --html=locust/reports/monolithic_100users.html
 
 # Microservices (Milestone 2)
+$env:LOCUST_SHAPE="periodic_a"
 locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
-    --users 100 --spawn-rate 10 --run-time 5m --headless \
-    --html=locust/reports/microservices_100users.html
+    --headless --html=locust/reports/microservices_periodic_a.html
 ```
 
 ### Key Comparison Metrics
@@ -400,20 +468,37 @@ locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
 4. **Resource Usage**: Which is more efficient?
 5. **Bottlenecks**: Where do failures occur in each?
 
-## Next Steps for Milestone 2
+---
 
-1. ✅ Run all periodic workload tests (100 and 1000 users)
-2. ✅ Run once-in-a-lifetime tests to find limits
-3. ✅ Document thresholds (no degradation, degradation, failure)
-4. ✅ Collect resource utilization data
-5. ✅ Generate HTML reports with charts
-6. ✅ Analyze results and identify bottlenecks
-7. ✅ Compare with monolithic architecture (Milestone 1)
-8. ✅ Write performance analysis for documentation
+## Milestone 2 Checklist
+
+### Performance Testing Requirements
+
+- [ ] Run Periodic Scenario A (100/10 users) - 2 cycles
+- [ ] Run Periodic Scenario B (1000/20 users) - 2 cycles
+- [ ] Run Once-in-a-Lifetime test with continuous growth
+- [ ] Document threshold: workload **without degradation**
+- [ ] Document threshold: workload **with degradation**
+- [ ] Document threshold: workload **failure point**
+- [ ] Collect resource utilization data (kubectl top)
+- [ ] Generate HTML reports with charts
+- [ ] Compare with Milestone 1 monolithic results
+- [ ] Write performance analysis for documentation
+
+### Information to Document
+
+1. **Initial Data**: Seeded dataset from `seed-data/dataset.json`
+2. **Transaction Mix**: 50% casual, 30% active, 20% new users
+3. **Ramp-up/Ramp-down**: Controlled by load shapes
+4. **Metrics**: Response times, failure rates, throughput
+5. **Resource Utilization**: CPU, memory per service
+
+---
 
 ## Additional Resources
 
 - [Locust Documentation](https://docs.locust.io/)
+- [Locust LoadTestShape](https://docs.locust.io/en/stable/custom-load-shape.html)
 - [MICROSERVICES.md](../MICROSERVICES.md) - Architecture details
 - [CLAUDE.md](../CLAUDE.md) - Complete project documentation
 - Milestone 1 results: `paasincresed.html` for comparison

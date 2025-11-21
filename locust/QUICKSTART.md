@@ -22,7 +22,7 @@ locust -f locust/locustfile_microservices.py --host=http://localhost:8000
 
 ```powershell
 # Run all required test scenarios
-.\locust\run_milestone2_tests.ps1 -Host "http://localhost:8000" -TestType all
+.\locust\run_milestone2_tests.ps1 -TargetHost "http://localhost:8000" -TestType all
 ```
 
 ## What's Different from Milestone 1?
