@@ -37,7 +37,7 @@
 - ✅ **Social Service** - Separate microservice (hygiene factor)
 - ✅ **Travel Info Service** - Implemented with external API integration
 - 🔄 **Asynchronous Workflows** - Control mechanisms needed
-- 🔄 **Performance Testing** - Scalability test data sets required
+- ✅ **Performance Testing** - Comprehensive load testing framework implemented
 - 🔄 **Architecture Document** - Documentation pending
 - 🔄 **Wow Factors** - Implementation verification needed
 
@@ -259,12 +259,14 @@ The application follows [12-Factor App](https://12factor.net/) methodology:
 - **Image Registry:** Pushes to Google Artifact Registry
 
 **Services Built:**
+
 1. `cloudappdev-frontend` - Next.js application
 2. `cloudappdev-user-service` - User management microservice
 3. `cloudappdev-itinerary-service` - Itinerary microservice
 4. `cloudappdev-social-service` - Social features microservice
 5. `cloudappdev-travel-info-service` - Travel information microservice
 6. `cloudappdev-api-gateway` - Nginx API Gateway
+7. `seeder` - Unified database seeder (separate workflow)
 
 **Version Tags:**
 - `latest` - Latest build from main/master branch
@@ -275,6 +277,62 @@ The application follows [12-Factor App](https://12factor.net/) methodology:
 **Triggers:**
 - Push to `develop` or `master` branches
 - Manual workflow dispatch with service selection
+
+### Seeder Workflow
+
+**File:** `.github/workflows/build-and-push-seeder.yml`
+
+The seeder is a unified database seeding container for Kubernetes deployments that handles all microservices databases (User, Itinerary, Social) in a single job.
+
+**Purpose:**
+
+- Seeds all microservice databases with test data
+- Handles ID dependencies between services (users -> itineraries -> social)
+- Designed for Kubernetes Job execution
+- Uses JSON dataset from `seed-data/dataset.json`
+
+**Features:**
+
+- **Unified Container:** Single container with access to all service databases
+- **Prisma Integration:** Generates Prisma clients for both User and Itinerary services
+- **ID Mapping:** Uses key-based references in dataset, resolves to actual IDs at runtime
+- **Idempotent:** Clears existing data before seeding (safe to run multiple times)
+
+**Path Triggers:**
+
+- `services/seeder/**`
+- `seed-data/**`
+- `services/user-service/prisma/**`
+- `services/itinerary-service/prisma/**`
+
+**Version Tags:**
+
+- `latest` - Latest build from main/master branch
+- `0.1.X` - Semantic version (incremented on master)
+- `0.1.X-dev.Y` - Development builds with build number
+- `sha-abc1234` - Git commit SHA reference
+
+**Image Registry:**
+
+- `europe-west1-docker.pkg.dev/<PROJECT_ID>/docker-repo/seeder`
+
+**Kubernetes Usage:**
+
+```bash
+# Apply seeding job
+kubectl apply -f k8s/seeding-job.yaml
+
+# Check job status
+kubectl get jobs cloudappdev-seeder
+kubectl logs job/cloudappdev-seeder
+```
+
+**Environment Variables (from K8s Secrets):**
+
+- `USER_DATABASE_URL` - PostgreSQL connection for User Service
+- `ITINERARY_DATABASE_URL` - PostgreSQL connection for Itinerary Service
+- `SOCIAL_MONGODB_URI` - MongoDB connection for Social Service
+- `SEED_DATA_PATH` - Path to dataset.json (default: `/app/seed-data/dataset.json`)
 
 ---
 
@@ -331,12 +389,22 @@ CloudAppDev/
 │   │   ├── Dockerfile
 │   │   ├── package.json          # Dependencies (mongoose, @nestjs/mongoose)
 │   │   └── README.md
-│   └── travel-info-service/      # Travel information (Milestone 2 Wow factors)
-│       ├── src/                  # Flight schedules, travel warnings, weather
-│       ├── test/
-│       ├── Dockerfile
-│       ├── package.json          # Dependencies (@nestjs/axios for external APIs)
-│       └── README.md
+│   ├── travel-info-service/      # Travel information (Milestone 2 Wow factors)
+│   │   ├── src/                  # Flight schedules, travel warnings, weather
+│   │   ├── test/
+│   │   ├── Dockerfile
+│   │   ├── package.json          # Dependencies (@nestjs/axios for external APIs)
+│   │   └── README.md
+│   └── seeder/                   # Unified database seeder (Kubernetes)
+│       ├── seed.js               # Main seeding script
+│       ├── Dockerfile            # Multi-service Prisma container
+│       ├── package.json          # Dependencies (mongodb, prisma clients)
+│       ├── README.md             # Seeder documentation
+│       ├── QUICKSTART.md         # Quick start guide
+│       └── MAINTENANCE.md        # Maintenance guide
+│
+├── seed-data/                    # Test data for seeding
+│   └── dataset.json              # Users, itineraries, locations, social data
 │
 ├── lib/                          # Shared utilities
 │   ├── api-config.ts             # API service URLs
@@ -351,6 +419,7 @@ CloudAppDev/
 │   ├── services/                 # Service deployments
 │   ├── app-deployment.yaml
 │   ├── gateway.yaml
+│   ├── seeding-job.yaml          # Database seeding Kubernetes Job
 │   └── *.yaml
 │
 ├── terraform/                    # Infrastructure as Code
@@ -368,11 +437,18 @@ CloudAppDev/
 │   └── seed scripts for microservices
 │
 ├── locust/                       # Load testing
-│   └── locustfile.py
+│   ├── locustfile.py             # Monolithic load tests (Milestone 1)
+│   ├── locustfile_microservices.py  # Microservices load tests (Milestone 2)
+│   ├── run_milestone2_tests.ps1  # Automated test runner
+│   ├── test_microservices.py     # Service health checks
+│   ├── QUICKSTART.md             # Quick start guide
+│   ├── README_MICROSERVICES.md   # Detailed documentation
+│   └── reports/                  # Generated test reports
 │
 ├── .github/workflows/            # CI/CD pipelines
-│   ├── build-and-push-app.yml
-│   └── build-and-push-microservices.yml
+│   ├── build-and-push-app.yml    # Next.js frontend image
+│   ├── build-and-push-microservices.yml  # All microservices
+│   └── build-and-push-seeder.yml # Database seeder image
 │
 ├── docker-compose.yml            # Monolithic setup
 ├── docker-compose.microservices.yml  # Microservices setup
@@ -637,21 +713,84 @@ npm run test:cov
 
 ### Load Testing
 
-Using Locust (Python):
+Using Locust (Python) with both monolithic and microservices configurations:
 
 ```bash
 # Install
 pip install locust
 
-# Run load test
+# === Monolithic Mode (Milestone 1) ===
 locust -f locust/locustfile.py --host=http://localhost:3000
+
+# === Microservices Mode (Milestone 2) ===
+# Quick health check first
+python locust/test_microservices.py
+
+# Run with web UI
+locust -f locust/locustfile_microservices.py --host=http://localhost:8000
 
 # Open browser: http://localhost:8089
 ```
 
+#### Milestone 2 Load Testing (Microservices)
+
+**New Test Files:**
+- `locust/locustfile_microservices.py` - Load test scenarios for microservices
+- `locust/run_milestone2_tests.ps1` - Automated test runner with all scenarios
+- `locust/test_microservices.py` - Health check script for services
+- `locust/QUICKSTART.md` - Quick start guide
+- `locust/README_MICROSERVICES.md` - Detailed documentation
+
+**Automated Testing (PowerShell):**
+```powershell
+# Run all required test scenarios
+.\locust\run_milestone2_tests.ps1 -TargetHost "http://localhost:8000" -TestType all
+
+# Individual tests
+.\locust\run_milestone2_tests.ps1 -TestType periodic-a   # 100/10 users
+.\locust\run_milestone2_tests.ps1 -TestType periodic-b   # 1000/20 users
+.\locust\run_milestone2_tests.ps1 -TestType lifetime     # Continuous growth
+
+# Custom growth rate for lifetime tests
+.\locust\run_milestone2_tests.ps1 -TestType lifetime -GrowthRate 30 -MaxUsers 3000
+```
+
+**Test Scenarios (Exercise 5 Requirements):**
+
+1. **Periodic Workload - Scenario A:**
+   - Peak: 100 concurrent users
+   - Low demand: 10 users
+   - Pattern: Low → Ramp up → Peak → Ramp down → Low (2 cycles, ~14 min)
+
+2. **Periodic Workload - Scenario B:**
+   - Peak: 1000 concurrent users
+   - Low demand: 20 users
+   - Pattern: Low → Ramp up → Peak → Ramp down → Low (2 cycles, ~30 min)
+
+3. **Once-in-a-Lifetime Workload:**
+   - Start with 10 users, constantly add users
+   - Find thresholds: no degradation, with degradation, failure
+   - Performance criteria:
+     - Without degradation: p95 < 500ms, error < 1%
+     - With degradation: p95 < 2000ms, error < 5%
+     - Failure: p95 >= 2000ms or error >= 5%
+
+**Response Time Guidelines:**
+- **Excellent:** p95 < 500ms
+- **Good:** p95 < 1000ms
+- **Acceptable:** p95 < 2000ms
+- **Poor:** p95 > 2000ms
+
+**Failure Rate Guidelines:**
+- **Excellent:** < 0.1%
+- **Good:** < 1%
+- **Acceptable:** < 5%
+- **Poor:** > 5%
+
 **Key Performance Metrics:**
 - See `README.md` for IaaS vs PaaS comparison
-- `paasincresed.html` contains benchmark results
+- `paasincresed.html` contains Milestone 1 benchmark results
+- `locust/reports/` contains Milestone 2 test reports
 
 ### Linting
 
@@ -1056,11 +1195,15 @@ Based on the current implementation status, here are the remaining tasks to comp
 - Add health checks and monitoring
 - Create test data sets for scalability validation
 
-#### 2. Performance Testing & Scalability
-- [ ] Create comprehensive test data sets for async workflows
-- [ ] Implement load testing scripts for microservices architecture
-- [ ] Run scalability tests (e.g., 1000+ concurrent flight schedule checks)
-- [ ] Generate performance test reports
+#### 2. Performance Testing & Scalability ✅ IMPLEMENTED
+- [x] Comprehensive load testing framework for microservices (`locust/locustfile_microservices.py`)
+- [x] Automated test runner with all scenarios (`locust/run_milestone2_tests.ps1`)
+- [x] Periodic workload tests (Scenario A: 100/10 users, Scenario B: 1000/20 users)
+- [x] Once-in-a-Lifetime workload tests with configurable growth rates
+- [x] Performance threshold analysis (no degradation, with degradation, failure)
+- [x] Service health check script (`locust/test_microservices.py`)
+- [x] Quick start guide and detailed documentation
+- [ ] Run actual tests and generate reports (pending execution)
 - [ ] Document bottlenecks and optimization strategies
 - [ ] Compare monolithic vs microservices performance
 
@@ -1164,6 +1307,27 @@ Based on the current implementation status, here are the remaining tasks to comp
 ---
 
 ## Changelog
+
+### 2025-11-21 (Update 4)
+
+- Added Seeder Workflow documentation (`.github/workflows/build-and-push-seeder.yml`)
+- Documented unified database seeding container for Kubernetes
+- Added `services/seeder/` to directory structure
+- Added `seed-data/dataset.json` for test data
+- Added `k8s/seeding-job.yaml` to Kubernetes manifests
+- Added seeder to Services Built list
+- Documented seeder environment variables and K8s usage
+
+### 2025-11-21 (Update 3)
+
+- Updated Performance Testing status to IMPLEMENTED
+- Added comprehensive Milestone 2 load testing documentation
+- Documented new test files: `locustfile_microservices.py`, `run_milestone2_tests.ps1`, `test_microservices.py`
+- Added periodic workload scenarios (A: 100/10 users, B: 1000/20 users)
+- Added Once-in-a-Lifetime workload testing with threshold analysis
+- Updated directory structure with new locust files
+- Added response time and failure rate guidelines
+- Documented PowerShell automation commands
 
 ### 2025-11-21 (Update 2)
 - Added course context (HTWG Konstanz, Winter 2025/26)

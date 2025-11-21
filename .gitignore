@@ -71,6 +71,7 @@ letsencrypt/
 .venv/
 locust/reports/*
 .opencode
+.claude
 CloudAppDev/*
 
 # terraform
@@ -87,3 +88,4 @@ terraform.tfstate.*
 /services/**/build
 /services/**/.env
 /services/**/coverage
+settings.local.json
