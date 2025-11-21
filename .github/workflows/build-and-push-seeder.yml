@@ -72,50 +72,40 @@ jobs:
           echo "Generated version: ${BUILD_VERSION}"
           echo "Short SHA: ${SHORT_SHA}"
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Google Artifact Registry
+        uses: docker/login-action@v3
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          registry: ${{ env.REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for Artifact Registry
-        run: |
-          gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
-
-      - name: Build Docker image with all tags
+      - name: Build and push Docker image with all tags
         run: |
           FULL_VERSION="${{ steps.version.outputs.version }}"
           SHORT_SHA="${{ steps.version.outputs.short-sha }}"
           
           # Extract major.minor for additional tag (e.g., 0.1.5 -> 0.1)
-          SHORT_VERSION=$(echo "$FULL_VERSION" | grep -oP '^\d+\.\d+' || echo "$FULL_VERSION")
+          # For Windows/Linux compatibility, use basic shell instead of grep -P
+          SHORT_VERSION=$(echo "$FULL_VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
           
-          docker build \
+          docker buildx build \
+            --platform linux/amd64 \
             -f services/seeder/Dockerfile \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION} \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION} \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA} \
+            --push \
             .
-
-      - name: Push all Docker image tags
-        run: |
-          FULL_VERSION="${{ steps.version.outputs.version }}"
-          SHORT_SHA="${{ steps.version.outputs.short-sha }}"
-          SHORT_VERSION=$(echo "$FULL_VERSION" | grep -oP '^\d+\.\d+' || echo "$FULL_VERSION")
-          
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION}
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION}
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}
 
       - name: Output image details
         run: |
           FULL_VERSION="${{ steps.version.outputs.version }}"
           SHORT_SHA="${{ steps.version.outputs.short-sha }}"
-          SHORT_VERSION=$(echo "$FULL_VERSION" | grep -oP '^\d+\.\d+' || echo "$FULL_VERSION")
+          SHORT_VERSION=$(echo "$FULL_VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
           
           echo "✅ Seeder image pushed successfully!"
           echo ""
