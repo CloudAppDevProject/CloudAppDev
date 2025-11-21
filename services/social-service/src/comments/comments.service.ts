@@ -106,7 +106,7 @@ export class CommentsService {
   /**
    * Get comment count for an itinerary
    */
-  async getCommentCount(itineraryId: string): Promise<number> {
-    return this.commentModel.countDocuments({ itineraryId });
+  async getCommentCount(itineraryId: string | number): Promise<number> {
+    return this.commentModel.countDocuments({ itineraryId: Number(itineraryId) });
   }
 }

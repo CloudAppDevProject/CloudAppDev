@@ -5,11 +5,11 @@ export type LikeDocument = Like & Document;
 
 @Schema({ timestamps: true })
 export class Like {
-  @Prop({ required: true })
-  userId: string;
+  @Prop({ required: true, type: Number })
+  userId: number;
 
-  @Prop({ required: true })
-  itineraryId: string;
+  @Prop({ required: true, type: Number })
+  itineraryId: number;
 
   @Prop({ default: Date.now })
   createdAt: Date;

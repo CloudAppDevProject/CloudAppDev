@@ -5,11 +5,11 @@ export type CommentDocument = Comment & Document;
 
 @Schema({ timestamps: true })
 export class Comment {
-  @Prop({ required: true })
-  userId: string;
+  @Prop({ required: true, type: Number })
+  userId: number;
 
-  @Prop({ required: true })
-  itineraryId: string;
+  @Prop({ required: true, type: Number })
+  itineraryId: number;
 
   @Prop({ required: true })
   text: string;

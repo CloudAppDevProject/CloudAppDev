@@ -35,6 +35,16 @@ export default function Login() {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || "Login failed");
       }
+      // Token aus Response extrahieren und als Cookie setzen
+      const data = await res.json();
+      // API returns access_token, not token
+      const token = data.access_token || data.token;
+      if (token) {
+        // Cookie für Middleware setzen (z.B. 7 Tage gültig)
+        document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
+        // Optional: auch weiterhin in localStorage speichern
+        localStorage.setItem('access_token', token);
+      }
       // 4) Context aus Cookie neu laden
       await refresh();
 
