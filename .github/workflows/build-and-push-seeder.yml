@@ -3,6 +3,7 @@ name: Build and Push Seeder Image
 on:
   push:
     branches:
+      - develop
       - master
     paths:
       - 'services/seeder/**'
@@ -11,6 +12,11 @@ on:
       - 'services/itinerary-service/prisma/**'
       - '.github/workflows/build-and-push-seeder.yml'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Custom tag for Docker image (optional)'
+        required: false
+        default: ''
 
 env:
   REGISTRY: europe-west1-docker.pkg.dev
@@ -28,6 +34,43 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          # Get short SHA for reference
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          
+          # Try to get latest git tag, otherwise start at v0.1.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          
+          # Remove 'v' prefix if present
+          VERSION=${LATEST_TAG#v}
+          
+          # If no tags exist or on master/main, increment patch version
+          if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
+            # Parse version components
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            BUILD_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          else
+            # For develop branch, add build number
+            BUILD_NUMBER="${{ github.run_number }}"
+            BUILD_VERSION="${VERSION}-dev.${BUILD_NUMBER}"
+          fi
+          
+          # Use custom tag if provided
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            BUILD_VERSION="${{ github.event.inputs.tag }}"
+          fi
+          
+          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${BUILD_VERSION}"
+          echo "Short SHA: ${SHORT_SHA}"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -41,21 +84,47 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
-      - name: Build Docker image
+      - name: Build Docker image with all tags
         run: |
+          FULL_VERSION="${{ steps.version.outputs.version }}"
+          SHORT_SHA="${{ steps.version.outputs.short-sha }}"
+          
+          # Extract major.minor for additional tag (e.g., 0.1.5 -> 0.1)
+          SHORT_VERSION=$(echo "$FULL_VERSION" | grep -oP '^\d+\.\d+' || echo "$FULL_VERSION")
+          
           docker build \
             -f services/seeder/Dockerfile \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA} \
             .
 
-      - name: Push Docker images
+      - name: Push all Docker image tags
         run: |
+          FULL_VERSION="${{ steps.version.outputs.version }}"
+          SHORT_SHA="${{ steps.version.outputs.short-sha }}"
+          SHORT_VERSION=$(echo "$FULL_VERSION" | grep -oP '^\d+\.\d+' || echo "$FULL_VERSION")
+          
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}
 
       - name: Output image details
         run: |
+          FULL_VERSION="${{ steps.version.outputs.version }}"
+          SHORT_SHA="${{ steps.version.outputs.short-sha }}"
+          SHORT_VERSION=$(echo "$FULL_VERSION" | grep -oP '^\d+\.\d+' || echo "$FULL_VERSION")
+          
           echo "✅ Seeder image pushed successfully!"
-          echo "📦 Image: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest"
-          echo "🏷️  Tag: ${{ github.sha }}"
+          echo ""
+          echo "📦 Image tags pushed:"
+          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest"
+          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION}"
+          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION}"
+          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
+          echo ""
+          echo "🏷️  Version: ${FULL_VERSION}"
+          echo "🔗 Branch: ${{ github.ref_name }}"
+          echo "📝 Commit: ${SHORT_SHA}"
