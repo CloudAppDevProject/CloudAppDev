@@ -41,37 +41,47 @@ export default function MyItinerariesPage() {
 
         const response = await res.json();
         const itinerariesData = response.data || [];
-        
-        // Fetch likes for each itinerary from Social Service
-        const itinerariesWithLikes = await Promise.all(
-          itinerariesData.map(async (itinerary) => {
-            try {
-              // Get like count
-              const likesRes = await fetch(`/api/likes?itineraryId=${itinerary.id}`);
-              const likesData = await likesRes.json();
-              const likeCount = likesData.total || 0;
-              
-              // Check if current user liked this itinerary
-              const userLikedRes = await fetch(`/api/likes?userId=${user.id}&itineraryId=${itinerary.id}`);
-              const userLikedData = await userLikedRes.json();
-              const userHasLiked = userLikedData.hasLiked || false;
-              
-              return {
+
+        // Batch fetch likes for all itineraries in one call (instead of 2N calls)
+        let itinerariesWithLikes = itinerariesData;
+        if (itinerariesData.length > 0) {
+          try {
+            const itineraryIds = itinerariesData.map((it) => it.id);
+            const batchRes = await fetch('/api/likes/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                itineraryIds,
+                userId: user.id,
+              }),
+            });
+
+            if (batchRes.ok) {
+              const batchData = await batchRes.json();
+              itinerariesWithLikes = itinerariesData.map((itinerary) => ({
                 ...itinerary,
-                likeCount,
-                userHasLiked,
-              };
-            } catch (err) {
-              console.error(`Failed to fetch likes for itinerary ${itinerary.id}:`, err);
-              return {
+                likeCount: batchData.counts?.[String(itinerary.id)] || 0,
+                userHasLiked: batchData.userLiked?.[String(itinerary.id)] || false,
+              }));
+            } else {
+              // Fallback: set defaults if batch call fails
+              console.error('Batch likes fetch failed, using defaults');
+              itinerariesWithLikes = itinerariesData.map((itinerary) => ({
                 ...itinerary,
                 likeCount: 0,
                 userHasLiked: false,
-              };
+              }));
             }
-          })
-        );
-        
+          } catch (err) {
+            console.error('Failed to fetch batch likes:', err);
+            itinerariesWithLikes = itinerariesData.map((itinerary) => ({
+              ...itinerary,
+              likeCount: 0,
+              userHasLiked: false,
+            }));
+          }
+        }
+
         setItineraries(itinerariesWithLikes);
         setTotalRecords(response.pagination.total || response.pagination.totalCount || 0);
       } catch (err) {

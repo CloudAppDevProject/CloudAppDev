@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Like, LikeDocument } from '../schemas/like.schema';
 import { ToggleLikeDto } from '../dto/toggle-like.dto';
+import { BatchLikesDto, BatchLikesResponse } from '../dto/batch-likes.dto';
 
 @Injectable()
 export class LikesService {
@@ -94,5 +95,67 @@ export class LikesService {
     await this.likeModel.deleteMany({ userId: Number(userId) });
   }
 
+  /**
+   * Batch operation: Get like counts and optionally user's like status for multiple itineraries
+   * This reduces N+1 API calls to a single batch call
+   */
+  async getBatchLikesData(batchDto: BatchLikesDto): Promise<BatchLikesResponse> {
+    const itineraryIds = batchDto.itineraryIds.map(id => Number(id));
 
+    // Get counts for all itineraries in one aggregation query
+    const countResults = await this.likeModel.aggregate([
+      { $match: { itineraryId: { $in: itineraryIds } } },
+      { $group: { _id: '$itineraryId', count: { $sum: 1 } } }
+    ]);
+
+    // Build counts map, including 0 for itineraries with no likes
+    const counts: Record<string, number> = {};
+    itineraryIds.forEach(id => {
+      counts[String(id)] = 0;
+    });
+    countResults.forEach(result => {
+      counts[String(result._id)] = result.count;
+    });
+
+    const response: BatchLikesResponse = { counts };
+
+    // If userId is provided, also check which itineraries the user has liked
+    if (batchDto.userId) {
+      const userId = Number(batchDto.userId);
+      const userLikes = await this.likeModel.find({
+        userId,
+        itineraryId: { $in: itineraryIds }
+      }).select('itineraryId');
+
+      const userLikedSet = new Set(userLikes.map(like => like.itineraryId));
+
+      const userLiked: Record<string, boolean> = {};
+      itineraryIds.forEach(id => {
+        userLiked[String(id)] = userLikedSet.has(id);
+      });
+
+      response.userLiked = userLiked;
+    }
+
+    return response;
+  }
+
+  /**
+   * Batch operation: Get like counts for multiple itineraries
+   */
+  async getBatchLikeCounts(itineraryIds: (string | number)[]): Promise<Record<string, number>> {
+    const result = await this.getBatchLikesData({ itineraryIds });
+    return result.counts;
+  }
+
+  /**
+   * Batch operation: Check if user has liked multiple itineraries
+   */
+  async getBatchUserLikeStatus(
+    userId: string | number,
+    itineraryIds: (string | number)[]
+  ): Promise<Record<string, boolean>> {
+    const result = await this.getBatchLikesData({ itineraryIds, userId });
+    return result.userLiked || {};
+  }
 }

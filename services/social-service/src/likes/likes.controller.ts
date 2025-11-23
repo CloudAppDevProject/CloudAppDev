@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { LikesService } from './likes.service';
 import { ToggleLikeDto } from '../dto/toggle-like.dto';
+import { BatchLikesDto } from '../dto/batch-likes.dto';
 
 @Controller('likes')
 export class LikesController {
@@ -17,6 +18,16 @@ export class LikesController {
   @Post('toggle')
   async toggleLike(@Body() toggleLikeDto: ToggleLikeDto) {
     return this.likesService.toggleLike(toggleLikeDto);
+  }
+
+  /**
+   * Batch endpoint: Get like counts and user status for multiple itineraries in one call
+   * Body: { itineraryIds: string[], userId?: string }
+   * Response: { counts: { [itineraryId]: count }, userLiked?: { [itineraryId]: boolean } }
+   */
+  @Post('batch')
+  async getBatchLikesData(@Body() batchLikesDto: BatchLikesDto) {
+    return this.likesService.getBatchLikesData(batchLikesDto);
   }
 
   @Get('itinerary/:itineraryId')
