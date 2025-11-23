@@ -26,18 +26,29 @@ export class WeatherService {
 
   constructor(private readonly httpService: HttpService) {
     if (!this.apiKey) {
-      this.logger.error('WEATHER_API_KEY is not set - weather service will not work');
+      this.logger.error(
+        'WEATHER_API_KEY is not set - weather service will not work',
+      );
+    } else {
+      this.logger.log('Weather service initialized successfully');
     }
   }
 
   async getForecast({ query, days = 3, lang = 'DE' }: ForecastRequestOptions) {
     const trimmedQuery = query?.trim();
     if (!trimmedQuery) {
+      this.logger.warn(
+        'Weather forecast request failed: missing location query parameter',
+      );
       throw new BadRequestException('Parameter "q" (location) is required.');
     }
 
     const sanitizedDays = this.normalizeDays(days);
     const sanitizedLang = lang.trim() || 'DE';
+
+    this.logger.log(
+      `Fetching weather forecast for "${trimmedQuery}" (${sanitizedDays} days, lang: ${sanitizedLang})`,
+    );
 
     try {
       const response = await firstValueFrom(
@@ -62,6 +73,10 @@ export class WeatherService {
           condition: day.day?.condition,
           daily_chance_of_rain: day.day?.daily_chance_of_rain,
         })) ?? [];
+
+      this.logger.log(
+        `Successfully fetched weather data for "${trimmedQuery}" - Current temp: ${current.temp_c}°C`,
+      );
 
       return {
         current: {
@@ -98,7 +113,7 @@ export class WeatherService {
       );
 
       throw new ServiceUnavailableException(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        // eslint-disable-next-eslint/no-unsafe-member-access
         error.response?.status === 400
           ? `Weather API rejected the request for "${query}": ${remoteMessage}`
           : 'Weather data is temporarily unavailable.',

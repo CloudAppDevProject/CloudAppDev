@@ -6,6 +6,7 @@ export const API_SERVICES = {
   USER_SERVICE: `${API_GATEWAY_URL}/api/v1/users`,
   ITINERARY_SERVICE: `${API_GATEWAY_URL}/api/v1/itineraries`,
   SOCIAL_SERVICE: `${API_GATEWAY_URL}/api/v1/social`,
+  TRAVEL_INFO_SERVICE: `${API_GATEWAY_URL}/api/v1/travel-info`,
 };
 
 // Helper function for API requests with error handling
