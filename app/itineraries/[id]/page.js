@@ -5,14 +5,13 @@ import { useRouter, useParams } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
 import CommentSection from "@/app/components/CommentSection";
+import { API_SERVICES } from "@/lib/api-config";
 
 // HILFSFUNKTION: Datum formatieren
 const formatDate = (dateString) => {
   if (!dateString) return "";
   try {
     const date = new Date(dateString);
-    // Format: TT.MM.JJJJ (wie in der vorherigen Antwort),
-    // mit 'UTC', um unerwünschte Zeitzonenverschiebung zu verhindern.
     return new Intl.DateTimeFormat("de-DE", {
       year: "numeric",
       month: "2-digit",
@@ -23,6 +22,68 @@ const formatDate = (dateString) => {
     console.error("Datum Formatierungsfehler:", error);
     return dateString;
   }
+};
+
+// Wetterkomponente für eine Location
+const WeatherPreview = ({ locationName, startDate }) => {
+  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Prüfe ob das Startdatum innerhalb der nächsten 3 Tage liegt
+    if (!startDate) return;
+    
+    const start = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const threeDaysFromNow = new Date(today);
+    threeDaysFromNow.setDate(today.getDate() + 3);
+    
+    // Wenn das Startdatum mehr als 3 Tage in der Zukunft liegt, zeige kein Wetter
+    if (start > threeDaysFromNow) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchWeather = async () => {
+      try {
+        const response = await fetch(`${API_SERVICES.TRAVEL_INFO_SERVICE}/weather?q=${encodeURIComponent(locationName)}&days=3&lang=de`);
+        if (response.ok) {
+          const data = await response.json();
+          setWeather(data);
+        }
+      } catch (error) {
+        console.error("Fehler beim Laden des Wetters:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (locationName) {
+      fetchWeather();
+    }
+  }, [locationName, startDate]);
+
+  if (loading) return <p className="text-sm text-gray-400">Wetter wird geladen...</p>;
+  if (!weather || !weather.forecast || weather.forecast.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex gap-4">
+      {weather.forecast.slice(0, 3).map((day) => (
+        <div key={day.date} className="flex-1 text-center">
+          <p className="text-xs text-gray-400 mb-1">{formatDate(day.date)}</p>
+          <img 
+            src={`https:${day.condition.icon}`} 
+            alt={day.condition.text}
+            className="w-12 h-12 mx-auto"
+          />
+          <p className="font-semibold">{day.maxtemp_c}°C</p>
+          <p className="text-xs text-gray-400">{day.mintemp_c}°C</p>
+          <p className="text-xs text-gray-300 mt-1">{day.condition.text}</p>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 export default function ItineraryDetail() {
@@ -40,7 +101,6 @@ export default function ItineraryDetail() {
     }
 
     (async () => {
-      // ... (Ihr bestehender Fetch-Code) ...
       try {
         const res = await fetch(`/api/itineraries?id=${params.id}&currentUserId=${user.id}`);
         if (res.status === 404) {
@@ -51,22 +111,20 @@ export default function ItineraryDetail() {
 
         const data = await res.json();
 
-        // Fetch likes for this itinerary
         try {
           const likesRes = await fetch(`/api/likes?itineraryId=${data.id}`);
           const likesData = await likesRes.json();
           data.likeCount = likesData.total || 0;
-          
+
           const userLikedRes = await fetch(`/api/likes?userId=${user.id}&itineraryId=${data.id}`);
           const userLikedData = await userLikedRes.json();
           data.userHasLiked = userLikedData.hasLiked || false;
         } catch (err) {
-          console.error('Failed to fetch likes:', err);
+          console.error("Failed to fetch likes:", err);
           data.likeCount = 0;
           data.userHasLiked = false;
         }
 
-        // Fetch signed URLs for gs:// images in locations
         if (Array.isArray(data.locations)) {
           const locationsWithSignedImages = await Promise.all(
             data.locations.map(async (loc) => {
@@ -75,17 +133,14 @@ export default function ItineraryDetail() {
                   loc.images.map(async (url) => {
                     if (url.startsWith("gs://")) {
                       try {
-                        const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
-                        const resp = await fetch(`${gatewayUrl}/api/v1/itineraries/signed-url?path=${encodeURIComponent(url)}`);
+                        const resp = await fetch(`${API_SERVICES.ITINERARY_SERVICE}/signed-url?path=${encodeURIComponent(url)}`);
                         if (resp.ok) {
                           const { url: signedUrl } = await resp.json();
                           return signedUrl;
                         }
                       } catch (e) {
-                        // fallback to public URL if API fails
                         return url.replace("gs://", "https://storage.googleapis.com/");
                       }
-                      // fallback to public URL if API fails
                       return url.replace("gs://", "https://storage.googleapis.com/");
                     }
                     return url;
@@ -120,7 +175,6 @@ export default function ItineraryDetail() {
         <strong>Destination:</strong> {itinerary.destination}
       </p>
       <p className="text-gray-50 mb-2">
-        {/* ANGEPASST: Reiseplan Startdatum */}
         <strong>Start Date:</strong> {formatDate(itinerary.start_date)}
       </p>
       <p className="text-gray-50 mb-2">
@@ -130,7 +184,6 @@ export default function ItineraryDetail() {
         <strong>Detail Description:</strong> {itinerary.detail_desc}
       </p>
 
-      {/* Locations section */}
       {Array.isArray(itinerary.locations) && itinerary.locations.length > 0 && (
         <div className="mt-8">
           <h2 className="text-2xl font-semibold mb-4 text-primary">📍 Locations</h2>
@@ -141,13 +194,15 @@ export default function ItineraryDetail() {
                 <strong>Short Description:</strong> {loc.short_desc}
               </p>
               <p className="mb-1">
-                {/* ANGEPASST: Location Startdatum */}
                 <strong>Start Date:</strong> {formatDate(loc.start_date)}
               </p>
               <p className="mb-1">
-                {/* ANGEPASST: Location Enddatum */}
                 <strong>End Date:</strong> {formatDate(loc.end_date)}
               </p>
+
+              {/* Wettervorschau */}
+              <WeatherPreview locationName={loc.name} startDate={loc.start_date} />
+
               {loc.images && loc.images.length > 0 && (
                 <div className="flex flex-wrap gap-4 mt-2">
                   {loc.images.map((imgUrl, i) => (
@@ -164,7 +219,6 @@ export default function ItineraryDetail() {
 
       <Button label="Back" onClick={() => router.push("/")} severity="secondary" className="mt-6" />
 
-      {/* Kommentarsektion */}
       <CommentSection itineraryId={itinerary.id} currentUser={user} />
     </div>
   );
