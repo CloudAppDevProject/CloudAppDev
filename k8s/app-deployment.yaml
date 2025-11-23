@@ -13,94 +13,17 @@ spec:
         app: cloudappdev-frontend
     spec:
       serviceAccountName: cloudappdev-sa
-      initContainers:
-        - name: cloud-sql-proxy
-          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
-          restartPolicy: Always
-          args:
-            - "--port=5432"
-            - "oceanic-citadel-474512-c1:europe-west1:cloudappdev-tf-db"
-          securityContext:
-            runAsNonRoot: true
-          resources:
-            requests:
-              # The proxy's memory use scales linearly with the number of active
-              # connections. Fewer open connections will use less memory. Adjust
-              # this value based on your application's requirements.
-              memory: "2Gi"
-              # The proxy's CPU use scales linearly with the amount of IO between
-              # the database and the application. Adjust this value based on your
-              # application's requirements.
-              cpu: "1"
-
       containers:
         - name: frontend
-          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev:latest
+          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-frontend:0.1.1
           ports:
             - containerPort: 3000
           env:
-            - name: DATABASE_URL
-              value: "postgresql://clouddev_user:clouddev_pass@127.0.0.1:5432/clouddev"
-            - name: MONGODB_URI
+            - name: API_GATEWAY_URL
               valueFrom:
                 secretKeyRef:
                   name: cloudappdev-secrets
-                  key: MONGODB_URI
-            - name: MONGO_INITDB_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: MONGO_INITDB_DATABASE
-            - name: GOOGLE_CLOUD_PROJECT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: GOOGLE_CLOUD_PROJECT_ID
-            - name: GOOGLE_CLOUD_STORAGE_BUCKET
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: GOOGLE_CLOUD_STORAGE_BUCKET
-            - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: GOOGLE_CLOUD_CREDENTIALS_BASE64
-            - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
-            - name: NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_KEY
-            - name: NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_DOMAIN
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_DOMAIN
-            - name: NEXT_PUBLIC_GOOGLE_CLOUD_PROJECT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: NEXT_PUBLIC_GOOGLE_CLOUD_PROJECT_ID
-            - name: NEXT_PUBLIC_USER_SERVICE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: NEXT_PUBLIC_USER_SERVICE_URL
-            - name: NEXT_PUBLIC_SOCIAL_SERVICE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: NEXT_PUBLIC_SOCIAL_SERVICE_URL
-            - name: NEXT_PUBLIC_ITINERARY_SERVICE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: NEXT_PUBLIC_ITINERARY_SERVICE_URL
+                  key: API_GATEWAY_URL
           resources:
             requests:
               cpu: "250m"

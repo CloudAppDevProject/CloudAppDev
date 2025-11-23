@@ -11,9 +11,30 @@ spec:
       labels:
         app: itinerary-service
     spec:
+      serviceAccountName: cloudappdev-sa
+      initContainers:
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+          restartPolicy: Always
+          args:
+            - "--port=5432"
+            - "oceanic-citadel-474512-c1:europe-west1:cloudappdev-tf-itinerary-db"
+          securityContext:
+            runAsNonRoot: true
+          resources:
+            requests:
+              # The proxy's memory use scales linearly with the number of active
+              # connections. Fewer open connections will use less memory. Adjust
+              # this value based on your application's requirements.
+              memory: "2Gi"
+              # The proxy's CPU use scales linearly with the amount of IO between
+              # the database and the application. Adjust this value based on your
+              # application's requirements.
+              cpu: "1"
+
       containers:
       - name: itinerary-service
-        image: <Image>
+        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-itinerary-service:0.1.1
         resources:
           limits:
             memory: "128Mi"
@@ -24,51 +45,35 @@ spec:
         - name: NODE_ENV
           valueFrom:
             secretKeyRef:
-              name: cloudappdev-secrets
+              name: itinerary-service-secrets
               key: NODE_ENV
         - name: DATABASE_URL
-          value: "DATABASE_URL=postgresql://appuser:devpass123@127.0.0.1:3306/itineraries_db?schema=public"
-        - name: SOCIAL_SERVICE_URL
           valueFrom:
             secretKeyRef:
-              name: cloudappdev-secrets
-              key: SOCIAL_SERVICE_URL
-        - name: USER_SERVICE_URL
-          valueFrom:
-            secretKeyRef:
-              name: cloudappdev-secrets
-              key: USER_SERVICE_URL
+              key: DATABASE_URL
+              name: itinerary-service-secrets
         - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
           valueFrom:
             secretKeyRef:
-              name: cloudappdev-secrets
+              name: itinerary-service-secrets
               key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
         - name: GOOGLE_CLOUD_STORAGE_BUCKET
           valueFrom:
             secretKeyRef:
-              name: cloudappdev-secrets
+              name: itinerary-service-secrets
               key: GOOGLE_CLOUD_STORAGE_BUCKET
         - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
           valueFrom:
             secretKeyRef:
-              name: cloudappdev-secrets
+              name: itinerary-service-secrets
               key: GOOGLE_CLOUD_CREDENTIALS_BASE64
         - name: GOOGLE_CLOUD_PROJECT_ID
           valueFrom:
             secretKeyRef:
-              name: cloudappdev-secrets
+              name: itinerary-service-secrets
               key: GOOGLE_CLOUD_PROJECT_ID
-      - name: cloud-sql-proxy
-        image: gcr.io/cloud-sql-connectors/cloud-sqlproxy:2.8.0
-        args:
-          - "--port=3306"
-          - "swqs-camping:europe-west1:camping-mysql"
-        securityContext:
-          runAsNonRoot: true
-        allowPrivilegeEscalation: false
-        resources:
-          requests:
-            cpu: "200m"
-            memory: "256Mi"
-          limits:
-            memory: "512Mi"
+        - name: FRONTEND_URL
+          valueFrom: 
+            secretKeyRef:
+              key: FRONTEND_URL
+              name: itinerary-service-secrets
