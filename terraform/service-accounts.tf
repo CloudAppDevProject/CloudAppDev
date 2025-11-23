@@ -36,16 +36,27 @@ resource "google_project_iam_member" "run_sa_cloudsql_client" {
   member  = "serviceAccount:${google_service_account.run_sa.email}"
 }
 
-// Create postgres database user
-resource "google_sql_user" "app_user" {
-  instance = google_sql_database_instance.postgress_db.name
+// Create itinerary postgres database user
+resource "google_sql_user" "itinerary_service_user" {
+  instance = google_sql_database_instance.itinerary_postgress_db.name
   name     = local.POSTGRES_USER
   password = local.POSTGRES_PASSWORD
 
   deletion_policy = "ABANDON"
+  depends_on = [ google_sql_database_instance.itinerary_postgress_db ]
 }
 
-// Kubernetes -> Cloud SQL access permissions for SA
+// Create itinerary postgres database user
+resource "google_sql_user" "users_service_user" {
+  instance = google_sql_database_instance.users_postgress_db.name
+  name     = local.POSTGRES_USER
+  password = local.POSTGRES_PASSWORD
+
+  deletion_policy = "ABANDON"
+  depends_on = [ google_sql_database_instance.users_postgress_db ]
+}
+
+// Cloud SQL access permissions for SA
 resource "google_project_iam_member" "run_sa_cloudsql_instance_user" {
   project = var.project
   role    = "roles/cloudsql.instanceUser"
@@ -84,6 +95,6 @@ resource "google_project_iam_member" "run_sa_firestore_indexer_admin" {
 
 resource "google_firestore_user_creds" "firestore_user_creds" {
   project  = var.project
-  database = google_firestore_database.no_sql_db.name
+  database = google_firestore_database.social_nosql_db.name
   name     = google_service_account.run_sa.account_id
 }
