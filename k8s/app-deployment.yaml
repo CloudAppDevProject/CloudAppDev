@@ -15,7 +15,7 @@ spec:
       serviceAccountName: cloudappdev-sa
       containers:
         - name: frontend
-          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev:latest
+          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-frontend:0.1.1
           ports:
             - containerPort: 3000
           env:
