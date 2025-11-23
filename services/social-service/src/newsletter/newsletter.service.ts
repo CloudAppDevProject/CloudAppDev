@@ -383,7 +383,7 @@ export class NewsletterService {
     // Destination matching (weight: 0.3)
     const itineraryDests = (itinerary.locations || [])
       .map(l => l.name)
-      .filter(Boolean);
+      .filter((name): name is string => Boolean(name));
     const matchedDests = itineraryDests.filter(d => userDestSet.has(d));
     score += (matchedDests.length / Math.max(itineraryDests.length, 1)) * 0.3;
 
@@ -416,7 +416,10 @@ export class NewsletterService {
 
       if (!userInterests || !userInterests.likedKeywords?.length) {
         // Compute interests if not found or empty
-        userInterests = await this.computeUserInterests(userId);
+        const computed = await this.computeUserInterests(userId);
+        if (computed) {
+          userInterests = computed as any;
+        }
       }
 
       if (!userInterests || !userInterests.likedKeywords?.length) {
@@ -497,9 +500,27 @@ export class NewsletterService {
    */
   async enrichTrendingItineraries(
     trendingList: Array<{ itineraryId: number; likeCount: number; commentCount: number; score: number }>,
-  ): Promise<Array<{ itineraryId: number; likeCount: number; commentCount: number; score: number; locations: any[]; images: any[]; keywords: string[] }>> {
+  ): Promise<
+    Array<{
+      itineraryId: number;
+      likeCount: number;
+      commentCount: number;
+      score: number;
+      locations: Array<{ name: string; description?: string }>;
+      images: Array<{ url: string; description?: string }>;
+      keywords: string[];
+    }>
+  > {
     try {
-      const enriched = [];
+      const enriched: Array<{
+        itineraryId: number;
+        likeCount: number;
+        commentCount: number;
+        score: number;
+        locations: Array<{ name: string; description?: string }>;
+        images: Array<{ url: string; description?: string }>;
+        keywords: string[];
+      }> = [];
 
       for (const item of trendingList) {
         try {
@@ -525,9 +546,9 @@ export class NewsletterService {
 
           enriched.push({
             ...item,
-            locations: cached.locations || [],
-            images: cached.images || [],
-            keywords: cached.keywords || [],
+            locations: (cached.locations as Array<{ name: string; description?: string }>) || [],
+            images: (cached.images as Array<{ url: string; description?: string }>) || [],
+            keywords: (cached.keywords as string[]) || [],
           });
         } catch (err) {
           this.logger.warn(
