@@ -89,8 +89,8 @@ services:
       - NODE_ENV=development
       - PORT=8081
       - DATABASE_URL=postgresql://appuser:devpass123@postgres-itineraries:5432/itineraries_db?schema=public
-      - USER_SERVICE_URL=http://api-gateway:80
-      - SOCIAL_SERVICE_URL=http://api-gateway:80
+      - USER_SERVICE_URL=http://user-service:8080
+      - SOCIAL_SERVICE_URL=http://social-service:8082
     env_file:
       - ./services/itinerary-service/.env
     volumes:
@@ -99,6 +99,8 @@ services:
     depends_on:
       postgres-itineraries:
         condition: service_healthy
+      user-service:
+        condition: service_started
     command: sh -c "npx prisma migrate deploy && npm run start:dev"
 
   social-service:
@@ -113,8 +115,8 @@ services:
       - NODE_ENV=development
       - PORT=8082
       - MONGODB_URI=mongodb://mongodb-social:27017/social_db
-      - USER_SERVICE_URL=http://api-gateway:80
-      - ITINERARY_SERVICE_URL=http://api-gateway:80
+      - USER_SERVICE_URL=http://user-service:8080
+      - ITINERARY_SERVICE_URL=http://itinerary-service:8081
       - NEWSLETTER_SMTP_HOST=smtp.gmail.com
       - NEWSLETTER_SMTP_PORT=587
       - NEWSLETTER_FROM_EMAIL=noreply@cloudappdev.com
@@ -131,6 +133,10 @@ services:
     depends_on:
       mongodb-social:
         condition: service_healthy
+      user-service:
+        condition: service_started
+      itinerary-service:
+        condition: service_started
     command: npm run start:dev
 
   travel-info-service:

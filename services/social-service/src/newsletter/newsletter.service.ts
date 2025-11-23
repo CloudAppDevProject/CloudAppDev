@@ -496,30 +496,36 @@ export class NewsletterService {
 
   /**
    * Enrich trending itineraries with details from Itinerary Service
-   * Fetches full details including locations, images, and keywords
+   * Fetches full details including locations, images, keywords, and comments
    */
   async enrichTrendingItineraries(
     trendingList: Array<{ itineraryId: number; likeCount: number; commentCount: number; score: number }>,
   ): Promise<
     Array<{
       itineraryId: number;
+      title: string;
+      userName: string;
       likeCount: number;
       commentCount: number;
       score: number;
       locations: Array<{ name: string; description?: string }>;
       images: Array<{ url: string; description?: string }>;
       keywords: string[];
+      recentComments: Array<{ userName?: string; text: string; createdAt: Date }>;
     }>
   > {
     try {
       const enriched: Array<{
         itineraryId: number;
+        title: string;
+        userName: string;
         likeCount: number;
         commentCount: number;
         score: number;
         locations: Array<{ name: string; description?: string }>;
         images: Array<{ url: string; description?: string }>;
         keywords: string[];
+        recentComments: Array<{ userName?: string; text: string; createdAt: Date }>;
       }> = [];
 
       for (const item of trendingList) {
@@ -530,35 +536,129 @@ export class NewsletterService {
           });
 
           if (!cached) {
-            // Fallback: create basic entry without full details
-            cached = await this.trendingItineraryModel.create({
-              itineraryId: item.itineraryId,
-              title: `Itinerary #${item.itineraryId}`,
-              userId: 0,
-              likeCount: item.likeCount,
-              commentCount: item.commentCount,
-              score: item.score,
-              locations: [],
-              images: [],
-              keywords: [],
-            });
+            // Fetch real itinerary data from Itinerary Service
+            try {
+              const itineraryServiceUrl = process.env.ITINERARY_SERVICE_URL || 'http://localhost:8081';
+              const response = await fetch(`${itineraryServiceUrl}/api/v1/itineraries/${item.itineraryId}`);
+
+              if (response.ok) {
+                const itineraryData = await response.json();
+                const itinerary = itineraryData.data || itineraryData;
+
+                // Fetch creator details from User Service
+                let creatorName = 'Unknown';
+                if (itinerary.userId) {
+                  try {
+                    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
+                    const userResponse = await fetch(`${userServiceUrl}/api/v1/users/${itinerary.userId}`);
+                    if (userResponse.ok) {
+                      const userData = await userResponse.json();
+                      creatorName = userData.data?.name || userData.name || 'Unknown';
+                    }
+                  } catch (userError) {
+                    this.logger.debug(`Could not fetch creator for itinerary ${item.itineraryId}`);
+                  }
+                }
+
+                // Create enriched cache entry
+                cached = await this.trendingItineraryModel.create({
+                  itineraryId: item.itineraryId,
+                  title: itinerary.title || 'Untitled Itinerary',
+                  userId: itinerary.userId || 0,
+                  userName: creatorName,
+                  likeCount: item.likeCount,
+                  commentCount: item.commentCount,
+                  score: item.score,
+                  locations: (itinerary.locations || []).map((loc: any) => ({
+                    id: loc.id,
+                    name: loc.name,
+                    description: loc.description,
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
+                  })),
+                  images: (itinerary.images || []).map((img: any) => ({
+                    url: img.url || img.imageUrl,
+                    description: img.description,
+                  })),
+                  keywords: this.extractKeywords(
+                    `${itinerary.title} ${itinerary.description || ''}`,
+                    20,
+                  ),
+                  tags: itinerary.tags || [],
+                  recentComments: [], // Will be populated when comments are fetched
+                  trendingComputedAt: new Date(),
+                });
+
+                this.logger.debug(
+                  `Created cache entry for itinerary ${item.itineraryId}: "${cached.title}" by ${cached.userName}`,
+                );
+              } else {
+                // Response not ok, create basic entry
+                this.logger.warn(
+                  `Itinerary service returned ${response.status} for itinerary ${item.itineraryId}`,
+                );
+                cached = await this.trendingItineraryModel.create({
+                  itineraryId: item.itineraryId,
+                  title: `Untitled Itinerary`,
+                  userId: 0,
+                  userName: 'Unknown',
+                  likeCount: item.likeCount,
+                  commentCount: item.commentCount,
+                  score: item.score,
+                  locations: [],
+                  images: [],
+                  keywords: [],
+                  recentComments: [],
+                });
+              }
+            } catch (fetchError) {
+              // If service call fails, create basic entry
+              this.logger.warn(
+                `Failed to fetch itinerary ${item.itineraryId} details, creating basic entry`,
+              );
+              cached = await this.trendingItineraryModel.create({
+                itineraryId: item.itineraryId,
+                title: `Untitled Itinerary`,
+                userId: 0,
+                userName: 'Unknown',
+                likeCount: item.likeCount,
+                commentCount: item.commentCount,
+                score: item.score,
+                locations: [],
+                images: [],
+                keywords: [],
+                recentComments: [],
+              });
+            }
           }
 
           enriched.push({
-            ...item,
+            itineraryId: item.itineraryId,
+            title: cached.title || `Untitled Itinerary`,
+            userName: cached.userName || 'Unknown',
+            likeCount: item.likeCount,
+            commentCount: item.commentCount,
+            score: item.score,
             locations: (cached.locations as Array<{ name: string; description?: string }>) || [],
             images: (cached.images as Array<{ url: string; description?: string }>) || [],
             keywords: (cached.keywords as string[]) || [],
+            recentComments: (cached.recentComments as Array<{ userName?: string; text: string; createdAt: Date }>) || [],
           });
         } catch (err) {
           this.logger.warn(
             `Failed to enrich itinerary ${item.itineraryId}: ${err instanceof Error ? err.message : String(err)}`,
           );
           enriched.push({
-            ...item,
+            itineraryId: item.itineraryId,
+            title: `Untitled Itinerary`,
+            userName: 'Unknown',
             locations: [],
             images: [],
             keywords: [],
+            recentComments: [],
+            likeCount: item.likeCount,
+            commentCount: item.commentCount,
+            score: item.score,
           });
         }
       }
@@ -568,10 +668,16 @@ export class NewsletterService {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to enrich trending itineraries:', errorMsg);
       return trendingList.map(item => ({
-        ...item,
+        itineraryId: item.itineraryId,
+        title: `Untitled Itinerary`,
+        userName: 'Unknown',
         locations: [],
         images: [],
         keywords: [],
+        recentComments: [],
+        likeCount: item.likeCount,
+        commentCount: item.commentCount,
+        score: item.score,
       }));
     }
   }
@@ -823,11 +929,16 @@ export class NewsletterService {
         commentCount: activity.commentCount,
         trendingItineraries: enrichedTrending.slice(0, 3).map(item => ({
           itineraryId: item.itineraryId,
+          title: item.title,
+          userName: item.userName,
           likeCount: item.likeCount,
           commentCount: item.commentCount,
-          title: `Itinerary #${item.itineraryId}`,
           locations: (item.locations || []).slice(0, 2).map(loc => loc.name || loc).join(', '),
           thumbnail: item.images?.[0]?.url,
+          recentComments: (item.recentComments || []).slice(0, 3).map(comment => ({
+            userName: comment.userName || 'Anonymous',
+            text: comment.text,
+          })),
         })),
         recommendations: recommendations.slice(0, 5).map(rec => ({
           itineraryId: rec.itineraryId,
@@ -837,7 +948,6 @@ export class NewsletterService {
           commentCount: rec.commentCount,
           locations: (rec.locations || []).slice(0, 2).map(l => l.name).join(', '),
           thumbnail: rec.thumbnail,
-          similarityScore: (rec.similarityScore * 100).toFixed(0),
         })),
         hasRecommendations: recommendations.length > 0,
         preferencesUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/preferences/${user.userId}`,
@@ -874,13 +984,19 @@ export class NewsletterService {
         .activity-list li { padding: 8px 0; border-bottom: 1px solid #eee; }
         .activity-list strong { color: #667eea; }
         .trending-item { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #667eea; }
-        .trending-item .title { font-weight: bold; color: #333; margin-bottom: 8px; }
+        .trending-item .title { font-weight: bold; color: #333; margin-bottom: 5px; font-size: 16px; }
+        .trending-item .author { font-size: 12px; color: #666; margin-bottom: 8px; }
         .trending-item .meta { font-size: 13px; color: #666; }
         .trending-item .locations { color: #764ba2; font-size: 12px; margin: 8px 0; }
         .thumbnail { max-width: 100%; height: 150px; object-fit: cover; border-radius: 4px; margin: 8px 0; }
+        .comments-section { background: rgba(255, 255, 255, 0.6); padding: 10px; margin-top: 10px; border-radius: 4px; border-left: 3px solid #667eea; }
+        .comments-header { font-weight: bold; font-size: 12px; color: #667eea; margin-bottom: 8px; }
+        .comment { font-size: 12px; color: #555; margin: 6px 0; padding: 6px 0; border-bottom: 1px solid rgba(102, 126, 234, 0.2); }
+        .comment strong { color: #667eea; }
+        .comment-text { color: #444; }
         .recommendation-item { background: #f0f4ff; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #764ba2; }
-        .recommendation-item .title { font-weight: bold; color: #333; margin-bottom: 5px; }
-        .recommendation-item .author { font-size: 12px; color: #666; }
+        .recommendation-item .title { font-weight: bold; color: #333; margin-bottom: 5px; font-size: 16px; }
+        .recommendation-item .author { font-size: 12px; color: #666; margin-bottom: 8px; }
         .recommendation-item .meta { font-size: 13px; color: #666; margin: 8px 0; }
         .recommendation-item .locations { color: #764ba2; font-size: 12px; margin: 8px 0; }
         .similarity-badge { display: inline-block; background: #764ba2; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
@@ -919,10 +1035,24 @@ export class NewsletterService {
               .map(
                 (item, idx) =>
                   `<div class="trending-item">
-                    <div class="title">#${idx + 1} - Itinerary #${item.itineraryId}</div>
+                    <div class="title">#${idx + 1} - ${item.title}</div>
+                    <div class="author">by ${item.userName}</div>
                     ${item.thumbnail ? `<img src="${item.thumbnail}" alt="Itinerary thumbnail" class="thumbnail">` : ''}
-                    <div class="locations">📍 ${item.locations || 'Destinations not available'}</div>
+                    <div class="locations">📍 ${item.locations || 'Various Destinations'}</div>
                     <div class="meta">❤️ ${item.likeCount} likes | 💬 ${item.commentCount} comments</div>
+                    ${item.recentComments && item.recentComments.length > 0 ? `
+                    <div class="comments-section">
+                        <div class="comments-header">💭 Recent Comments:</div>
+                        ${item.recentComments
+                          .map(
+                            comment =>
+                              `<div class="comment">
+                                <strong>${comment.userName}:</strong> <span class="comment-text">${comment.text}</span>
+                            </div>`,
+                          )
+                          .join('')}
+                    </div>
+                    ` : ''}
                 </div>`,
               )
               .join('')}
@@ -936,13 +1066,10 @@ export class NewsletterService {
               .map(
                 (rec, idx) =>
                   `<div class="recommendation-item">
-                    <div class="title">
-                        ${rec.title}
-                        <span class="similarity-badge">${rec.similarityScore}% Match</span>
-                    </div>
+                    <div class="title">#${idx + 1} - ${rec.title}</div>
                     <div class="author">by ${rec.userName}</div>
                     ${rec.thumbnail ? `<img src="${rec.thumbnail}" alt="Itinerary thumbnail" class="thumbnail">` : ''}
-                    <div class="locations">📍 ${rec.locations || 'Destinations not available'}</div>
+                    <div class="locations">📍 ${rec.locations || 'Various Destinations'}</div>
                     <div class="meta">❤️ ${rec.likeCount} likes | 💬 ${rec.commentCount} comments</div>
                 </div>`,
               )
@@ -1009,18 +1136,45 @@ export class NewsletterService {
       // Fetch user email from User Service (not stored in MongoDB for data persistence)
       let userEmail = '';
       try {
-        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
-        const response = await fetch(`${userServiceUrl}/api/v1/users/${user.userId}`);
+        // Try API Gateway first, then fallback to direct service URL
+        let userServiceUrl = process.env.USER_SERVICE_URL || 'http://api-gateway:80';
+        let url = `${userServiceUrl}/api/v1/users/${user.userId}`;
+
+        this.logger.debug(`Fetching user email from: ${url}`);
+
+        let response: Response;
+        try {
+          response = await fetch(url);
+        } catch (gatewayError) {
+          // Fallback to direct service URL if gateway fails
+          this.logger.warn(`Gateway fetch failed, trying direct user-service connection`);
+          userServiceUrl = 'http://user-service:8080';
+          url = `${userServiceUrl}/api/v1/users/${user.userId}`;
+          this.logger.debug(`Retrying with direct URL: ${url}`);
+          response = await fetch(url);
+        }
+
+        if (!response.ok) {
+          throw new Error(`User Service returned ${response.status}: ${response.statusText}`);
+        }
+
         const userData = await response.json();
+        this.logger.debug(`User data received for user ${user.userId}`);
+
+        // Handle both wrapped and unwrapped responses
         userEmail = userData.data?.email || userData.email || '';
 
         if (!userEmail) {
-          throw new Error(`No email found for user ${user.userId}`);
+          throw new Error(`No email found in user data for user ${user.userId}`);
         }
       } catch (userLookupError) {
         const errorMsg = userLookupError instanceof Error ? userLookupError.message : String(userLookupError);
         this.logger.error(`Failed to fetch email for user ${user.userId}: ${errorMsg}`);
-        throw new Error(`Cannot send newsletter: ${errorMsg}`);
+
+        // Instead of throwing, log and skip this user
+        // This allows partial newsletter sends if user service is temporarily unavailable
+        this.logger.warn(`Skipping newsletter for user ${user.userId} due to email fetch failure`);
+        return;
       }
 
       // Generate personalized content
