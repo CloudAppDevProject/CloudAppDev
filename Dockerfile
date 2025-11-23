@@ -47,7 +47,7 @@ ENV PORT=3000
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/config/next-config-js/output
 ENV HOSTNAME="0.0.0.0"
-CMD ["sh", "-c", "npx prisma migrate deploy && (node init-mongo.js &) && node server.js"]
+CMD ["sh", "-c", "node server.js"]
 
 
 
