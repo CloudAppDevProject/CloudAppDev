@@ -14,9 +14,6 @@ export class NewsletterSubscription {
   @Prop({ required: true, type: Number, unique: true, index: true })
   userId: number;
 
-  @Prop({ required: true })
-  email: string;
-
   @Prop({ default: true })
   isSubscribed: boolean;
 
@@ -26,6 +23,24 @@ export class NewsletterSubscription {
     default: NewsletterFrequency.WEEKLY,
   })
   frequency: NewsletterFrequency;
+
+  /**
+   * Preference flags for newsletter content
+   */
+  @Prop({ default: true })
+  includeTrending: boolean;
+
+  @Prop({ default: true })
+  includeRecommendations: boolean;
+
+  @Prop({ default: true })
+  includeActivitySummary: boolean;
+
+  /**
+   * Number of recommendations to include
+   */
+  @Prop({ required: true, default: 5 })
+  recommendationCount: number;
 
   @Prop({ default: Date.now })
   createdAt: Date;
@@ -40,4 +55,3 @@ export const NewsletterSubscriptionSchema = SchemaFactory.createForClass(
 
 // Indexes for efficient querying
 NewsletterSubscriptionSchema.index({ isSubscribed: 1, frequency: 1 });
-NewsletterSubscriptionSchema.index({ email: 1 }); // For email lookups

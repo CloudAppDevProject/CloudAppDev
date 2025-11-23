@@ -18,7 +18,8 @@ import { LikeDocument } from '../schemas/like.schema';
 import { CommentDocument } from '../schemas/comment.schema';
 import { SendNewsletterResultDto } from './dto';
 import { EmailService } from '../common/email.service';
-
+import { TrendingItineraryDocument } from '../schemas/trending-itinerary.schema';
+import { UserInterestsDocument } from '../schemas/user-interests.schema';
 
 /**
  * Handlebars template delegate type
@@ -45,6 +46,10 @@ export class NewsletterService {
     private likesModel: Model<LikeDocument>,
     @InjectModel('Comment')
     private commentsModel: Model<CommentDocument>,
+    @InjectModel('TrendingItinerary')
+    private trendingItineraryModel: Model<TrendingItineraryDocument>,
+    @InjectModel('UserInterests')
+    private userInterestsModel: Model<UserInterestsDocument>,
   ) {
     this.logger.log(`Newsletter service initialized with mode: sendgrid`);
   }
@@ -52,6 +57,7 @@ export class NewsletterService {
 
   /**
    * Subscribe a user to the newsletter
+   * Note: Email is NOT stored in MongoDB, it's fetched from User Service on demand
    */
   async subscribeUser(
     userId: number,
@@ -63,7 +69,6 @@ export class NewsletterService {
         { userId },
         {
           userId,
-          email,
           isSubscribed: true,
           frequency: frequency as NewsletterFrequency,
         },
@@ -222,6 +227,331 @@ export class NewsletterService {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to get activity for user ${userId}:`, errorMsg);
       throw error;
+    }
+  }
+
+  /**
+   * Extract keywords from text by tokenizing and filtering common words
+   */
+  private extractKeywords(text: string, limit: number = 5): string[] {
+    if (!text) return [];
+
+    const stopWords = new Set([
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+      'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
+      'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+      'could', 'should', 'may', 'might', 'must', 'can', 'my', 'your', 'our',
+      'their', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it',
+      'we', 'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how',
+    ]);
+
+    return text
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(word => word.length > 3 && !stopWords.has(word))
+      .slice(0, limit);
+  }
+
+  /**
+   * Compute or update user interests based on their liked itineraries
+   * Analyzes keywords and tags from itineraries user has liked
+   */
+  async computeUserInterests(userId: number): Promise<UserInterestsDocument | null> {
+    try {
+      // Get all itineraries liked by this user in the past 90 days
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const userLikes = await this.likesModel
+        .find({
+          userId,
+          createdAt: { $gte: ninetyDaysAgo },
+        })
+        .select('itineraryId')
+        .distinct('itineraryId');
+
+      if (userLikes.length === 0) {
+        // Create empty interests if no likes
+        return await this.userInterestsModel.findOneAndUpdate(
+          { userId },
+          {
+            userId,
+            likedKeywords: [],
+            likedTags: [],
+            preferredDestinations: [],
+            totalLikedItineraries: 0,
+            lastComputedAt: new Date(),
+          },
+          { upsert: true, new: true },
+        );
+      }
+
+      // Fetch itinerary details from API (simplified - in real scenario, call Itinerary Service)
+      const keywordFreq = new Map<string, number>();
+      const tagsSet = new Set<string>();
+      const destinationsSet = new Set<string>();
+
+      // Get trending itinerary details which contain keywords and tags
+      const itineraryDetails = await this.trendingItineraryModel.find({
+        itineraryId: { $in: userLikes },
+      });
+
+      for (const itinerary of itineraryDetails) {
+        // Accumulate keywords
+        for (const keyword of itinerary.keywords || []) {
+          keywordFreq.set(keyword, (keywordFreq.get(keyword) || 0) + 1);
+        }
+
+        // Accumulate tags
+        for (const tag of itinerary.tags || []) {
+          tagsSet.add(tag);
+        }
+
+        // Accumulate destinations from locations
+        for (const location of itinerary.locations || []) {
+          if (location.name) {
+            destinationsSet.add(location.name);
+          }
+        }
+      }
+
+      // Convert to sorted keyword frequency array
+      const likedKeywords = Array.from(keywordFreq.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([keyword, frequency]) => ({
+          keyword,
+          frequency,
+          lastSeen: new Date(),
+        }));
+
+      const interests = await this.userInterestsModel.findOneAndUpdate(
+        { userId },
+        {
+          userId,
+          likedKeywords,
+          likedTags: Array.from(tagsSet).slice(0, 15),
+          preferredDestinations: Array.from(destinationsSet).slice(0, 10),
+          totalLikedItineraries: userLikes.length,
+          lastComputedAt: new Date(),
+        },
+        { upsert: true, new: true },
+      );
+
+      this.logger.log(
+        `Computed interests for user ${userId}: ${likedKeywords.length} keywords, ${tagsSet.size} tags`,
+      );
+
+      return interests;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to compute interests for user ${userId}:`, errorMsg);
+      return null;
+    }
+  }
+
+  /**
+   * Calculate similarity score between user interests and an itinerary
+   * Higher score = better match for recommendation
+   */
+  private calculateInterestSimilarity(
+    userInterests: {
+      likedKeywords: Array<{ keyword: string; frequency: number }>;
+      likedTags: string[];
+      preferredDestinations: string[];
+      totalLikedItineraries: number;
+    },
+    itinerary: {
+      keywords: string[];
+      tags: string[];
+      locations: Array<{ name?: string }>;
+    },
+  ): number {
+    let score = 0;
+    const userKeywordSet = new Set(userInterests.likedKeywords.map(k => k.keyword));
+    const userTagSet = new Set(userInterests.likedTags);
+    const userDestSet = new Set(userInterests.preferredDestinations);
+
+    // Keyword matching (weight: 0.4)
+    const matchedKeywords = (itinerary.keywords || []).filter(k =>
+      userKeywordSet.has(k),
+    );
+    score += (matchedKeywords.length / Math.max(itinerary.keywords.length, 1)) * 0.4;
+
+    // Tag matching (weight: 0.3)
+    const matchedTags = (itinerary.tags || []).filter(t => userTagSet.has(t));
+    score += (matchedTags.length / Math.max(itinerary.tags.length, 1)) * 0.3;
+
+    // Destination matching (weight: 0.3)
+    const itineraryDests = (itinerary.locations || [])
+      .map(l => l.name)
+      .filter(Boolean);
+    const matchedDests = itineraryDests.filter(d => userDestSet.has(d));
+    score += (matchedDests.length / Math.max(itineraryDests.length, 1)) * 0.3;
+
+    return score;
+  }
+
+  /**
+   * Get recommended itineraries for a user based on their interests
+   * Finds fresh itineraries (< 7 days old) that match user's interests
+   */
+  async getRecommendedItineraries(
+    userId: number,
+    limit: number = 5,
+  ): Promise<
+    Array<{
+      itineraryId: number;
+      title: string;
+      userName: string;
+      likeCount: number;
+      commentCount: number;
+      score: number;
+      locations: Array<{ name: string; description?: string }>;
+      thumbnail?: string;
+      similarityScore: number;
+    }>
+  > {
+    try {
+      // Get or compute user interests
+      let userInterests = await this.userInterestsModel.findOne({ userId });
+
+      if (!userInterests || !userInterests.likedKeywords?.length) {
+        // Compute interests if not found or empty
+        userInterests = await this.computeUserInterests(userId);
+      }
+
+      if (!userInterests || !userInterests.likedKeywords?.length) {
+        // If still no interests, return trending instead
+        this.logger.log(
+          `No interests found for user ${userId}, returning trending itineraries`,
+        );
+        const trending = await this.getTrendingItineraries(limit);
+        return trending.map(t => ({
+          itineraryId: t.itineraryId,
+          title: `Itinerary #${t.itineraryId}`,
+          userName: 'Unknown',
+          likeCount: t.likeCount,
+          commentCount: t.commentCount,
+          score: t.score,
+          locations: [],
+          similarityScore: 0,
+        }));
+      }
+
+      // Get fresh trending itineraries from past 7 days
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const candidates = await this.trendingItineraryModel
+        .find({
+          trendingComputedAt: { $gte: sevenDaysAgo },
+          userId: { $ne: userId }, // Don't recommend own itineraries
+        })
+        .sort({ score: -1 })
+        .limit(limit * 3); // Fetch extra to filter and sort
+
+      // Score candidates based on interest similarity
+      const scoredCandidates = candidates
+        .map(itinerary => ({
+          itinerary,
+          similarityScore: this.calculateInterestSimilarity(userInterests, {
+            keywords: itinerary.keywords || [],
+            tags: itinerary.tags || [],
+            locations: itinerary.locations || [],
+          }),
+        }))
+        .filter(item => item.similarityScore > 0) // Only include matching itineraries
+        .sort((a, b) => b.similarityScore - a.similarityScore)
+        .slice(0, limit);
+
+      const results = scoredCandidates.map(({ itinerary, similarityScore }) => ({
+        itineraryId: itinerary.itineraryId,
+        title: itinerary.title,
+        userName: itinerary.userName || 'Unknown',
+        likeCount: itinerary.likeCount,
+        commentCount: itinerary.commentCount,
+        score: itinerary.score,
+        locations: (itinerary.locations || []).map(loc => ({
+          name: loc.name,
+          description: loc.description,
+        })),
+        thumbnail: itinerary.images?.[0]?.url,
+        similarityScore,
+      }));
+
+      this.logger.log(
+        `Generated ${results.length} recommendations for user ${userId}`,
+      );
+
+      return results;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to get recommendations for user ${userId}:`,
+        errorMsg,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Enrich trending itineraries with details from Itinerary Service
+   * Fetches full details including locations, images, and keywords
+   */
+  async enrichTrendingItineraries(
+    trendingList: Array<{ itineraryId: number; likeCount: number; commentCount: number; score: number }>,
+  ): Promise<Array<{ itineraryId: number; likeCount: number; commentCount: number; score: number; locations: any[]; images: any[]; keywords: string[] }>> {
+    try {
+      const enriched = [];
+
+      for (const item of trendingList) {
+        try {
+          // Try to fetch from cache first
+          let cached = await this.trendingItineraryModel.findOne({
+            itineraryId: item.itineraryId,
+          });
+
+          if (!cached) {
+            // Fallback: create basic entry without full details
+            cached = await this.trendingItineraryModel.create({
+              itineraryId: item.itineraryId,
+              title: `Itinerary #${item.itineraryId}`,
+              userId: 0,
+              likeCount: item.likeCount,
+              commentCount: item.commentCount,
+              score: item.score,
+              locations: [],
+              images: [],
+              keywords: [],
+            });
+          }
+
+          enriched.push({
+            ...item,
+            locations: cached.locations || [],
+            images: cached.images || [],
+            keywords: cached.keywords || [],
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Failed to enrich itinerary ${item.itineraryId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          enriched.push({
+            ...item,
+            locations: [],
+            images: [],
+            keywords: [],
+          });
+        }
+      }
+
+      return enriched;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error('Failed to enrich trending itineraries:', errorMsg);
+      return trendingList.map(item => ({
+        ...item,
+        locations: [],
+        images: [],
+        keywords: [],
+      }));
     }
   }
 
@@ -448,6 +778,12 @@ export class NewsletterService {
 
       const activity = await this.getUserActivity(user.userId);
 
+      // Enrich trending data with locations and images
+      const enrichedTrending = await this.enrichTrendingItineraries(trending);
+
+      // Get personalized recommendations based on user interests
+      const recommendations = await this.getRecommendedItineraries(user.userId, 5);
+
       const templateData = {
         userName: user.userName || `User ${user.userId}`,
         weekStart: new Date(
@@ -464,13 +800,25 @@ export class NewsletterService {
         }),
         likeCount: activity.likeCount,
         commentCount: activity.commentCount,
-        trendingItineraries: trending.slice(0, 3).map(item => ({
+        trendingItineraries: enrichedTrending.slice(0, 3).map(item => ({
           itineraryId: item.itineraryId,
           likeCount: item.likeCount,
           commentCount: item.commentCount,
           title: `Itinerary #${item.itineraryId}`,
+          locations: (item.locations || []).slice(0, 2).map(loc => loc.name || loc).join(', '),
+          thumbnail: item.images?.[0]?.url,
         })),
-        followedUserItineraries: [],
+        recommendations: recommendations.slice(0, 5).map(rec => ({
+          itineraryId: rec.itineraryId,
+          title: rec.title,
+          userName: rec.userName,
+          likeCount: rec.likeCount,
+          commentCount: rec.commentCount,
+          locations: (rec.locations || []).slice(0, 2).map(l => l.name).join(', '),
+          thumbnail: rec.thumbnail,
+          similarityScore: (rec.similarityScore * 100).toFixed(0),
+        })),
+        hasRecommendations: recommendations.length > 0,
         preferencesUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/preferences/${user.userId}`,
         unsubscribeUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/unsubscribe/${user.userId}`,
         appUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -486,20 +834,40 @@ export class NewsletterService {
       if (template) {
         html = template(templateData);
       } else {
-        // Fallback to basic HTML if template not found
+        // Enhanced fallback HTML with enriched trending and recommendations
         html = `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: Arial, sans-serif; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
-        .section { margin: 20px 0; }
-        .trending { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #007bff; }
-        .footer { font-size: 12px; color: #666; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px; }
-        a { color: #007bff; text-decoration: none; }
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 650px; margin: 0 auto; padding: 20px; background: #ffffff; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; border-radius: 8px; margin-bottom: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .header p { margin: 8px 0 0; opacity: 0.9; }
+        .section { margin: 30px 0; }
+        .section h2 { color: #333; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
+        .section h3 { color: #667eea; margin-top: 20px; }
+        .activity-list { list-style: none; padding: 0; }
+        .activity-list li { padding: 8px 0; border-bottom: 1px solid #eee; }
+        .activity-list strong { color: #667eea; }
+        .trending-item { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #667eea; }
+        .trending-item .title { font-weight: bold; color: #333; margin-bottom: 8px; }
+        .trending-item .meta { font-size: 13px; color: #666; }
+        .trending-item .locations { color: #764ba2; font-size: 12px; margin: 8px 0; }
+        .thumbnail { max-width: 100%; height: 150px; object-fit: cover; border-radius: 4px; margin: 8px 0; }
+        .recommendation-item { background: #f0f4ff; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #764ba2; }
+        .recommendation-item .title { font-weight: bold; color: #333; margin-bottom: 5px; }
+        .recommendation-item .author { font-size: 12px; color: #666; }
+        .recommendation-item .meta { font-size: 13px; color: #666; margin: 8px 0; }
+        .recommendation-item .locations { color: #764ba2; font-size: 12px; margin: 8px 0; }
+        .similarity-badge { display: inline-block; background: #764ba2; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+        .footer { font-size: 12px; color: #999; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center; }
+        .footer a { color: #667eea; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .cta-button { display: inline-block; background: #667eea; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none; margin: 10px 5px 10px 0; }
+        .cta-button:hover { background: #764ba2; }
     </style>
 </head>
 <body>
@@ -511,35 +879,64 @@ export class NewsletterService {
 
         <div class="section">
             <h2>Hi ${templateData.userName}!</h2>
-            <p>Here's what's been happening in your community this week.</p>
+            <p>Here's what's been happening in your travel community this week, plus personalized recommendations based on your interests.</p>
         </div>
 
         <div class="section">
-            <h3>Your Activity</h3>
-            <p>You've been busy! Here's your weekly summary:</p>
-            <ul>
+            <h3>📊 Your Activity</h3>
+            <p>Here's your weekly engagement summary:</p>
+            <ul class="activity-list">
                 <li><strong>${templateData.likeCount}</strong> likes on itineraries</li>
                 <li><strong>${templateData.commentCount}</strong> comments made</li>
             </ul>
         </div>
 
         <div class="section">
-            <h3>Trending This Week</h3>
-            <p>Check out these popular itineraries getting attention:</p>
+            <h3>🔥 Trending This Week</h3>
+            <p>These itineraries are getting a lot of attention from the community:</p>
             ${templateData.trendingItineraries
               .map(
                 (item, idx) =>
-                  `<div class="trending">
-                <p><strong>#${idx + 1}</strong> - Itinerary #${item.itineraryId}</p>
-                <p>Likes: ${item.likeCount} | Comments: ${item.commentCount}</p>
-            </div>`,
+                  `<div class="trending-item">
+                    <div class="title">#${idx + 1} - Itinerary #${item.itineraryId}</div>
+                    ${item.thumbnail ? `<img src="${item.thumbnail}" alt="Itinerary thumbnail" class="thumbnail">` : ''}
+                    <div class="locations">📍 ${item.locations || 'Destinations not available'}</div>
+                    <div class="meta">❤️ ${item.likeCount} likes | 💬 ${item.commentCount} comments</div>
+                </div>`,
               )
               .join('')}
         </div>
 
+        ${templateData.hasRecommendations ? `
+        <div class="section">
+            <h3>✨ Recommended For You</h3>
+            <p>Based on your interests and travel style, we think you'll love these itineraries:</p>
+            ${templateData.recommendations
+              .map(
+                (rec, idx) =>
+                  `<div class="recommendation-item">
+                    <div class="title">
+                        ${rec.title}
+                        <span class="similarity-badge">${rec.similarityScore}% Match</span>
+                    </div>
+                    <div class="author">by ${rec.userName}</div>
+                    ${rec.thumbnail ? `<img src="${rec.thumbnail}" alt="Itinerary thumbnail" class="thumbnail">` : ''}
+                    <div class="locations">📍 ${rec.locations || 'Destinations not available'}</div>
+                    <div class="meta">❤️ ${rec.likeCount} likes | 💬 ${rec.commentCount} comments</div>
+                </div>`,
+              )
+              .join('')}
+        </div>
+        ` : ''}
+
+        <div class="section" style="text-align: center;">
+            <p>Discover more travel itineraries and connect with fellow travelers!</p>
+            <a href="${templateData.appUrl}" class="cta-button">Explore More</a>
+        </div>
+
         <div class="footer">
             <p>
-                <a href="${templateData.preferencesUrl}">Manage preferences</a> |
+                <a href="${templateData.preferencesUrl}">Manage Preferences</a> |
                 <a href="${templateData.unsubscribeUrl}">Unsubscribe</a>
             </p>
             <p>&copy; ${templateData.currentYear} CloudAppDev. All rights reserved.</p>
@@ -561,6 +958,7 @@ export class NewsletterService {
   /**
    * Send newsletter to a single user with idempotency check and tracking
    * Prevents duplicate sends and tracks delivery status
+   * Fetches email from User Service on demand (not stored in MongoDB)
    */
   async sendToUserWithTracking(
     user: NewsletterSubscriptionDocument,
@@ -587,12 +985,29 @@ export class NewsletterService {
         return;
       }
 
+      // Fetch user email from User Service (not stored in MongoDB for data persistence)
+      let userEmail = '';
+      try {
+        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
+        const response = await fetch(`${userServiceUrl}/api/v1/users/${user.userId}`);
+        const userData = await response.json();
+        userEmail = userData.data?.email || userData.email || '';
+
+        if (!userEmail) {
+          throw new Error(`No email found for user ${user.userId}`);
+        }
+      } catch (userLookupError) {
+        const errorMsg = userLookupError instanceof Error ? userLookupError.message : String(userLookupError);
+        this.logger.error(`Failed to fetch email for user ${user.userId}: ${errorMsg}`);
+        throw new Error(`Cannot send newsletter: ${errorMsg}`);
+      }
+
       // Generate personalized content
       const content = await this.generateNewsletterContent(user, trending);
 
       // Send email
       await this.sendEmail(
-        user.email,
+        userEmail,
         `Your Weekly Travel Newsletter - ${new Date().toLocaleDateString()}`,
         content,
       );
@@ -601,7 +1016,6 @@ export class NewsletterService {
       await this.deliveryModel.updateOne(
         { sendRun: sendRunId, userId: user.userId },
         {
-          email: user.email,
           status: DeliveryStatus.SENT,
           sentAt: new Date(),
           retryCount: 0,
@@ -623,7 +1037,6 @@ export class NewsletterService {
       await this.deliveryModel.updateOne(
         { sendRun: sendRunId, userId: user.userId },
         {
-          email: user.email,
           status: DeliveryStatus.FAILED,
           error: errorMsg,
           retryCount: retryCount + 1,
@@ -717,7 +1130,6 @@ export class NewsletterService {
               failureCount++;
               errors.push({
                 userId: user.userId,
-                email: user.email,
                 error: errorMsg,
               });
             }),
@@ -792,10 +1204,27 @@ export class NewsletterService {
             continue;
           }
 
+          // Fetch email from User Service (not stored in MongoDB)
+          let userEmail = '';
+          try {
+            const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
+            const response = await fetch(`${userServiceUrl}/api/v1/users/${delivery.userId}`);
+            const userData = await response.json();
+            userEmail = userData.data?.email || userData.email || '';
+
+            if (!userEmail) {
+              throw new Error(`No email found for user ${delivery.userId}`);
+            }
+          } catch (userLookupError) {
+            const errorMsg = userLookupError instanceof Error ? userLookupError.message : String(userLookupError);
+            this.logger.error(`Failed to fetch email for retry, user ${delivery.userId}: ${errorMsg}`);
+            throw new Error(`Cannot send retry: ${errorMsg}`);
+          }
+
           // Generate fresh content and send
           const content = await this.generateNewsletterContent(user, trending);
           await this.sendEmail(
-            delivery.email || user.email,
+            userEmail,
             `Your Weekly Travel Newsletter - RETRY`,
             content,
           );

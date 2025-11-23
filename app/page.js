@@ -8,6 +8,7 @@ import ItineraryTable from "@/app/components/itineraryTable";
 export default function MyItinerariesPage() {
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const [itineraries, setItineraries] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -19,12 +20,21 @@ export default function MyItinerariesPage() {
     page: 1,
   });
 
-  // --- Daten laden ---
+  // --- Check auth and redirect to login if needed ---
   useEffect(() => {
-    console.log("MyItinerariesPage: usr changed:", user);
     if (userLoading) return;
     if (!user?.id) {
+      setIsRedirecting(true);
       router.push("/login");
+      return;
+    }
+  }, [userLoading, user, router]);
+
+  // --- Daten laden ---
+  useEffect(() => {
+    console.log("MyItinerariesPage: user changed:", user);
+    if (userLoading || isRedirecting) return;
+    if (!user?.id) {
       return;
     }
 
@@ -126,6 +136,10 @@ export default function MyItinerariesPage() {
       page: event.page + 1, // PrimeReact uses 0-based pages, our API uses 1-based
     });
   };
+
+  if (isRedirecting) {
+    return null;
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6 font-sans">

@@ -187,12 +187,12 @@ export default function ProfileForm({ user, onUpdate }) {
         <div className="text-center mb-6">
           <img
             // Verwenden Sie die 'signedAvatar' für die Anzeige
-            src={signedAvatar || "https://placehold.co/100x100/3B82F6/ffffff?text=U"}
+            src={signedAvatar || "/default-avatar.png"}
             alt="Avatar Preview"
             className="w-24 h-24 rounded-full mx-auto object-cover border-4 border-blue-500"
             onError={(e) => {
               e.target.onerror = null;
-              e.target.src = "https://placehold.co/100x100/3B82F6/ffffff?text=U";
+              e.target.src = "/default-avatar.png";
             }}
           />
         </div>

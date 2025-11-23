@@ -84,7 +84,6 @@ export class NewsletterController {
         message: `User ${createSubscriptionDto.userId} subscribed to ${createSubscriptionDto.frequency || 'weekly'} newsletter`,
         data: {
           userId: createSubscriptionDto.userId,
-          email: createSubscriptionDto.email,
           frequency: createSubscriptionDto.frequency || 'weekly',
         },
       };
@@ -150,11 +149,22 @@ export class NewsletterController {
         };
       }
 
+      // Fetch email from User Service (not stored in MongoDB)
+      let email = '';
+      try {
+        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
+        const response = await fetch(`${userServiceUrl}/api/v1/users/${userId_num}`);
+        const userData = await response.json();
+        email = userData.data?.email || userData.email || '';
+      } catch (err) {
+        this.logger.warn(`Failed to fetch email for user ${userId_num}`);
+      }
+
       return {
         success: true,
         data: {
           userId: subscription.userId,
-          email: subscription.email,
+          email: email || 'N/A',
           isSubscribed: subscription.isSubscribed,
           frequency: subscription.frequency,
           subscribedAt: subscription.createdAt,
@@ -206,12 +216,23 @@ export class NewsletterController {
         };
       }
 
+      // Fetch email from User Service (not stored in MongoDB)
+      let email = '';
+      try {
+        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
+        const response = await fetch(`${userServiceUrl}/api/v1/users/${userId_num}`);
+        const userData = await response.json();
+        email = userData.data?.email || userData.email || '';
+      } catch (err) {
+        this.logger.warn(`Failed to fetch email for user ${userId_num}`);
+      }
+
       return {
         success: true,
         message: `Preferences updated for user ${userId_num}`,
         data: {
           userId: updated.userId,
-          email: updated.email,
+          email: email || 'N/A',
           isSubscribed: updated.isSubscribed,
           frequency: updated.frequency,
         },
@@ -250,15 +271,37 @@ export class NewsletterController {
         };
       }
 
+      // Fetch email from User Service (not stored in MongoDB)
+      let userEmail = '';
+      try {
+        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
+        const response = await fetch(`${userServiceUrl}/api/v1/users/${userId_num}`);
+        const userData = await response.json();
+        userEmail = userData.data?.email || userData.email || '';
+
+        if (!userEmail) {
+          return {
+            success: false,
+            message: `No email found for user ${userId_num}`,
+          };
+        }
+      } catch (err) {
+        return {
+          success: false,
+          message: `Failed to fetch email for user ${userId_num}`,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+
       // Get trending and send
       const trending = await this.newsletterService.getTrendingItineraries();
       const content = await this.newsletterService.generateNewsletterContent(
-        { userId: userId_num, email: subscription.email },
+        { userId: userId_num, email: userEmail },
         trending,
       );
 
       await this.newsletterService.sendEmail(
-        subscription.email,
+        userEmail,
         `Your Manual Newsletter - ${new Date().toLocaleDateString()}`,
         content,
       );
@@ -268,7 +311,7 @@ export class NewsletterController {
         message: `Newsletter sent to user ${userId_num}`,
         data: {
           userId: userId_num,
-          email: subscription.email,
+          email: userEmail,
           sentAt: new Date(),
         },
       };

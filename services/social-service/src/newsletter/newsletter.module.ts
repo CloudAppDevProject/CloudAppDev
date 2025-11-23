@@ -10,6 +10,14 @@ import {
   NewsletterDelivery,
   NewsletterDeliverySchema,
 } from '../schemas/newsletter-delivery.schema';
+import {
+  TrendingItinerary,
+  TrendingItinerarySchema,
+} from '../schemas/trending-itinerary.schema';
+import {
+  UserInterests,
+  UserInterestsSchema,
+} from '../schemas/user-interests.schema';
 import { LikeSchema } from '../schemas/like.schema';
 import { CommentSchema } from '../schemas/comment.schema';
 import { EmailService } from '../common/email.service';
@@ -28,6 +36,14 @@ import { EmailService } from '../common/email.service';
       {
         name: NewsletterDelivery.name,
         schema: NewsletterDeliverySchema,
+      },
+      {
+        name: TrendingItinerary.name,
+        schema: TrendingItinerarySchema,
+      },
+      {
+        name: UserInterests.name,
+        schema: UserInterestsSchema,
       },
       {
         name: 'Like',
