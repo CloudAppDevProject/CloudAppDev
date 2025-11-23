@@ -29,10 +29,10 @@ export class CommentsService {
     const comments = await this.commentModel
       .find({ itineraryId: Number(itineraryId) })
       .sort({ createdAt: -1 });
-    
+
     return {
       total: comments.length,
-      comments: comments.map(comment => ({
+      comments: comments.map((comment) => ({
         id: comment._id,
         userId: comment.userId,
         text: comment.text,
@@ -49,8 +49,8 @@ export class CommentsService {
     const comments = await this.commentModel
       .find({ userId: Number(userId) })
       .sort({ createdAt: -1 });
-    
-    return comments.map(comment => ({
+
+    return comments.map((comment) => ({
       id: comment._id,
       itineraryId: comment.itineraryId,
       text: comment.text,
@@ -64,7 +64,7 @@ export class CommentsService {
    */
   async update(commentId: string, text: string) {
     const comment = await this.commentModel.findById(commentId);
-    
+
     if (!comment) {
       throw new NotFoundException(`Comment with ID ${commentId} not found`);
     }
@@ -81,7 +81,7 @@ export class CommentsService {
    */
   async delete(commentId: string) {
     const result = await this.commentModel.deleteOne({ _id: commentId });
-    
+
     if (result.deletedCount === 0) {
       throw new NotFoundException(`Comment with ID ${commentId} not found`);
     }
@@ -107,6 +107,8 @@ export class CommentsService {
    * Get comment count for an itinerary
    */
   async getCommentCount(itineraryId: string | number): Promise<number> {
-    return this.commentModel.countDocuments({ itineraryId: Number(itineraryId) });
+    return this.commentModel.countDocuments({
+      itineraryId: Number(itineraryId),
+    });
   }
 }

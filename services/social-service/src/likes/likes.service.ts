@@ -7,9 +7,7 @@ import { BatchLikesDto, BatchLikesResponse } from '../dto/batch-likes.dto';
 
 @Injectable()
 export class LikesService {
-  constructor(
-    @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
-  ) {}
+  constructor(@InjectModel(Like.name) private likeModel: Model<LikeDocument>) {}
 
   /**
    * Toggle like for an itinerary
@@ -54,8 +52,14 @@ export class LikesService {
   /**
    * Check if user has liked an itinerary
    */
-  async hasUserLiked(userId: string | number, itineraryId: string | number): Promise<boolean> {
-    const like = await this.likeModel.findOne({ userId: Number(userId), itineraryId: Number(itineraryId) });
+  async hasUserLiked(
+    userId: string | number,
+    itineraryId: string | number,
+  ): Promise<boolean> {
+    const like = await this.likeModel.findOne({
+      userId: Number(userId),
+      itineraryId: Number(itineraryId),
+    });
     return !!like;
   }
 
@@ -63,10 +67,12 @@ export class LikesService {
    * Get all likes for an itinerary with user info
    */
   async getLikesForItinerary(itineraryId: string | number) {
-    const likes = await this.likeModel.find({ itineraryId: Number(itineraryId) }).sort({ createdAt: -1 });
+    const likes = await this.likeModel
+      .find({ itineraryId: Number(itineraryId) })
+      .sort({ createdAt: -1 });
     return {
       total: likes.length,
-      likes: likes.map(like => ({
+      likes: likes.map((like) => ({
         userId: like.userId,
         createdAt: like.createdAt,
       })),
@@ -77,8 +83,10 @@ export class LikesService {
    * Get all itineraries liked by a user
    */
   async getLikedItinerariesByUser(userId: string | number) {
-    const likes = await this.likeModel.find({ userId: Number(userId) }).sort({ createdAt: -1 });
-    return likes.map(like => like.itineraryId);
+    const likes = await this.likeModel
+      .find({ userId: Number(userId) })
+      .sort({ createdAt: -1 });
+    return likes.map((like) => like.itineraryId);
   }
 
   /**
@@ -99,21 +107,23 @@ export class LikesService {
    * Batch operation: Get like counts and optionally user's like status for multiple itineraries
    * This reduces N+1 API calls to a single batch call
    */
-  async getBatchLikesData(batchDto: BatchLikesDto): Promise<BatchLikesResponse> {
-    const itineraryIds = batchDto.itineraryIds.map(id => Number(id));
+  async getBatchLikesData(
+    batchDto: BatchLikesDto,
+  ): Promise<BatchLikesResponse> {
+    const itineraryIds = batchDto.itineraryIds.map((id) => Number(id));
 
     // Get counts for all itineraries in one aggregation query
     const countResults = await this.likeModel.aggregate([
       { $match: { itineraryId: { $in: itineraryIds } } },
-      { $group: { _id: '$itineraryId', count: { $sum: 1 } } }
+      { $group: { _id: '$itineraryId', count: { $sum: 1 } } },
     ]);
 
     // Build counts map, including 0 for itineraries with no likes
     const counts: Record<string, number> = {};
-    itineraryIds.forEach(id => {
+    itineraryIds.forEach((id) => {
       counts[String(id)] = 0;
     });
-    countResults.forEach(result => {
+    countResults.forEach((result) => {
       counts[String(result._id)] = result.count;
     });
 
@@ -122,15 +132,17 @@ export class LikesService {
     // If userId is provided, also check which itineraries the user has liked
     if (batchDto.userId) {
       const userId = Number(batchDto.userId);
-      const userLikes = await this.likeModel.find({
-        userId,
-        itineraryId: { $in: itineraryIds }
-      }).select('itineraryId');
+      const userLikes = await this.likeModel
+        .find({
+          userId,
+          itineraryId: { $in: itineraryIds },
+        })
+        .select('itineraryId');
 
-      const userLikedSet = new Set(userLikes.map(like => like.itineraryId));
+      const userLikedSet = new Set(userLikes.map((like) => like.itineraryId));
 
       const userLiked: Record<string, boolean> = {};
-      itineraryIds.forEach(id => {
+      itineraryIds.forEach((id) => {
         userLiked[String(id)] = userLikedSet.has(id);
       });
 
@@ -143,7 +155,9 @@ export class LikesService {
   /**
    * Batch operation: Get like counts for multiple itineraries
    */
-  async getBatchLikeCounts(itineraryIds: (string | number)[]): Promise<Record<string, number>> {
+  async getBatchLikeCounts(
+    itineraryIds: (string | number)[],
+  ): Promise<Record<string, number>> {
     const result = await this.getBatchLikesData({ itineraryIds });
     return result.counts;
   }
@@ -153,7 +167,7 @@ export class LikesService {
    */
   async getBatchUserLikeStatus(
     userId: string | number,
-    itineraryIds: (string | number)[]
+    itineraryIds: (string | number)[],
   ): Promise<Record<string, boolean>> {
     const result = await this.getBatchLikesData({ itineraryIds, userId });
     return result.userLiked || {};

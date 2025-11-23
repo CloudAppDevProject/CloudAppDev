@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { InputText } from "primereact/inputtext";
 import { Password } from "primereact/password";
 import { Button } from "primereact/button";
@@ -162,6 +163,24 @@ export default function ProfileForm({ user, onUpdate }) {
         <h1 className="text-3xl font-bold">My Profile</h1>
 
         <Button type="button" label="Logout" icon="pi pi-sign-out" onClick={handleLogout} className="p-button-danger" />
+      </div>
+
+      {/* Newsletter Preferences Link */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-blue-900">Newsletter Preferences</h3>
+            <p className="text-sm text-blue-700 mt-1">Manage your email subscription frequency and preferences</p>
+          </div>
+          <Link href={`/newsletter/preferences/${user.id}`}>
+            <Button
+              type="button"
+              label="Manage Preferences"
+              icon="pi pi-envelope"
+              className="p-button-outlined p-button-info"
+            />
+          </Link>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

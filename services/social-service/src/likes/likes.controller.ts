@@ -52,7 +52,8 @@ export class LikesController {
 
   @Get('user/:userId')
   async getLikedItinerariesByUser(@Param('userId') userId: string) {
-    const itineraryIds = await this.likesService.getLikedItinerariesByUser(userId);
+    const itineraryIds =
+      await this.likesService.getLikedItinerariesByUser(userId);
     return { userId, itineraryIds };
   }
 

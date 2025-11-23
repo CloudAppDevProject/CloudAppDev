@@ -115,6 +115,16 @@ services:
       - MONGODB_URI=mongodb://mongodb-social:27017/social_db
       - USER_SERVICE_URL=http://api-gateway:80/api/v1/users
       - ITINERARY_SERVICE_URL=http://api-gateway:80/api/v1/itineraries
+      - NEWSLETTER_SMTP_HOST=smtp.gmail.com
+      - NEWSLETTER_SMTP_PORT=587
+      - NEWSLETTER_FROM_EMAIL=noreply@cloudappdev.com
+      - NEWSLETTER_FROM_NAME=CloudAppDev Newsletters
+      - NEWSLETTER_ENABLED=true
+      - NEWSLETTER_BATCH_SIZE=50
+      - NEWSLETTER_RETRY_LIMIT=3
+      - NEWSLETTER_RETRY_DELAY_MS=5000
+    env_file:
+      - ./services/social-service/.env
     volumes:
       - ./services/social-service:/app
       - /app/node_modules

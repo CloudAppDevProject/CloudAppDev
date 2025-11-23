@@ -5,15 +5,19 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LikesModule } from './likes/likes.module';
 import { CommentsModule } from './comments/comments.module';
+import { NewsletterModule } from './newsletter/newsletter.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/social_db'),
+    MongooseModule.forRoot(
+      process.env.MONGODB_URI || 'mongodb://localhost:27017/social_db',
+    ),
     LikesModule,
     CommentsModule,
+    NewsletterModule,
   ],
   controllers: [AppController],
   providers: [AppService],

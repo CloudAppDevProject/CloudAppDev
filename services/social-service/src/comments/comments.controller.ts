@@ -49,7 +49,9 @@ export class CommentsController {
   }
 
   @Delete('itinerary/:itineraryId')
-  async deleteAllCommentsForItinerary(@Param('itineraryId') itineraryId: string) {
+  async deleteAllCommentsForItinerary(
+    @Param('itineraryId') itineraryId: string,
+  ) {
     await this.commentsService.deleteAllCommentsForItinerary(itineraryId);
     return { message: 'All comments deleted for itinerary' };
   }

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Weekly Travel Newsletter</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin: 10px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .greeting {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .section {
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+            padding-left: 20px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin: 0 0 15px 0;
+        }
+        .section-content {
+            color: #555;
+            font-size: 14px;
+        }
+        .stats {
+            display: inline-block;
+            background-color: #f0f4ff;
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin: 10px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .stat-item {
+            display: inline-block;
+            margin-right: 30px;
+            margin-bottom: 10px;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .itinerary-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+        .itinerary-title {
+            font-weight: 600;
+            color: #333;
+            margin: 0 0 8px 0;
+            font-size: 15px;
+        }
+        .itinerary-meta {
+            font-size: 13px;
+            color: #888;
+        }
+        .likes-badge {
+            display: inline-block;
+            background-color: #ff6b6b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .comments-badge {
+            display: inline-block;
+            background-color: #4ecdc4;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .empty-message {
+            color: #999;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .footer {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 12px;
+            text-align: center;
+        }
+        .footer-links {
+            margin: 10px 0;
+        }
+        .footer-link {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+        .divider {
+            border: 0;
+            border-top: 1px solid #e0e0e0;
+            margin: 20px 0;
+        }
+        .note {
+            background-color: #fef3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #856404;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>🌍 Your Travel Week</h1>
+            <p>{{weekStart}} - {{weekEnd}}</p>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+            <!-- GREETING -->
+            <div class="greeting">
+                Hey {{userName}}, here's what happened in the travel community this week! ✈️
+            </div>
+
+            <!-- YOUR ACTIVITY SECTION -->
+            <div class="section">
+                <div class="section-title">Your Activity This Week</div>
+                <div class="section-content">
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-number">{{likeCount}}</div>
+                            <div class="stat-label">Likes Given</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{commentCount}}</div>
+                            <div class="stat-label">Comments</div>
+                        </div>
+                    </div>
+                    {{#if (gt (add likeCount commentCount) 0)}}
+                    <p>Great engagement! Keep exploring and sharing.</p>
+                    {{else}}
+                    <p>Start exploring more itineraries to boost your engagement!</p>
+                    {{/if}}
+                </div>
+            </div>
+
+            <!-- TRENDING ITINERARIES SECTION -->
+            <div class="section">
+                <div class="section-title">🔥 Trending Destinations</div>
+                <div class="section-content">
+                    {{#if trendingItineraries}}
+                        {{#if trendingItineraries.length}}
+                        <p>Popular itineraries that match your interests:</p>
+                        {{#each trendingItineraries}}
+                        <div class="itinerary-item">
+                            <div class="itinerary-title">{{this.title}}</div>
+                            <div class="itinerary-meta">
+                                <span class="likes-badge">❤️ {{this.likeCount}} likes</span>
+                                {{#if this.commentCount}}
+                                <span class="comments-badge">💬 {{this.commentCount}} comments</span>
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/each}}
+                        {{else}}
+                        <div class="empty-message">
+                            No trending itineraries this week. Check back soon!
+                        </div>
+                        {{/if}}
+                    {{else}}
+                    <div class="empty-message">
+                        No trending itineraries this week. Check back soon!
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+
+            <!-- SOCIAL SECTION (From Followed Travelers) -->
+            <div class="section">
+                <div class="section-title">👥 From Travelers You Follow</div>
+                <div class="section-content">
+                    {{#if followedUserItineraries}}
+                        {{#if followedUserItineraries.length}}
+                        <p>New itineraries from your connections:</p>
+                        {{#each followedUserItineraries}}
+                        <div class="itinerary-item">
+                            <div class="itinerary-title">{{this.title}}</div>
+                            <div class="itinerary-meta">
+                                Created by <strong>{{this.userName}}</strong>
+                                {{#if this.locationCount}}
+                                • {{this.locationCount}} locations
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/each}}
+                        {{else}}
+                        <div class="empty-message">
+                            Follow more travelers to see their itineraries here!
+                        </div>
+                        {{/if}}
+                    {{else}}
+                    <div class="empty-message">
+                        Follow more travelers to see their itineraries here!
+                    </div>
+                    {{/if}}
+                </div>
+            </div>
+
+            <!-- RECOMMENDATION SECTION (Optional) -->
+            {{#if recommendation}}
+            <div class="section">
+                <div class="section-title">💡 Recommended for You</div>
+                <div class="section-content">
+                    <p>Based on your interests:</p>
+                    <div class="itinerary-item">
+                        <div class="itinerary-title">{{recommendation.title}}</div>
+                        <div class="itinerary-meta">
+                            {{recommendation.description}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{/if}}
+
+            <!-- CALL TO ACTION -->
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{appUrl}}/itineraries" class="cta-button">Explore More Itineraries</a>
+            </div>
+
+            <hr class="divider">
+
+            <!-- INFO NOTE -->
+            <div class="note">
+                💡 <strong>Tip:</strong> Engage with other travelers' itineraries to personalize your newsletters!
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <p>CloudAppDev - Social Travel Itinerary Platform</p>
+            <div class="footer-links">
+                <a href="{{preferencesUrl}}" class="footer-link">Manage Preferences</a>
+                <span>|</span>
+                <a href="{{unsubscribeUrl}}" class="footer-link">Unsubscribe</a>
+            </div>
+            <p style="margin-top: 15px; color: #999;">
+                You're receiving this email because you're subscribed to {{frequency}} newsletters.
+                <br>
+                <a href="{{unsubscribeUrl}}" style="color: #667eea;">Click here to unsubscribe anytime.</a>
+            </p>
+            <p style="margin-top: 15px; font-size: 11px; color: #aaa;">
+                © {{currentYear}} CloudAppDev. All rights reserved.
+                <br>
+                This email was sent to {{email}}
+            </p>
+        </div>
+    </div>
+</body>
+</html>
