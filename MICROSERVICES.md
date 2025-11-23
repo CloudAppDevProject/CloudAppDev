@@ -144,3 +144,67 @@ While the gateway is the recommended access point, services are still accessible
 - Social Service: `http://localhost:8082/api/v1/social`
 
 **Note**: Frontend and inter-service communication should always use the gateway (port 8000).
+
+## Troubleshooting
+
+### Prisma Schema Cache Issues
+
+If you modify a Prisma schema and encounter errors like "The column does not exist in the current database", you need to clear the Prisma Client cache and rebuild the Docker image:
+
+```bash
+# 1. Clear Prisma cache locally and regenerate
+cd services/user-service
+rm -rf node_modules/.prisma
+npx prisma generate
+
+# 2. Remove old containers and images
+docker-compose -f docker-compose.microservices.yml down
+docker rmi cloudappdev-user-service:latest
+
+# 3. Rebuild image from scratch (clears all caches)
+docker-compose -f docker-compose.microservices.yml build --no-cache user-service
+
+# 4. Start services again
+docker-compose -f docker-compose.microservices.yml up -d
+```
+
+**Why this is needed:** When you modify a Prisma schema, the compiled Prisma Client in `node_modules/@prisma/client` caches the old schema. Docker containers include this cache, so even with database migrations applied, the old schema is still referenced. The `--no-cache` flag forces Docker to rebuild from scratch, and clearing `node_modules/.prisma` ensures a fresh Prisma Client is generated.
+
+**Apply to all services if needed:**
+```bash
+# Repeat the above for each service that uses Prisma:
+cd services/itinerary-service
+rm -rf node_modules/.prisma && npx prisma generate
+```
+
+### Service Won't Start / Port Already in Use
+
+```bash
+# Find and kill process using the port
+lsof -i :8000  # API Gateway
+lsof -i :8080  # User Service
+lsof -i :8081  # Itinerary Service
+lsof -i :8082  # Social Service
+lsof -i :5433  # PostgreSQL (Users)
+lsof -i :5434  # PostgreSQL (Itineraries)
+lsof -i :27017 # MongoDB
+
+# Kill the process
+kill -9 <PID>
+
+# Or use Docker to forcefully remove containers
+docker-compose -f docker-compose.microservices.yml down --remove-orphans
+```
+
+### Database Connection Issues
+
+```bash
+# Check if database containers are healthy
+docker-compose -f docker-compose.microservices.yml ps
+
+# View database logs
+docker logs cloudappdev_postgres_users -f
+docker logs cloudappdev_mongodb_social -f
+
+# Verify connection strings in .env match docker-compose setup
+```

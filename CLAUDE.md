@@ -1117,6 +1117,45 @@ npm run build
 - Reinstall dependencies: `rm -rf node_modules && npm install`
 - Check for ESM/CJS conflicts in imports
 
+#### 9. Prisma Schema Cache Issues (Microservices)
+
+**Problem:** `PrismaClientKnownRequestError: The column X does not exist in the current database`
+**Cause:** When you modify a Prisma schema, the compiled Prisma Client in `node_modules/@prisma/client` caches the old schema. Docker containers include this cache, so the old schema is still referenced even after database migrations.
+
+**Solution:**
+```bash
+# 1. Clear Prisma cache locally
+cd services/user-service
+rm -rf node_modules/.prisma
+npx prisma generate
+
+# 2. Remove old containers and images
+docker-compose -f docker-compose.microservices.yml down
+docker rmi cloudappdev-user-service:latest
+
+# 3. Rebuild image from scratch (--no-cache forces full rebuild)
+docker-compose -f docker-compose.microservices.yml build --no-cache user-service
+
+# 4. Start services again
+docker-compose -f docker-compose.microservices.yml up -d
+```
+
+**Why this works:**
+- `rm -rf node_modules/.prisma` clears the compiled Prisma Client
+- `npx prisma generate` regenerates it from the current schema
+- `docker-compose down` removes stale containers
+- `docker rmi` removes cached image layers
+- `build --no-cache` forces Docker to rebuild every layer fresh
+- The new image includes the newly generated Prisma Client
+
+**Apply to other services if needed:**
+```bash
+cd services/itinerary-service
+rm -rf node_modules/.prisma && npx prisma generate
+docker rmi cloudappdev-itinerary-service:latest
+docker-compose -f docker-compose.microservices.yml build --no-cache itinerary-service
+```
+
 ---
 
 ## Best Practices for AI Assistants
