@@ -61,7 +61,6 @@ export class UsersService {
         name: true,
         email: true,
         avatarUrl: true,
-        preferences: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -100,7 +99,6 @@ export class UsersService {
         name: true,
         email: true,
         avatarUrl: true,
-        preferences: true,
         updatedAt: true,
       },
     });
