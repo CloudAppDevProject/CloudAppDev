@@ -19,7 +19,7 @@ COPY . .
 
 # Disable telemetry during the build
 ENV NEXT_TELEMETRY_DISABLED=1
-ARG API_GATEWAY_URL
+ENV API_GATEWAY_URL=http://api-gateway:80
 # Build Next.js (Next.js won't actually connect to DB/GCS during build)
 RUN npm run build
 
