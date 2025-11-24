@@ -6,6 +6,13 @@ import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
 import CommentSection from "@/app/components/CommentSection";
 import { API_SERVICES } from "@/lib/api-config";
+import dynamic from "next/dynamic";
+
+// Dynamisches Laden der Karte (nur Client-Side)
+const LocationMap = dynamic(() => import("@/app/components/LocationMap"), {
+  ssr: false,
+  loading: () => <div className="mb-6 h-[400px] rounded-xl border border-primary/30 flex items-center justify-center">Karte wird geladen...</div>,
+});
 
 // HILFSFUNKTION: Datum formatieren
 const formatDate = (dateString) => {
@@ -259,9 +266,34 @@ export default function ItineraryDetail() {
         if (Array.isArray(data.locations)) {
           const locationsWithSignedImages = await Promise.all(
             data.locations.map(async (loc) => {
-              if (Array.isArray(loc.images)) {
+              let updatedLoc = { ...loc };
+              
+              // Koordinaten abrufen, wenn nicht vorhanden
+              if (!loc.latitude || !loc.longitude) {
+                try {
+                  const coordsRes = await fetch(`${API_SERVICES.TRAVEL_INFO_SERVICE}/location/coordinates?name=${encodeURIComponent(loc.name)}`);
+                  if (coordsRes.ok) {
+                    const coords = await coordsRes.json();
+                    if (coords && coords.lat && coords.lon) {
+                      updatedLoc.latitude = parseFloat(coords.lat);
+                      updatedLoc.longitude = parseFloat(coords.lon);
+                      
+                      // Koordinaten in der Datenbank speichern (async, ohne zu warten)
+                      fetch(`${API_SERVICES.ITINERARY_SERVICE}/locations/${loc.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ latitude: parseFloat(coords.lat), longitude: parseFloat(coords.lon) }),
+                      }).catch((e) => console.error("Failed to save coordinates:", e));
+                    }
+                  }
+                } catch (e) {
+                  // kein Fehler, da keine Koordinaten gefunden wurden
+                }
+              }
+              
+              if (Array.isArray(updatedLoc.images)) {
                 const signedImages = await Promise.all(
-                  loc.images.map(async (url) => {
+                  updatedLoc.images.map(async (url) => {
                     if (url.startsWith("gs://")) {
                       try {
                         const resp = await fetch(`${API_SERVICES.ITINERARY_SERVICE}/signed-url?path=${encodeURIComponent(url)}`);
@@ -277,9 +309,9 @@ export default function ItineraryDetail() {
                     return url;
                   })
                 );
-                return { ...loc, images: signedImages };
+                updatedLoc.images = signedImages;
               }
-              return loc;
+              return updatedLoc;
             })
           );
           data.locations = locationsWithSignedImages;
@@ -318,6 +350,10 @@ export default function ItineraryDetail() {
       {Array.isArray(itinerary.locations) && itinerary.locations.length > 0 && (
         <div className="mt-8">
           <h2 className="text-2xl font-semibold mb-4 text-primary">📍 Locations</h2>
+
+          {/* Interaktive Karte mit klickbaren Markern */}
+          <LocationMap locations={itinerary.locations} />
+
           {itinerary.locations.map((loc, idx) => (
             <div key={idx} className="border border-primary/30 rounded-xl p-4 mb-4 bg-gray shadow-sm">
               <h3 className="text-lg font-bold mb-2">{loc.name}</h3>
@@ -330,6 +366,11 @@ export default function ItineraryDetail() {
               <p className="mb-1">
                 <strong>End Date:</strong> {formatDate(loc.end_date)}
               </p>
+              {(
+                <p className="mb-1"> 
+                  <strong>Coordinates:</strong> {loc.latitude}, {loc.longitude}
+                </p>
+              )}
 
               {/* Wettervorschau */}
               <WeatherPreview locationName={loc.name} startDate={loc.start_date} endDate={loc.end_date} />

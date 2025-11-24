@@ -7,9 +7,13 @@ import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
+import dynamic from "next/dynamic";
 
-// Force dynamic rendering - don't prerender this page at build time
-export const dynamic = 'force-dynamic';
+// Dynamisches Laden der Karte (nur Client-Side)
+const LocationMapPicker = dynamic(() => import("@/app/components/LocationMapPicker"), {
+  ssr: false,
+  loading: () => <div className="h-[300px] rounded-xl border border-primary/30 flex items-center justify-center">Karte wird geladen...</div>,
+});
 
 export default function NewItinerary() {
   const router = useRouter();
@@ -28,15 +32,12 @@ export default function NewItinerary() {
         end_date: "",
         short_desc: "",
         images: [], // { url, signed_url }
+        latitude: null,
+        longitude: null,
+        showMap: false, // Karte standardmäßig collapsed
       },
     ],
   });
-
-  if (userLoading) return null;
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
 
   /** Helper: check URL type */
   const isHttp = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
@@ -45,7 +46,7 @@ export default function NewItinerary() {
   /** Get signed URL from Itinerary Service through API Gateway */
   const getSignedUrl = async (url) => {
     try {
-      const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
+      const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || "http://localhost:8000";
       const resp = await fetch(`${gatewayUrl}/api/v1/itineraries/signed-url?path=${encodeURIComponent(url)}`);
       if (!resp.ok) throw new Error("signing failed");
       const data = await resp.json();
@@ -101,8 +102,28 @@ export default function NewItinerary() {
   function addLocation() {
     setForm((prev) => ({
       ...prev,
-      locations: [...prev.locations, { name: "", start_date: "", end_date: "", short_desc: "", images: [] }],
+      locations: [...prev.locations, { name: "", start_date: "", end_date: "", short_desc: "", images: [], latitude: null, longitude: null, showMap: false }],
     }));
+  }
+
+  function toggleMap(idx) {
+    setForm((prev) => {
+      const locations = [...prev.locations];
+      locations[idx] = { ...locations[idx], showMap: !locations[idx].showMap };
+      return { ...prev, locations };
+    });
+  }
+
+  function handleLocationSelect(idx, coords) {
+    setForm((prev) => {
+      const locations = [...prev.locations];
+      locations[idx] = {
+        ...locations[idx],
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      };
+      return { ...prev, locations };
+    });
   }
 
   function removeLocation(idx) {
@@ -118,7 +139,8 @@ export default function NewItinerary() {
       userId,
       locations: (form.locations || []).map((loc) => ({
         ...loc,
-        // keep the same shape but drop signed_url
+        // keep the same shape but drop signed_url and showMap (UI-only state)
+        showMap: undefined,
         images: Array.isArray(loc.images)
           ? loc.images
               .map((img) => {
@@ -141,6 +163,7 @@ export default function NewItinerary() {
     try {
       const payload = sanitizeForSubmit(form, user.id); // <- signed_url removed
 
+      console.log("Submitting itinerary:", payload);
       const res = await fetch("/api/itineraries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,6 +179,13 @@ export default function NewItinerary() {
       console.error("Error adding itinerary:", err);
       alert("Could not save itinerary. Please try again.");
     }
+  }
+
+  // Early returns nach allen Hooks
+  if (userLoading) return null;
+  if (!user) {
+    router.push("/login");
+    return null;
   }
 
   return (
@@ -246,6 +276,32 @@ export default function NewItinerary() {
                   />
                   <label htmlFor={`loc-end-date-${idx}`}>End Date</label>
                 </span>
+              </div>
+
+              {/* Karte zum Auswählen der Koordinaten */}
+              <div className="mb-4">
+                <Button
+                  type="button"
+                  label={loc.showMap ? "Karte ausblenden" : "Karte anzeigen (Koordinaten wählen)"}
+                  className="p-button-secondary mb-2"
+                  onClick={() => toggleMap(idx)}
+                  icon={loc.showMap ? "pi pi-chevron-up" : "pi pi-chevron-down"}
+                />
+
+                {loc.showMap && (
+                  <div>
+                    <p className="text-sm text-gray-400 mb-2">Klicken Sie auf die Karte, um die Koordinaten festzulegen</p>
+                    <LocationMapPicker
+                      initialPosition={loc.latitude && loc.longitude ? [parseFloat(loc.latitude), parseFloat(loc.longitude)] : null}
+                      onLocationSelect={(coords) => handleLocationSelect(idx, coords)}
+                    />
+                    {loc.latitude && loc.longitude && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Koordinaten: {parseFloat(loc.latitude).toFixed(6)}, {parseFloat(loc.longitude).toFixed(6)}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
