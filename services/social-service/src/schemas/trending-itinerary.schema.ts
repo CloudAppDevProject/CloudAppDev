@@ -38,6 +38,23 @@ export class ImageMetadata {
 }
 
 /**
+ * Comment preview for newsletter display
+ */
+export class CommentPreview {
+  @Prop({ required: true, type: Number })
+  userId: number;
+
+  @Prop()
+  userName?: string;
+
+  @Prop({ required: true })
+  text: string;
+
+  @Prop({ required: true, default: Date.now })
+  createdAt: Date;
+}
+
+/**
  * Trending Itinerary with enriched details
  * Used to cache itinerary details for newsletter content
  */
@@ -78,6 +95,9 @@ export class TrendingItinerary {
 
   @Prop({ type: [String], default: [] })
   tags: string[];
+
+  @Prop({ type: [CommentPreview], default: [] })
+  recentComments: CommentPreview[];
 
   @Prop({ required: true, default: Date.now })
   trendingComputedAt: Date;
