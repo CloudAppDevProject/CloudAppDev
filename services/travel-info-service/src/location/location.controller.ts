@@ -13,4 +13,25 @@ export class LocationController {
 
     return await this.locationService.getCoordinatesByLocationName(name);
   }
+
+  @Get('city')
+  async getCityName(@Query('lat') lat: string, @Query('lon') lon: string) {
+    if (!lat || !lon) {
+      throw new BadRequestException(
+        'Query parameters "lat" and "lon" are required',
+      );
+    }
+
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lon);
+
+    if (isNaN(latitude) || isNaN(longitude)) {
+      throw new BadRequestException('Invalid latitude or longitude');
+    }
+
+    return await this.locationService.getCityNameByCoordinates(
+      latitude,
+      longitude,
+    );
+  }
 }

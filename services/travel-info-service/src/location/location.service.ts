@@ -32,4 +32,44 @@ export class LocationService {
       throw new BadRequestException('Failed to fetch coordinates');
     }
   }
+
+  async getCityNameByCoordinates(
+    lat: number,
+    lon: number,
+  ): Promise<{ name: string } | null> {
+    if (!lat || !lon) {
+      throw new BadRequestException('Latitude and longitude are required');
+    }
+
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1`;
+
+    try {
+      const response = await firstValueFrom(this.httpService.get(url));
+      const data = response.data as {
+        address?: {
+          city?: string;
+          town?: string;
+          village?: string;
+          municipality?: string;
+        };
+        display_name?: string;
+      };
+
+      const cityName =
+        data.address?.city ||
+        data.address?.town ||
+        data.address?.village ||
+        data.address?.municipality ||
+        data.display_name;
+
+      if (cityName) {
+        return { name: cityName };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error fetching city name:', error);
+      throw new BadRequestException('Failed to fetch city name');
+    }
+  }
 }

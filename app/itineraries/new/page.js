@@ -8,6 +8,7 @@ import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
 import dynamic from "next/dynamic";
+import { API_SERVICES } from "@/lib/api-config";
 
 // Dynamisches Laden der Karte (nur Client-Side)
 const LocationMapPicker = dynamic(() => import("@/app/components/LocationMapPicker"), {
@@ -124,6 +125,34 @@ export default function NewItinerary() {
       };
       return { ...prev, locations };
     });
+    
+    // Wenn der Name noch leer ist, versuche die nächste Stadt zu finden
+    if (!form.locations[idx].name || form.locations[idx].name.trim() === "") {
+      fetchNearestCity(idx, coords.latitude, coords.longitude);
+    }
+  }
+
+  async function fetchNearestCity(idx, lat, lon) {
+    try {
+      const response = await fetch(`${API_SERVICES.TRAVEL_INFO_SERVICE}/location/city?lat=${lat}&lon=${lon}`);
+      if (response.ok) {
+        const data = await response.json();
+        const cityName = data.name;
+
+        if (cityName) {
+          setForm((prev) => {
+            const locations = [...prev.locations];
+            // Nur setzen, wenn der Name noch immer leer ist
+            if (!locations[idx].name || locations[idx].name.trim() === "") {
+              locations[idx].name = cityName;
+            }
+            return { ...prev, locations };
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch nearest city:", e);
+    }
   }
 
   function removeLocation(idx) {
