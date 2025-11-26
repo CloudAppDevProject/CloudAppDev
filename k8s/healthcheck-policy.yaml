@@ -10,7 +10,7 @@ spec:
     healthyThreshold: 1
     unhealthyThreshold: 3
     config:
-      type: HTTP
+      type: TCP
       httpHealthCheck:
         portSpecification: USE_SERVING_PORT
         requestPath: /  
