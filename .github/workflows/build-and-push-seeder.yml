@@ -1,5 +1,9 @@
 name: Build and Push Seeder Image
 
+concurrency:
+  group: build-seeder-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:

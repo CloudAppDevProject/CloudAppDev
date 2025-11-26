@@ -1,5 +1,9 @@
 name: Build and Push All Services to GCR
 
+concurrency:
+  group: build-services-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
