@@ -8,6 +8,7 @@ FROM base AS development
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx prisma generate
+RUN npx prisma migrate deploy
 EXPOSE 8080
 CMD ["npm", "run", "start:dev"]
 
@@ -16,6 +17,7 @@ FROM base AS build
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx prisma generate
+RUN npx prisma migrate
 RUN npm run build
 RUN npm prune --production --legacy-peer-deps
 
