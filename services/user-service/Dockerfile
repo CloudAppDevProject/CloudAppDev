@@ -8,7 +8,6 @@ FROM base AS development
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx prisma generate
-RUN npx prisma migrate deploy
 EXPOSE 8080
 CMD ["npm", "run", "start:dev"]
 
@@ -33,4 +32,4 @@ COPY --from=build --chown=nestjs:nodejs /app/prisma ./prisma
 
 USER nestjs
 EXPOSE 8080
-CMD [ "sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["node" "dist/main"]
