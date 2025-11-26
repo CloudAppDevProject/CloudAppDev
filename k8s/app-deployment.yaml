@@ -21,11 +21,8 @@ spec:
             - containerPort: 3000
               name: frontend-port
           env:
-            - name: NEXT_PUBLIC_API_GATEWAY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: API_GATEWAY_URL
+            - name: API_GATEWAY_URL
+              value: "http://api-gateway:80"
           resources:
             requests:
               cpu: "250m"

@@ -5,7 +5,6 @@ import { useRouter, useParams } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
 import CommentSection from "@/app/components/CommentSection";
-import { API_SERVICES } from "@/lib/api-config";
 import dynamic from "next/dynamic";
 
 // Dynamisches Laden der Karte (nur Client-Side)
@@ -159,7 +158,7 @@ const WeatherPreview = ({ locationName, startDate, endDate }) => {
 
     const fetchWeather = async () => {
       try {
-        const response = await fetch(`${API_SERVICES.TRAVEL_INFO_SERVICE}/weather?q=${encodeURIComponent(locationName)}&days=${forecastDays}&lang=de`);
+        const response = await fetch(`/api/travel-info/weather?q=${encodeURIComponent(locationName)}&days=${forecastDays}&lang=de`);
         if (response.ok) {
           const data = await response.json();
           setWeather(data);
@@ -271,15 +270,15 @@ export default function ItineraryDetail() {
               // Koordinaten abrufen, wenn nicht vorhanden
               if (!loc.latitude || !loc.longitude) {
                 try {
-                  const coordsRes = await fetch(`${API_SERVICES.TRAVEL_INFO_SERVICE}/location/coordinates?name=${encodeURIComponent(loc.name)}`);
+                  const coordsRes = await fetch(`/api/travel-info/location/coordinates?name=${encodeURIComponent(loc.name)}`);
                   if (coordsRes.ok) {
                     const coords = await coordsRes.json();
                     if (coords && coords.lat && coords.lon) {
                       updatedLoc.latitude = parseFloat(coords.lat);
                       updatedLoc.longitude = parseFloat(coords.lon);
-                      
+
                       // Koordinaten in der Datenbank speichern (async, ohne zu warten)
-                      fetch(`${API_SERVICES.ITINERARY_SERVICE}/locations/${loc.id}`, {
+                      fetch(`/api/itineraries/locations/${loc.id}`, {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ latitude: parseFloat(coords.lat), longitude: parseFloat(coords.lon) }),
@@ -296,7 +295,7 @@ export default function ItineraryDetail() {
                   updatedLoc.images.map(async (url) => {
                     if (url.startsWith("gs://")) {
                       try {
-                        const resp = await fetch(`${API_SERVICES.ITINERARY_SERVICE}/signed-url?path=${encodeURIComponent(url)}`);
+                        const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=itinerary`);
                         if (resp.ok) {
                           const { url: signedUrl } = await resp.json();
                           return signedUrl;

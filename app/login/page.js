@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
-import { API_SERVICES } from "@/lib/api-config";
 
 // Force dynamic rendering - don't prerender this page at build time
 export const dynamic = 'force-dynamic';
@@ -22,8 +21,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Login via User Service through API Gateway
-      const res = await fetch(`${API_SERVICES.USER_SERVICE}/auth/login`, {
+      // Login via Next.js proxy to User Service
+      const res = await fetch(`/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

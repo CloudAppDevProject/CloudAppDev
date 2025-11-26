@@ -80,11 +80,10 @@ export const useFileUpload = (service: ServiceType = 'user') => {
       xhr.onerror = () => reject(new Error("Network error during upload"));
       xhr.ontimeout = () => reject(new Error("Upload timeout"));
 
-      // Route to appropriate service through API Gateway
-      const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
-      const servicePath = targetService === 'user' ? 'users' : 'itineraries';
-      const uploadEndpoint = `${gatewayUrl}/api/v1/${servicePath}/upload`;
-      
+      // Route through server-side proxy (Next.js API route)
+      // This ensures the request goes through the API Gateway via the backend
+      const uploadEndpoint = `/api/upload?service=${targetService}`;
+
       xhr.open("POST", uploadEndpoint);
       xhr.timeout = 120000; // 2 minute timeout
       xhr.send(formData);
