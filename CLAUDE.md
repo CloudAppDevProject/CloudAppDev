@@ -1,6 +1,6 @@
 # CLAUDE.md - AI Assistant Guide
 
-> **Last Updated:** November 21, 2025
+> **Last Updated:** November 26, 2025
 > **Purpose:** Comprehensive guide for AI assistants working with this codebase
 
 ## Course Context
@@ -348,11 +348,16 @@ kubectl logs job/cloudappdev-seeder
 ```
 CloudAppDev/
 ├── app/                          # Next.js App Router
-│   ├── api/                      # API routes (monolithic mode)
+│   ├── api/                      # Server-side API proxy routes (route through API Gateway)
+│   │   ├── auth/                 # Authentication proxies (login, register)
+│   │   ├── dev/                  # Development tool proxies
+│   │   ├── itineraries/          # Itinerary management proxies
+│   │   ├── signed-url/           # GCS signed URL generation proxy
+│   │   ├── travel-info/          # Travel information proxies (weather, location, coords)
+│   │   ├── upload/               # File upload proxy
+│   │   ├── user/                 # User data proxy
 │   │   ├── comments/             # Comment endpoints
-│   │   ├── itineraries/          # Itinerary endpoints
 │   │   ├── likes/                # Like endpoints
-│   │   └── user/                 # User endpoints
 │   ├── components/               # React components
 │   │   ├── CommentSection.js
 │   │   ├── LikeButton.js
@@ -414,7 +419,6 @@ CloudAppDev/
 │   └── dataset.json              # Users, itineraries, locations, social data
 │
 ├── lib/                          # Shared utilities
-│   ├── api-config.ts             # API service URLs
 │   ├── mongodb.js                # MongoDB client
 │   └── prisma.js                 # Prisma client
 │
@@ -634,30 +638,47 @@ MongoDB collections are automatically indexed on composite keys:
 
 ## API Patterns
 
-### Monolithic API Routes
+### Server-Side API Proxy Routes (Milestone 2 - Current)
+
+All frontend-to-backend communication routes through server-side Next.js proxy routes, which then communicate with the API Gateway. This ensures:
+- No client-side exposure to API Gateway URLs
+- Works in both local Docker and Kubernetes environments
+- Single environment variable configuration (`API_GATEWAY_URL`)
 
 Located in `app/api/`:
 
 ```typescript
-// app/api/itineraries/route.ts
-export async function GET(request: Request) {
-  try {
-    const itineraries = await prisma.itinerary.findMany();
-    return Response.json(itineraries);
-  } catch (error) {
-    return Response.json({ error: 'Failed to fetch' }, { status: 500 });
-  }
-}
+// app/api/auth/login/route.js - Server-side proxy example
+import { NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
-  const body = await request.json();
-  // Handle POST logic
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+
+    // Route through API Gateway
+    const response = await fetch(`${API_GATEWAY_URL}/api/v1/users/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('[API /auth/login] Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to login', message: error.message },
+      { status: 500 }
+    );
+  }
 }
 ```
 
 ### Microservices API
 
-Uses NestJS controllers:
+Backend microservices use NestJS controllers (port 8080-8083):
 
 ```typescript
 // services/user-service/src/users/users.controller.ts
@@ -675,19 +696,23 @@ export class UsersController {
 }
 ```
 
-### API Configuration
+### Client-Server Communication Flow
 
-Centralized in `lib/api-config.ts`:
-
-```typescript
-const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
-
-export const API_SERVICES = {
-  USER_SERVICE: `${API_GATEWAY_URL}/api/v1/users`,
-  ITINERARY_SERVICE: `${API_GATEWAY_URL}/api/v1/itineraries`,
-  SOCIAL_SERVICE: `${API_GATEWAY_URL}/api/v1/social`,
-};
 ```
+Client Component (Browser)
+    ↓ fetch()
+Next.js API Route (Server-side)
+    ↓ fetch()
+API Gateway (http://localhost:8000 or http://api-gateway:80)
+    ↓ routes to
+Microservice (NestJS on 8080-8083)
+```
+
+**Environment Variables:**
+
+- `API_GATEWAY_URL` (server-side only, required)
+  - LOCAL DEV: `http://localhost:8000`
+  - KUBERNETES: `http://api-gateway:80`
 
 ### Authentication
 
@@ -1428,6 +1453,27 @@ Based on the current implementation status, here are the remaining tasks to comp
 ---
 
 ## Changelog
+
+### 2025-11-26 (Update 5 - API Architecture Refactor)
+
+- **Major Refactor:** Migrated to server-side API Gateway proxies
+- Created 9 new server-side proxy routes in `app/api/`:
+  - `auth/login` and `auth/register` - Authentication proxies
+  - `signed-url` - GCS signed URL generation proxy
+  - `travel-info/*` - Weather, location coordinates, city info proxies
+  - `upload` - File upload proxy
+  - `user` - User data proxy
+  - `dev/social/newsletter/status` - Development tool proxy
+- Updated `useFileUpload.ts` to use `/api/upload` proxy instead of direct gateway calls
+- Removed `NEXT_PUBLIC_API_GATEWAY_URL` from all client components and environment files
+- Removed unused `lib/api-config.ts` - API routing now handled per-route
+- Updated Kubernetes deployment manifest to use `API_GATEWAY_URL=http://api-gateway:80`
+- Made `app/dev/page.tsx` production-ready with dynamic endpoints
+- Updated all client components to use proxy endpoints instead of direct gateway calls
+- Removed `API_SERVICES` imports from components (no longer needed)
+- Updated directory structure documentation to reflect new proxy route organization
+- Updated API Patterns section to document new server-side proxy architecture
+- Application now works seamlessly in both local Docker and Kubernetes environments with single `API_GATEWAY_URL` configuration
 
 ### 2025-11-21 (Update 4)
 
