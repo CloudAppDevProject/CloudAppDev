@@ -42,6 +42,8 @@ env:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       services: ${{ steps.set-matrix.outputs.services }}
       version: ${{ steps.version.outputs.version }}
