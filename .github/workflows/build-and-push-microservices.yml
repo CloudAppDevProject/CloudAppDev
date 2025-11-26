@@ -234,7 +234,7 @@ jobs:
               ;;
           esac
           # Set per-service version for this build
-          SERVICE_VERSION=$(echo '${{ needs.prepare.outputs.version }}' | jq -r .${{ matrix.service }})
+          SERVICE_VERSION=$(echo "${{ needs.prepare.outputs.version }}" | jq -r .${{ matrix.service }})
           echo "service-version=${SERVICE_VERSION}" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
