@@ -28,7 +28,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/config": "^4.0.0",
     "@nestjs/mapped-types": "^2.0.5",
-    "@prisma/client": "^6.17.0",
+    "@prisma": "^6.19.0",
     "@google-cloud/storage": "^7.17.2",
     "class-validator": "^0.14.0",
     "class-transformer": "^0.5.1",
