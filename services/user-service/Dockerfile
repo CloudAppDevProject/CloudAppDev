@@ -3,14 +3,6 @@ FROM node:20-alpine AS base
 WORKDIR /app
 COPY package.json package-lock.json ./
 
-# Development stage
-FROM base AS development
-RUN npm ci --legacy-peer-deps
-COPY . .
-RUN npx prisma generate
-EXPOSE 8080
-CMD ["npm", "run", "start:dev"]
-
 # Build stage
 FROM base AS build
 RUN npm ci --legacy-peer-deps
@@ -32,4 +24,5 @@ COPY --from=build --chown=nestjs:nodejs /app/prisma ./prisma
 
 USER nestjs
 EXPOSE 8080
-CMD ["node" "dist/main"]
+# Apply Prisma migrations on container startup
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
