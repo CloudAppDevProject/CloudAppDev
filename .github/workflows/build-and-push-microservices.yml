@@ -85,28 +85,39 @@ jobs:
           # Get short SHA for reference
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-          
-          # Try to get latest git tag, otherwise start at v0.1.0
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-          
-          # Remove 'v' prefix if present
-          VERSION=${LATEST_TAG#v}
-          
-          # If no tags exist or on master/main, increment patch version
-          if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
-            # Parse version components
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-            # Increment patch version
-            PATCH=$((PATCH + 1))
-            BUILD_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          else
-            # For develop branch, add build number
-            BUILD_NUMBER="${{ github.run_number }}"
-            BUILD_VERSION="${VERSION}-dev.${BUILD_NUMBER}"
-          fi
-          
-          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
-          echo "Generated version: ${BUILD_VERSION}"
+
+          # Per-microservice semantic versioning using GCP Artifact Registry
+          REGISTRY="${ARTIFACT_REGISTRY_HOSTNAME}"
+          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          REPO="${REPOSITORY_NAME}"
+
+          SERVICES=(frontend user-service itinerary-service social-service travel-info-service api-gateway)
+          declare -A VERSIONS
+
+          for SERVICE in "${SERVICES[@]}"; do
+            IMAGE="$REGISTRY/$PROJECT/$REPO/cloudappdev-$SERVICE"
+            # List tags, filter semantic versions, sort, get latest
+            LATEST_TAG=$(gcloud artifacts docker tags list $IMAGE --format="value(tag)" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+            if [ -z "$LATEST_TAG" ]; then
+              NEW_VERSION="1.0.0"
+            else
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_TAG"
+              PATCH=$((PATCH + 1))
+              NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            fi
+            VERSIONS[$SERVICE]="$NEW_VERSION"
+          done
+
+          # Output as JSON for later steps
+          VERSION_JSON="{"
+          for SERVICE in "${SERVICES[@]}"; do
+            VERSION_JSON+="\"$SERVICE\":\"${VERSIONS[$SERVICE]}\"," 
+          done
+          VERSION_JSON=${VERSION_JSON%,} # Remove trailing comma
+          VERSION_JSON+="}"
+
+          echo "version=${VERSION_JSON}" >> $GITHUB_OUTPUT
+          echo "Generated versions: ${VERSION_JSON}"
           echo "Short SHA: ${SHORT_SHA}"
 
       - name: Set service matrix
@@ -222,6 +233,9 @@ jobs:
               exit 1
               ;;
           esac
+          # Set per-service version for this build
+          SERVICE_VERSION=$(echo '${{ needs.prepare.outputs.version }}' | jq -r .${{ matrix.service }})
+          echo "service-version=${SERVICE_VERSION}" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -243,10 +257,8 @@ jobs:
           tags: |
             # Tag with 'latest' on master branch
             type=raw,value=latest,enable={{is_default_branch}}
-            # Tag with semantic version (e.g., 0.1.2 or 0.1.0-dev.42)
-            type=raw,value=${{ needs.prepare.outputs.version }}
-            # Tag with major.minor (e.g., 0.1)
-            type=raw,value=${{ needs.prepare.outputs.version }},suffix=,enable=${{ !contains(needs.prepare.outputs.version, 'dev') }},pattern={{major}}.{{minor}}
+            # Tag with semantic version (e.g., 1.0.0, 1.0.1)
+            type=raw,value=${{ steps.config.outputs.service-version }}
             # Tag with short SHA for reference (e.g., sha-abc1234)
             type=raw,value=sha-${{ needs.prepare.outputs.short-sha }}
             # Tag with manual input if workflow_dispatch
@@ -255,7 +267,7 @@ jobs:
             org.opencontainers.image.title=${{ steps.config.outputs.image-name }}
             org.opencontainers.image.description=${{ steps.config.outputs.description }}
             org.opencontainers.image.vendor=CloudAppDev
-            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.version=${{ steps.config.outputs.service-version }}
             com.cloudappdev.service=${{ matrix.service }}
             com.cloudappdev.build.number=${{ github.run_number }}
             com.cloudappdev.git.sha=${{ github.sha }}
