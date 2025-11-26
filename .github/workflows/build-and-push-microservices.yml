@@ -274,17 +274,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           platforms: linux/amd64
           target: ${{ matrix.service != 'api-gateway' && 'production' || '' }}
-          # Build args for frontend only
-          build-args: |
-            ${{ matrix.service == 'frontend' && format('DATABASE_URL_BUILD={0}', secrets.DATABASE_URL_BUILD || 'postgresql://build:build@localhost:5432/build?schema=public') || '' }}
-            ${{ matrix.service == 'frontend' && format('MONGODB_URI_BUILD={0}', secrets.MONGODB_URI_BUILD || 'mongodb://build:build@localhost:27017/build') || '' }}
-            ${{ matrix.service == 'frontend' && format('GCS_CREDENTIALS_BUILD={0}', secrets.GCS_CREDENTIALS_BUILD || 'build-dummy-credentials') || '' }}
-            ${{ matrix.service == 'frontend' && format('GCS_PROJECT_BUILD={0}', secrets.GCS_PROJECT_BUILD || 'build-project') || '' }}
-            ${{ matrix.service == 'frontend' && format('GCS_BUCKET_BUILD={0}', secrets.GCS_BUCKET_BUILD || 'build-bucket') || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_CREDENTIALS_BUILD={0}', secrets.FIREBASE_CREDENTIALS_BUILD || 'build-dummy-firebase') || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_API_KEY_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_KEY) || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_AUTH_DOMAIN_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_DOMAIN) || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_PROJECT_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_PROJECT_ID) || '' }}
+          # Remove build args for NEXT_PUBLIC_API_GATEWAY_URL and related variables; these will be set via Kubernetes at runtime
       
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
