@@ -1,36 +1,26 @@
-# Production Dockerfile for Social Service
-FROM node:20-alpine AS builder
-
+# Base stage
+FROM node:20-alpine AS base
 WORKDIR /app
-
-# Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
-
-# Copy source code
+# Build stage
+FROM base AS build
+RUN npm ci
 COPY . .
-
-# Build the application
 RUN npm run build
+RUN npm prune --production
 
 # Production stage
 FROM node:20-alpine AS production
-
 WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
 
-# Copy package files
-COPY package.json package-lock.json ./
+COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=build --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nestjs:nodejs /app/package*.json ./
 
-# Install production dependencies only
-RUN npm ci --only=production --legacy-peer-deps
-
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-
-# Expose port
+USER nestjs
 EXPOSE 8082
 
-# Start the application
 CMD ["node", "dist/main"]

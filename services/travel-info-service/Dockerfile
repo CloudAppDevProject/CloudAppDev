@@ -1,25 +1,26 @@
-FROM node:22-alpine AS builder
+# Base stage
+FROM node:20-alpine AS base
 WORKDIR /app
-
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
 
-COPY tsconfig*.json nest-cli.json ./
-COPY src ./src
-
+# Build stage
+FROM base AS build
+RUN npm ci
+COPY . .
 RUN npm run build
+RUN npm prune --production
 
-FROM node:22-alpine AS production
+# Production stage
+FROM node:20-alpine AS production
 WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
 
-ENV NODE_ENV=production \
-    PORT=8083
+COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=build --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nestjs:nodejs /app/package*.json ./
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+USER nestjs
+EXPOSE 8083
 
-COPY --from=builder /app/dist ./dist
-
-USER node
-
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/main"]
