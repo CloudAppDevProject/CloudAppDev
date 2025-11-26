@@ -1,11 +1,11 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
   Query,
   HttpException,
   HttpStatus,
@@ -14,6 +14,7 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ItinerariesService } from './itineraries.service';
@@ -23,6 +24,8 @@ import { StorageService } from '../storage/storage.service';
 
 @Controller()
 export class ItinerariesController {
+  private readonly logger = new Logger(ItinerariesController.name);
+
   constructor(
     private readonly itinerariesService: ItinerariesService,
     private readonly storageService: StorageService,
@@ -30,13 +33,17 @@ export class ItinerariesController {
 
   @Post()
   async create(@Body() createItineraryDto: CreateItineraryDto) {
+    this.logger.log(`Creating itinerary for user: ${createItineraryDto.userId}`);
     try {
-      return await this.itinerariesService.create(createItineraryDto);
+      const result = await this.itinerariesService.create(createItineraryDto);
+      this.logger.debug(`Itinerary created successfully with ID: ${(result as any).id}`);
+      return result;
     } catch (error) {
-      if (error.message.includes('temporarily unavailable')) {
+      this.logger.error(`Error creating itinerary: ${(error as any).message}`, (error as any).stack);
+      if ((error as any).message.includes('temporarily unavailable')) {
         throw new HttpException('Service temporarily unavailable', HttpStatus.SERVICE_UNAVAILABLE);
       }
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException((error as any).message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -47,12 +54,20 @@ export class ItinerariesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.itinerariesService.findAll({
-      userId: userId ? parseInt(userId) : undefined,
-      search,
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
-    });
+    this.logger.log(`Fetching itineraries - userId: ${userId}, search: ${search}, page: ${page}, limit: ${limit}`);
+    try {
+      const result = await this.itinerariesService.findAll({
+        userId: userId ? parseInt(userId) : undefined,
+        search,
+        page: page ? parseInt(page) : 1,
+        limit: limit ? parseInt(limit) : 20,
+      });
+      this.logger.debug(`Found ${result.data.length} itineraries`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error fetching itineraries: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   @Post('upload')
@@ -62,8 +77,8 @@ export class ItinerariesController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 20 * 1024 * 1024 }), // 20MB
-          new FileTypeValidator({ 
-            fileType: /(image\/(jpeg|png|webp|gif)|application\/pdf)/ 
+          new FileTypeValidator({
+            fileType: /(image\/(jpeg|png|webp|gif)|application\/pdf)/,
           }),
         ],
       }),
@@ -71,8 +86,10 @@ export class ItinerariesController {
     file: any,
     @Body('userId') userId: string,
   ) {
+    this.logger.log(`Uploading file: ${file.originalname} for userId: ${userId}, size: ${file.size} bytes`);
     try {
       if (!userId) {
+        this.logger.warn('File upload attempted without userId');
         throw new HttpException('userId is required', HttpStatus.BAD_REQUEST);
       }
 
@@ -83,6 +100,7 @@ export class ItinerariesController {
         file.mimetype,
       );
 
+      this.logger.debug(`File uploaded successfully to GCS: ${gcsUri}`);
       return {
         success: true,
         gcsUri,
@@ -90,6 +108,7 @@ export class ItinerariesController {
         message: 'File uploaded successfully',
       };
     } catch (error) {
+      this.logger.error(`Error uploading file ${file.originalname}: ${error.message}`, error.stack);
       throw new HttpException(
         error.message || 'Upload failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -99,17 +118,21 @@ export class ItinerariesController {
 
   @Get('signed-url')
   async getSignedUrl(@Query('path') path: string) {
+    this.logger.log(`Generating signed URL for path: ${path}`);
     try {
       if (!path) {
+        this.logger.warn('Signed URL request without path parameter');
         throw new HttpException('path parameter is required', HttpStatus.BAD_REQUEST);
       }
 
       const signedUrl = await this.storageService.getSignedUrl(path);
 
+      this.logger.debug(`Signed URL generated successfully`);
       return {
         url: signedUrl,
       };
     } catch (error) {
+      this.logger.error(`Error generating signed URL for path ${path}: ${error.message}`, error.stack);
       throw new HttpException(
         error.message || 'Failed to generate signed URL',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -119,18 +142,30 @@ export class ItinerariesController {
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    const itinerary = await this.itinerariesService.findOne(+id);
-    if (!itinerary) {
-      throw new HttpException('Itinerary not found', HttpStatus.NOT_FOUND);
+    this.logger.log(`Fetching itinerary with ID: ${id}`);
+    try {
+      const itinerary = await this.itinerariesService.findOne(+id);
+      if (!itinerary) {
+        this.logger.warn(`Itinerary not found with ID: ${id}`);
+        throw new HttpException('Itinerary not found', HttpStatus.NOT_FOUND);
+      }
+      this.logger.debug(`Itinerary fetched successfully with ID: ${id}`);
+      return itinerary;
+    } catch (error) {
+      this.logger.error(`Error fetching itinerary with ID ${id}: ${error.message}`, error.stack);
+      throw error;
     }
-    return itinerary;
   }
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() updateItineraryDto: UpdateItineraryDto) {
+    this.logger.log(`Updating itinerary with ID: ${id}`);
     try {
-      return await this.itinerariesService.update(+id, updateItineraryDto);
+      const result = await this.itinerariesService.update(+id, updateItineraryDto);
+      this.logger.debug(`Itinerary updated successfully with ID: ${id}`);
+      return result;
     } catch (error) {
+      this.logger.error(`Error updating itinerary with ID ${id}: ${error.message}`, error.stack);
       if (error.code === 'P2025') {
         throw new HttpException('Itinerary not found', HttpStatus.NOT_FOUND);
       }
@@ -140,10 +175,13 @@ export class ItinerariesController {
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
+    this.logger.log(`Deleting itinerary with ID: ${id}`);
     try {
       await this.itinerariesService.remove(+id);
+      this.logger.debug(`Itinerary deleted successfully with ID: ${id}`);
       return { success: true, message: 'Itinerary deleted successfully' };
     } catch (error) {
+      this.logger.error(`Error deleting itinerary with ID ${id}: ${error.message}`, error.stack);
       if (error.code === 'P2025') {
         throw new HttpException('Itinerary not found', HttpStatus.NOT_FOUND);
       }
