@@ -5,11 +5,11 @@ COPY package.json package-lock.json ./
 
 # Build stage
 FROM base AS build
-RUN npm ci --legacy-peer-deps
+RUN npm ci 
 COPY . .
 RUN npx prisma generate
 RUN npm run build
-RUN npm prune --production --legacy-peer-deps
+RUN npm prune --production
 
 # Production stage
 FROM node:20-alpine AS production
