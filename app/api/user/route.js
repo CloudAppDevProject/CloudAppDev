@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { API_SERVICES } from '@/lib/api-config';
+
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
 
 /**
  * Simple proxy to User Service for current user data
@@ -8,13 +9,13 @@ import { API_SERVICES } from '@/lib/api-config';
 export async function GET(req) {
   try {
     const authHeader = req.headers.get('authorization');
-    
+
     if (!authHeader) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
     // Forward request to User Service through API Gateway
-    const res = await fetch(`${API_SERVICES.USER_SERVICE}/auth/me`, {
+    const res = await fetch(`${API_GATEWAY_URL}/api/v1/users/auth/me`, {
       headers: {
         'Authorization': authHeader,
       },

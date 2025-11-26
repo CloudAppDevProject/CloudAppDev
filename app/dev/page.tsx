@@ -1,8 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export default function DevPage() {
+  const [statusUrl, setStatusUrl] = useState('/api/dev/social/newsletter/status');
+
+  useEffect(() => {
+    // In production, the status endpoint goes through the API Gateway proxy
+    // In development, it uses the local proxy
+    setStatusUrl('/api/dev/social/newsletter/status');
+  }, []);
+
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 20px' }}>
       <div>
@@ -69,7 +78,7 @@ export default function DevPage() {
               Check the status of the newsletter service and view statistics
             </p>
             <a
-              href="http://localhost:8082/api/v1/social/newsletter/status"
+              href={statusUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -83,7 +92,7 @@ export default function DevPage() {
                 marginTop: '10px',
               }}
             >
-              View Status (Local)
+              View Status
             </a>
           </div>
         </div>
@@ -165,15 +174,14 @@ GET /api/v1/social/newsletter/logs/:userId
             lineHeight: '1.5',
           }}
         >
-          <div style={{ marginBottom: '10px' }}>
-            <strong>SOCIAL_SERVICE_URL</strong>
-            <br />
-            Default: http://localhost:8082
-          </div>
           <div>
-            <strong>NEXT_PUBLIC_API_GATEWAY_URL</strong>
+            <strong>API_GATEWAY_URL</strong>
             <br />
-            Default: http://localhost:8000 (for production)
+            Server-side environment variable used by all API proxy routes
+            <br />
+            <em style={{ color: '#666' }}>LOCAL DEV: http://localhost:8000</em>
+            <br />
+            <em style={{ color: '#666' }}>KUBERNETES: http://api-gateway:80</em>
           </div>
         </div>
 

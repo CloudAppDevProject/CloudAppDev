@@ -8,7 +8,6 @@ import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
 import dynamic from "next/dynamic";
-import { API_SERVICES } from "@/lib/api-config";
 
 // Dynamisches Laden der Karte (nur Client-Side)
 const LocationMapPicker = dynamic(() => import("@/app/components/LocationMapPicker"), {
@@ -44,11 +43,10 @@ export default function NewItinerary() {
   const isHttp = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
   const isGs = (u) => typeof u === "string" && /^gs:\/\//i.test(u);
 
-  /** Get signed URL from Itinerary Service through API Gateway */
+  /** Get signed URL from Itinerary Service through Next.js proxy */
   const getSignedUrl = async (url) => {
     try {
-      const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || "http://localhost:8000";
-      const resp = await fetch(`${gatewayUrl}/api/v1/itineraries/signed-url?path=${encodeURIComponent(url)}`);
+      const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=itinerary`);
       if (!resp.ok) throw new Error("signing failed");
       const data = await resp.json();
       const signed = data?.url;
@@ -134,7 +132,7 @@ export default function NewItinerary() {
 
   async function fetchNearestCity(idx, lat, lon) {
     try {
-      const response = await fetch(`${API_SERVICES.TRAVEL_INFO_SERVICE}/location/city?lat=${lat}&lon=${lon}`);
+      const response = await fetch(`/api/travel-info/location/city?lat=${lat}&lon=${lon}`);
       if (response.ok) {
         const data = await response.json();
         const cityName = data.name;

@@ -40,7 +40,8 @@ spec:
             memory: "128Mi"
             cpu: "500m"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+          name: user-port
         env:
         - name: NODE_ENV
           valueFrom:

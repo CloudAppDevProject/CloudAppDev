@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudappdev-frontend
+  namespace: default
 spec:
   replicas: 2
   selector:
@@ -15,15 +16,13 @@ spec:
       serviceAccountName: cloudappdev-sa
       containers:
         - name: frontend
-          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-frontend:0.1.1
+          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-frontend@sha256:74ede7570c6ccb6c8b70a29c1102548f4a4a0c7ec338e8a5e8f580fbd22a255a
           ports:
             - containerPort: 3000
+              name: frontend-port
           env:
             - name: API_GATEWAY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: cloudappdev-secrets
-                  key: API_GATEWAY_URL
+              value: "http://api-gateway:80"
           resources:
             requests:
               cpu: "250m"
@@ -31,3 +30,11 @@ spec:
             limits:
               cpu: "500m"
               memory: "1Gi"
+          livenessProbe:
+            httpGet: 
+              path: "/"
+              port: 3000
+          readinessProbe:
+            httpGet: 
+              path: "/"
+              port: 3000

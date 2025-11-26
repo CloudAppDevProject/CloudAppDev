@@ -15,4 +15,5 @@ spec:
             value: /
       backendRefs:
         - name: cloudappdev-frontend
-          port: 3000
+          kind: Service
+          port: 80

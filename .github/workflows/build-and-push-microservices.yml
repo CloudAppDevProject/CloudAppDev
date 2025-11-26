@@ -1,5 +1,9 @@
 name: Build and Push All Services to GCR
 
+concurrency:
+  group: build-services-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -8,7 +12,6 @@ on:
     paths:
       - 'app/**'
       - 'lib/**'
-      - 'prisma/**'
       - 'public/**'
       - 'services/**'
       - 'nginx/**'
@@ -43,6 +46,8 @@ env:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       services: ${{ steps.set-matrix.outputs.services }}
       version: ${{ steps.version.outputs.version }}
@@ -61,7 +66,6 @@ jobs:
             frontend:
               - 'app/**'
               - 'lib/**'
-              - 'prisma/**'
               - 'public/**'
               - 'Dockerfile'
               - 'package.json'
@@ -87,29 +91,48 @@ jobs:
           # Get short SHA for reference
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-          
+
           # Try to get latest git tag, otherwise start at v0.1.0
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-          
+
           # Remove 'v' prefix if present
           VERSION=${LATEST_TAG#v}
-          
-          # If no tags exist or on master/main, increment patch version
+
+          # If on master/main, increment patch version and create git tag
           if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
             # Parse version components
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
             # Increment patch version
             PATCH=$((PATCH + 1))
             BUILD_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+            # Create git tag for this version
+            NEW_TAG="v${BUILD_VERSION}"
+            echo "Creating git tag: ${NEW_TAG}"
+            git tag "${NEW_TAG}" || echo "Tag already exists, skipping creation"
           else
-            # For develop branch, add build number
+            # For develop branch, add build number (no tag created)
             BUILD_NUMBER="${{ github.run_number }}"
             BUILD_VERSION="${VERSION}-dev.${BUILD_NUMBER}"
           fi
-          
+
           echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
           echo "Generated version: ${BUILD_VERSION}"
           echo "Short SHA: ${SHORT_SHA}"
+
+      - name: Push git tag (master/main only)
+        if: github.ref_name == 'master' || github.ref_name == 'main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Get the latest tag we just created
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Pushing tag: ${LATEST_TAG}"
+            git push origin "${LATEST_TAG}" || echo "Tag already exists on remote or push failed (non-blocking)"
+          fi
 
       - name: Set service matrix
         id: set-matrix
@@ -276,17 +299,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           platforms: linux/amd64
           target: ${{ matrix.service != 'api-gateway' && 'production' || '' }}
-          # Build args for frontend only
-          build-args: |
-            ${{ matrix.service == 'frontend' && format('DATABASE_URL_BUILD={0}', secrets.DATABASE_URL_BUILD || 'postgresql://build:build@localhost:5432/build?schema=public') || '' }}
-            ${{ matrix.service == 'frontend' && format('MONGODB_URI_BUILD={0}', secrets.MONGODB_URI_BUILD || 'mongodb://build:build@localhost:27017/build') || '' }}
-            ${{ matrix.service == 'frontend' && format('GCS_CREDENTIALS_BUILD={0}', secrets.GCS_CREDENTIALS_BUILD || 'build-dummy-credentials') || '' }}
-            ${{ matrix.service == 'frontend' && format('GCS_PROJECT_BUILD={0}', secrets.GCS_PROJECT_BUILD || 'build-project') || '' }}
-            ${{ matrix.service == 'frontend' && format('GCS_BUCKET_BUILD={0}', secrets.GCS_BUCKET_BUILD || 'build-bucket') || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_CREDENTIALS_BUILD={0}', secrets.FIREBASE_CREDENTIALS_BUILD || 'build-dummy-firebase') || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_API_KEY_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_KEY) || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_AUTH_DOMAIN_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_AUTH_DOMAIN) || '' }}
-            ${{ matrix.service == 'frontend' && format('FIREBASE_PROJECT_BUILD={0}', secrets.NEXT_PUBLIC_GOOGLE_CLOUD_PROJECT_ID) || '' }}
+          # Remove build args for NEXT_PUBLIC_API_GATEWAY_URL and related variables; these will be set via Kubernetes at runtime
       
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Password } from "primereact/password";
 import { InputText } from "primereact/inputtext";
-import { API_SERVICES } from "@/lib/api-config";
 
 // Force dynamic rendering - don't prerender this page at build time
 export const dynamic = 'force-dynamic';
@@ -21,16 +20,16 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      // Register via User Service through API Gateway
-      const res = await fetch(`${API_SERVICES.USER_SERVICE}/auth/register`, {
+      // Register via Next.js proxy to User Service
+      const res = await fetch(`/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
-          email: form.email, 
+        body: JSON.stringify({
+          email: form.email,
           password: form.password,
-          name: form.name 
+          name: form.name
         }),
       });
 

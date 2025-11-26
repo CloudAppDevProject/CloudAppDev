@@ -41,6 +41,7 @@ spec:
             cpu: "500m"
         ports:
         - containerPort: 8081
+          name: itinerary-port
         env:
         - name: NODE_ENV
           valueFrom:

@@ -14,11 +14,10 @@ import ImageUploader from "./imageUpload";
 const isHttp = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
 const isGs = (u) => typeof u === "string" && /^gs:\/\//i.test(u);
 
-/** Get signed URL from User Service through API Gateway */
+/** Get signed URL from User Service through Next.js proxy */
 const getSignedUrl = async (url) => {
   try {
-    const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:8000';
-    const resp = await fetch(`${gatewayUrl}/api/v1/users/signed-url?path=${encodeURIComponent(url)}`);
+    const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=user`);
     if (!resp.ok) throw new Error("signing failed");
     const data = await resp.json();
     const signed = data?.url;

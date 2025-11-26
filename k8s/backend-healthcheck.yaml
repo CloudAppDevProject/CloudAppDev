@@ -1,0 +1,19 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: my-backendconfig
+  namespace: default
+spec:
+  healthCheck:
+    # Time, in seconds, between prober checks. Default is `5`.
+    checkIntervalSec: 5
+    # Probe timeout period. Must be less than or equal to checkIntervalSec.
+    timeoutSec: 3
+    healthyThreshold: 2
+    unhealthyThreshold: 5
+    # Protocol to use. Must be `HTTP`, `HTTP2`, or `HTTPS`.
+    type: HTTP
+    # Path for probe to use. Default is `/`.
+    requestPath: /
+    # Port number of the load balancer health check port. Default is `80`.
+    port: 3000
