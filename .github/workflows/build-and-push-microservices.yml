@@ -116,8 +116,9 @@ jobs:
           VERSION_JSON=${VERSION_JSON%,} # Remove trailing comma
           VERSION_JSON+="}"
 
-          echo "version=${VERSION_JSON}" >> $GITHUB_OUTPUT
-          echo "Generated versions: ${VERSION_JSON}"
+          # Write valid JSON to $GITHUB_OUTPUT (no extra quotes, no asterisks)
+          echo version="$VERSION_JSON" >> $GITHUB_OUTPUT
+          echo "Generated versions: $VERSION_JSON"
           echo "Short SHA: ${SHORT_SHA}"
 
       - name: Set service matrix
