@@ -14,7 +14,7 @@ spec:
       serviceAccountName: cloudappdev-sa
       containers:
       - name: social-service
-        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.1.1
+        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.2.12
         resources:
           limits:
             memory: "128Mi"

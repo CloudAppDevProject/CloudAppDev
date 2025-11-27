@@ -90,4 +90,6 @@ terraform.tfstate.*
 /services/**/coverage
 settings.local.json
 
-nul
+# Kubernetes
+k8s/**/*secrets*
+k8s/**/*secrets*/

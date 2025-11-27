@@ -4,7 +4,6 @@ metadata:
   name: cloudappdev-frontend
   namespace: default
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: cloudappdev-frontend
@@ -16,7 +15,7 @@ spec:
       serviceAccountName: cloudappdev-sa
       containers:
         - name: frontend
-          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-frontend@sha256:74ede7570c6ccb6c8b70a29c1102548f4a4a0c7ec338e8a5e8f580fbd22a255a
+          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-frontend:0.2.14
           ports:
             - containerPort: 3000
               name: frontend-port

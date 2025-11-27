@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: travel-info-service
-        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-travel-info-service@sha256:b4c4e260cd989cd737c228d877c92af89ff83adcbdc002ded7286d722bfd4559
+        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-travel-info-service:0.2.12
         resources:
           limits:
             memory: "128Mi"
