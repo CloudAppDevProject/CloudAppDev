@@ -538,8 +538,17 @@ export class NewsletterService {
           if (!cached) {
             // Fetch real itinerary data from Itinerary Service
             try {
-              const itineraryServiceUrl = process.env.ITINERARY_SERVICE_URL || 'http://localhost:8081';
-              const response = await fetch(`${itineraryServiceUrl}/api/v1/itineraries/${item.itineraryId}`);
+              const itineraryServiceUrl = process.env.ITINERARY_SERVICE_URL;
+              if (!itineraryServiceUrl) {
+                this.logger.warn(
+                  `ITINERARY_SERVICE_URL not configured, skipping enrichment for itinerary ${item.itineraryId}`,
+                );
+                continue;
+              }
+
+              const url = `${itineraryServiceUrl}/api/v1/itineraries/${item.itineraryId}`;
+              this.logger.debug(`Fetching itinerary details from: ${url}`);
+              const response = await fetch(url);
 
               if (response.ok) {
                 const itineraryData = await response.json();
@@ -549,14 +558,23 @@ export class NewsletterService {
                 let creatorName = 'Unknown';
                 if (itinerary.userId) {
                   try {
-                    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
-                    const userResponse = await fetch(`${userServiceUrl}/api/v1/users/${itinerary.userId}`);
-                    if (userResponse.ok) {
-                      const userData = await userResponse.json();
-                      creatorName = userData.data?.name || userData.name || 'Unknown';
+                    const userServiceUrl = process.env.USER_SERVICE_URL;
+                    if (userServiceUrl) {
+                      const userUrl = `${userServiceUrl}/api/v1/users/${itinerary.userId}`;
+                      const userResponse = await fetch(userUrl);
+                      if (userResponse.ok) {
+                        const userData = await userResponse.json();
+                        creatorName = userData.data?.name || userData.name || 'Unknown';
+                      } else {
+                        this.logger.debug(
+                          `User Service returned ${userResponse.status} for user ${itinerary.userId}`,
+                        );
+                      }
                     }
                   } catch (userError) {
-                    this.logger.debug(`Could not fetch creator for itinerary ${item.itineraryId}`);
+                    this.logger.debug(
+                      `Could not fetch creator for itinerary ${item.itineraryId}: ${userError instanceof Error ? userError.message : String(userError)}`,
+                    );
                   }
                 }
 
