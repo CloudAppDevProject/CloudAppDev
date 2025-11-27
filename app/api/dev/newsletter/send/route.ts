@@ -33,8 +33,9 @@ async function sendNewsletter(userId: string | number) {
   try {
     // Use direct Social Service URL (bypasses API Gateway for local dev)
     // For production, use API Gateway instead
-    const socialServiceUrl = process.env.SOCIAL_SERVICE_URL || 'http://localhost:8082';
-    const fullUrl = `${socialServiceUrl}/api/v1/social/newsletter/send-manual/${userIdNum}`;
+    const socialServiceUrl =
+      `${process.env.API_GATEWAY_URL}/api/v1/social` || "http://localhost:8082";
+    const fullUrl = `${socialServiceUrl}/newsletter/send-manual/${userIdNum}`;
 
     console.log(`[DEV] Sending newsletter for userId: ${userIdNum} to ${socialServiceUrl}`);
 

@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * DELETE - Unsubscribe user from newsletter
  */
 
-const SOCIAL_SERVICE_URL = process.env.SOCIAL_SERVICE_URL || 'http://localhost:8082';
+const SOCIAL_SERVICE_URL =
+  `${process.env.API_GATEWAY_URL}/api/v1/social` || "http://localhost:8082";
 
 export async function DELETE(
   request: NextRequest,
@@ -25,7 +26,7 @@ export async function DELETE(
     }
 
     const response = await fetch(
-      `${SOCIAL_SERVICE_URL}/api/v1/social/newsletter/subscribe/${userIdNum}`,
+      `${SOCIAL_SERVICE_URL}/newsletter/subscribe/${userIdNum}`,
       {
         method: 'DELETE',
       }

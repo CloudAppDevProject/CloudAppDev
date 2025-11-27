@@ -8,7 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * PATCH - Update user's newsletter preferences
  */
 
-const SOCIAL_SERVICE_URL = process.env.SOCIAL_SERVICE_URL || 'http://localhost:8082';
+const SOCIAL_SERVICE_URL =
+  `${process.env.API_GATEWAY_URL}/api/v1/social` || "http://localhost:8082";
 
 export async function GET(
   request: NextRequest,
@@ -26,7 +27,7 @@ export async function GET(
     }
 
     const response = await fetch(
-      `${SOCIAL_SERVICE_URL}/api/v1/social/newsletter/preferences/${userIdNum}`
+      `${SOCIAL_SERVICE_URL}/newsletter/preferences/${userIdNum}`
     );
 
     const data = await response.json();
@@ -64,7 +65,7 @@ export async function PATCH(
     const body = await request.json();
 
     const response = await fetch(
-      `${SOCIAL_SERVICE_URL}/api/v1/social/newsletter/preferences/${userIdNum}`,
+      `${SOCIAL_SERVICE_URL}/newsletter/preferences/${userIdNum}`,
       {
         method: 'PATCH',
         headers: {

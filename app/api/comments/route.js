@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-const SOCIAL_SERVICE_URL = process.env.SOCIAL_SERVICE_URL || 'http://localhost:8000/api/v1/social';
+const SOCIAL_SERVICE_URL =
+  `${process.env.API_GATEWAY_URL}/api/v1/social` || "http://localhost:8000/api/v1/social";
 
 /**
  * POST /api/comments - Create comment
