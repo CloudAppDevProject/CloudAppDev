@@ -799,6 +799,7 @@ export class NewsletterService {
 
   /**
    * Fetch user email from User Service
+   * Uses direct service-to-service communication (not through API Gateway)
    * Throws error if USER_SERVICE_URL is not configured or user not found
    */
   async fetchUserEmail(userId: number): Promise<string> {
@@ -820,7 +821,9 @@ export class NewsletterService {
     this.logger.debug(`USER_SERVICE_URL: ${userServiceUrl}`);
 
     try {
-      const url = `${userServiceUrl}/api/v1/users/${userId}`;
+      // USER_SERVICE_URL should point directly to the User Service endpoint
+      // Example: http://user-service:8080 (Kubernetes) or http://localhost:8080 (Docker)
+      const url = `${userServiceUrl}/${userId}`;
       this.logger.debug(`Fetching user from: ${url}`);
 
       const response = await fetch(url);
