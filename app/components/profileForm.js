@@ -53,7 +53,7 @@ export default function ProfileForm({ user, onUpdate }) {
   // Wir verwenden hier einen zusätzlichen State für die signierte URL.
   const initialAvatar = user.avatarUrl || "";
   const [form, setForm] = useState({
-    username: user.username || "",
+    username: user.name || user.username || "",
     email: user.email || "",
     password: "",
     avatarUrl: initialAvatar, // Der Rohpfad (gs:// oder https://)
@@ -112,9 +112,14 @@ export default function ProfileForm({ user, onUpdate }) {
     const avatarToSave = isHttp(form.avatarUrl) ? form.avatarUrl : form.avatarUrl;
 
     try {
+      // Get JWT token from localStorage
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        throw new Error('No authentication token found. Please login again.');
+      }
+
       const payload = {
-        userId: user.id,
-        username: form.username,
+        name: form.username,
         email: form.email,
         // Wichtig: Wir senden den Rohpfad, keine signed URL.
         avatarUrl: form.avatarUrl,
@@ -126,7 +131,10 @@ export default function ProfileForm({ user, onUpdate }) {
 
       const res = await fetch("/api/user", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
 

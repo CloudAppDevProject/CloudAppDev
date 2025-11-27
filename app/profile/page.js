@@ -9,7 +9,7 @@ import ProfileForm from "../components/profileForm";
 export const dynamic = 'force-dynamic';
 
 export default function ProfilePage() {
-  const { user, setUser, loading: userLoading } = useUser();
+  const { user, refresh, loading: userLoading } = useUser();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -21,13 +21,13 @@ export default function ProfilePage() {
       return;
     }
     setLoading(false);
-  }, [user, router]);
+  }, [user, router, userLoading]);
 
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <ProfileForm user={user} onUpdate={setUser} />
+      <ProfileForm user={user} onUpdate={refresh} />
     </div>
   );
 }
