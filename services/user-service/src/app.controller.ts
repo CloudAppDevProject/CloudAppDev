@@ -9,4 +9,17 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  /**
+   * Health check endpoint for Kubernetes/service discovery
+   * Used by load balancers and async job schedulers
+   */
+  @Get('health')
+  getHealth(): { status: string; service: string; timestamp: string } {
+    return {
+      status: 'ok',
+      service: 'user-service',
+      timestamp: new Date().toISOString(),
+    };
+  }
 }

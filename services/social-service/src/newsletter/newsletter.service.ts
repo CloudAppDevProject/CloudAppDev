@@ -167,6 +167,7 @@ export class NewsletterService {
     const checkService = async (
       url: string,
       name: string,
+      pathSegment: string,
     ): Promise<boolean> => {
       if (!url) {
         this.logger.warn(`${name} URL not configured`);
@@ -177,16 +178,25 @@ export class NewsletterService {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
 
-        const response = await fetch(`${url}/health`, {
+        // Build health endpoint URL based on service-specific path
+        // USER_SERVICE_URL = http://user-service:8080 -> /api/v1/users/health
+        // ITINERARY_SERVICE_URL = http://itinerary-service:8081 -> /api/v1/itineraries/health
+        const healthUrl = `${url}${pathSegment}/health`;
+
+        this.logger.debug(`Checking health for ${name} at ${healthUrl}`);
+
+        const response = await fetch(healthUrl, {
           method: 'GET',
           signal: controller.signal,
         });
 
         clearTimeout(timeout);
-        return response.status === 200;
+        const isHealthy = response.status === 200;
+        this.logger.debug(`${name} health check: ${isHealthy ? 'OK' : 'FAILED'} (status: ${response.status})`);
+        return isHealthy;
       } catch (error) {
         this.logger.warn(
-          `Health check failed for ${name} (${url}):`,
+          `Health check failed for ${name}:`,
           error instanceof Error ? error.message : String(error),
         );
         return false;
@@ -194,10 +204,11 @@ export class NewsletterService {
     };
 
     return {
-      userService: await checkService(userServiceUrl, 'User Service'),
+      userService: await checkService(userServiceUrl, 'User Service', '/api/v1/users'),
       itineraryService: await checkService(
         itineraryServiceUrl,
         'Itinerary Service',
+        '/api/v1/itineraries',
       ),
     };
   }
@@ -961,18 +972,10 @@ export class NewsletterService {
   /**
    * Create a new send run for tracking batch operations
    */
-  private async createSendRun(): Promise<NewsletterDeliveryDocument> {
-    try {
-      const doc = await this.deliveryModel.create({
-        sendRun: new Types.ObjectId(),
-        status: DeliveryStatus.PENDING,
-      });
-      return doc;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error('Failed to create send run:', errorMsg);
-      throw error;
-    }
+  private createSendRun(): Types.ObjectId {
+    // Create a unique tracking ID for this send run
+    // This ID is used to group all deliveries from a single newsletter send
+    return new Types.ObjectId();
   }
 
   /**
@@ -1716,7 +1719,7 @@ export class NewsletterService {
       );
 
       // Create tracking document for this send run
-      const sendRun = await this.createSendRun();
+      const sendRun = this.createSendRun();
 
       // Process in batches (default 50, configurable)
       const batchSize = parseInt(process.env.NEWSLETTER_BATCH_SIZE || '50');
@@ -1733,7 +1736,7 @@ export class NewsletterService {
           this.sendToUserWithTracking(
             user,
             trending,
-            sendRun._id as Types.ObjectId,
+            sendRun,
           )
             .then(() => {
               successCount++;
@@ -1753,7 +1756,7 @@ export class NewsletterService {
         );
 
         await Promise.all(promises);
-        this.markBatchProcessed(sendRun._id as Types.ObjectId, batch);
+        this.markBatchProcessed(sendRun, batch);
       }
 
       const completedAt = new Date();
@@ -1810,7 +1813,7 @@ export class NewsletterService {
       );
 
       // Create tracking document for this send run
-      const sendRun = await this.createSendRun();
+      const sendRun = this.createSendRun();
 
       // Process in batches (default 50, configurable)
       const batchSize = parseInt(process.env.NEWSLETTER_BATCH_SIZE || '50');
@@ -1827,7 +1830,7 @@ export class NewsletterService {
           this.sendToUserWithTracking(
             user,
             trending,
-            sendRun._id as Types.ObjectId,
+            sendRun,
           )
             .then(() => {
               successCount++;
@@ -1847,7 +1850,7 @@ export class NewsletterService {
         );
 
         await Promise.all(promises);
-        this.markBatchProcessed(sendRun._id as Types.ObjectId, batch);
+        this.markBatchProcessed(sendRun, batch);
       }
 
       const completedAt = new Date();
