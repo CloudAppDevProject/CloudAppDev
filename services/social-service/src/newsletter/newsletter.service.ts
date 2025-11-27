@@ -1241,6 +1241,100 @@ export class NewsletterService {
   }
 
   /**
+   * Send daily newsletter to all daily subscribers
+   * Implements batch processing with checkpoints and health checks
+   */
+  async sendDaily(): Promise<SendNewsletterResultDto> {
+    const startedAt = new Date();
+    let successCount = 0;
+    let failureCount = 0;
+    const errors: Array<{ userId: number; email?: string; error: string }> = [];
+
+    try {
+      // Health check: ensure dependent services are available
+      const health = await this.checkServiceHealth();
+      if (!health.userService) {
+        this.logger.error('User Service unavailable - aborting newsletter');
+        throw new Error('User Service health check failed');
+      }
+
+      this.logger.log('Health checks passed, starting daily newsletter send');
+
+      // Get all subscribed users with daily frequency
+      const subscribers = await this.subscriptionModel.find({
+        isSubscribed: true,
+        frequency: NewsletterFrequency.DAILY,
+      });
+
+      // Get trending itineraries (cached)
+      const trending = await this.getTrendingItineraries();
+
+      this.logger.log(
+        `Starting newsletter send to ${subscribers.length} daily subscribers`,
+      );
+
+      // Create tracking document for this send run
+      const sendRun = await this.createSendRun();
+
+      // Process in batches (default 50, configurable)
+      const batchSize = parseInt(process.env.NEWSLETTER_BATCH_SIZE || '50');
+      const batches = this.chunk(subscribers, batchSize);
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        this.logger.log(
+          `Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} users)`,
+        );
+
+        // Process batch in parallel with Promise.all
+        const promises = batch.map((user) =>
+          this.sendToUserWithTracking(
+            user,
+            trending,
+            sendRun._id as Types.ObjectId,
+          )
+            .then(() => {
+              successCount++;
+            })
+            .catch((error) => {
+              const errorMsg =
+                error instanceof Error ? error.message : String(error);
+              this.logger.error(
+                `Failed to send to user ${user.userId}: ${errorMsg}`,
+              );
+              failureCount++;
+              errors.push({
+                userId: user.userId,
+                error: errorMsg,
+              });
+            }),
+        );
+
+        await Promise.all(promises);
+        this.markBatchProcessed(sendRun._id as Types.ObjectId, batch);
+      }
+
+      const completedAt = new Date();
+      this.logger.log(
+        `Daily newsletter send completed: ${successCount} sent, ${failureCount} failed out of ${subscribers.length}`,
+      );
+
+      return {
+        successCount,
+        failureCount,
+        totalAttempted: subscribers.length,
+        startedAt,
+        completedAt,
+        errors: errors.length > 0 ? errors : undefined,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Critical error during newsletter send: ${errorMsg}`);
+      throw error;
+    }
+  }
+
+  /**
    * Send weekly newsletter to all subscribed users
    * Implements batch processing with checkpoints and health checks
    */

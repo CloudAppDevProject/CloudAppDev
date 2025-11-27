@@ -4,6 +4,7 @@ import { Document } from 'mongoose';
 export type NewsletterSubscriptionDocument = NewsletterSubscription & Document;
 
 export enum NewsletterFrequency {
+  DAILY = 'daily',
   WEEKLY = 'weekly',
   BIWEEKLY = 'biweekly',
   MONTHLY = 'monthly',

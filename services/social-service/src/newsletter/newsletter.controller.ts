@@ -60,7 +60,7 @@ export class NewsletterController {
    * {
    *   "userId": 123,
    *   "email": "user@example.com",
-   *   "frequency": "weekly"  // optional: weekly, biweekly, monthly
+   *   "frequency": "weekly"  // optional: daily, weekly, biweekly, monthly
    * }
    *
    * Response: 201 Created
@@ -185,7 +185,7 @@ export class NewsletterController {
    *
    * Request body:
    * {
-   *   "frequency": "biweekly",  // optional
+   *   "frequency": "daily",      // optional: daily, weekly, biweekly, monthly
    *   "isSubscribed": true       // optional
    * }
    *
