@@ -176,14 +176,15 @@ export class NewsletterService {
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
+        // Increased timeout from 3s to 10s for Kubernetes network latency
+        const timeout = setTimeout(() => controller.abort(), 10000);
 
         // Build health endpoint URL based on service-specific path
         // USER_SERVICE_URL = http://user-service:8080 -> /api/v1/users/health
         // ITINERARY_SERVICE_URL = http://itinerary-service:8081 -> /api/v1/itineraries/health
         const healthUrl = `${url}${pathSegment}/health`;
 
-        this.logger.debug(`Checking health for ${name} at ${healthUrl}`);
+        this.logger.log(`Checking health for ${name} at ${healthUrl} (timeout: 10s)`);
 
         const response = await fetch(healthUrl, {
           method: 'GET',
@@ -192,13 +193,11 @@ export class NewsletterService {
 
         clearTimeout(timeout);
         const isHealthy = response.status === 200;
-        this.logger.debug(`${name} health check: ${isHealthy ? 'OK' : 'FAILED'} (status: ${response.status})`);
+        this.logger.log(`${name} health check: ${isHealthy ? 'OK' : 'FAILED'} (status: ${response.status})`);
         return isHealthy;
       } catch (error) {
-        this.logger.warn(
-          `Health check failed for ${name}:`,
-          error instanceof Error ? error.message : String(error),
-        );
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Health check failed for ${name}: ${errorMsg}`);
         return false;
       }
     };
@@ -1790,22 +1789,27 @@ export class NewsletterService {
     const errors: Array<{ userId: number; email?: string; error: string }> = [];
 
     try {
-      // Health check: ensure dependent services are available
+      // Health check: log service status but don't abort
+      // Newsletter can proceed even if dependent services are temporarily unavailable
+      // (Fallback mechanisms in sendToUserWithTracking handle this)
+      this.logger.log('Checking service health...');
       const health = await this.checkServiceHealth();
+      this.logger.log(`Service health: User Service=${health.userService}, Itinerary Service=${health.itineraryService}`);
       if (!health.userService) {
-        this.logger.error('User Service unavailable - aborting newsletter');
-        throw new Error('User Service health check failed');
+        this.logger.warn('User Service unavailable - newsletter will proceed with limited functionality');
       }
 
-      this.logger.log('Health checks passed, starting weekly newsletter send');
+      this.logger.log('Starting weekly newsletter send...');
 
       // Get all subscribed users
+      this.logger.log('Fetching subscribers from MongoDB...');
       const subscribers = await this.subscriptionModel.find({
         isSubscribed: true,
         frequency: NewsletterFrequency.WEEKLY,
       });
 
       // Get trending itineraries (cached)
+      this.logger.log('Computing trending itineraries...');
       const trending = await this.getTrendingItineraries();
 
       this.logger.log(

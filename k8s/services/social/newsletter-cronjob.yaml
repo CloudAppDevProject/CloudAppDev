@@ -1,229 +1,172 @@
-# ---
-# # Kubernetes CronJob for weekly newsletter distribution
-# # Schedules automatic newsletter sends every Sunday at 8 PM UTC
-# # Integrates with CloudAppDev social-service for email delivery
-# apiVersion: batch/v1
-# kind: CronJob
-# metadata:
-#   name: social-newsletter-weekly
-#   namespace: default
-#   labels:
-#     app: cloudappdev
-#     service: social-service
-#     component: newsletter
-#   annotations:
-#     description: "Weekly newsletter distribution job for CloudAppDev platform"
-# spec:
-#   # Schedule: Sunday 8 PM UTC (20:00)
-#   # Format: minute hour day-of-month month day-of-week
-#   schedule: "0 20 * * 0"
+---
+# Kubernetes CronJob for weekly newsletter distribution
+# Schedules automatic newsletter sends every Sunday at 8 PM UTC
+# Integrates with CloudAppDev social-service for email delivery
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: social-newsletter-weekly
+  namespace: default
+  labels:
+    app: cloudappdev
+    service: social-service
+    component: newsletter
+  annotations:
+    description: "Weekly newsletter distribution job for CloudAppDev platform"
+spec:
+  # Schedule: Sunday 8 PM UTC (20:00)
+  # Format: minute hour day-of-month month day-of-week
+  schedule: "0 20 * * 0"
 
-#   # Timezone (optional, requires K8s 1.25+)
-#   # timeZone: "UTC"
+  # Timezone (optional, requires K8s 1.25+)
+  # timeZone: "UTC"
 
-#   # Keep last 3 failed and 1 successful job
-#   failedJobsHistoryLimit: 3
-#   successfulJobsHistoryLimit: 1
+  # Keep last 3 failed and 1 successful job
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 1
 
-#   # Concurrency policy: prevent overlapping jobs
-#   concurrencyPolicy: Forbid
+  # Concurrency policy: prevent overlapping jobs
+  concurrencyPolicy: Forbid
 
-#   jobTemplate:
-#     spec:
-#       # Backoff limit: max 1 retry on failure
-#       backoffLimit: 1
+  jobTemplate:
+    spec:
+      # Backoff limit: max 1 retry on failure
+      backoffLimit: 1
 
-#       # Job timeout: 15 minutes
-#       ttlSecondsAfterFinished: 3600
+      # Job timeout: 15 minutes
+      ttlSecondsAfterFinished: 3600
 
-#       template:
-#         metadata:
-#           labels:
-#             app: cloudappdev
-#             service: social-service
-#             job-type: newsletter
-#           annotations:
-#             description: "Weekly newsletter send job"
-#         spec:
-#           serviceAccountName: cloudappdev
+      template:
+        metadata:
+          labels:
+            app: cloudappdev
+            service: social-service
+            job-type: newsletter
+          annotations:
+            description: "Weekly newsletter send job"
+        spec:
+          serviceAccountName: cloudappdev-sa
 
-#           # Restart policy: don't restart on failure (K8s job handles retries)
-#           restartPolicy: OnFailure
+          # Restart policy: don't restart on failure (K8s job handles retries)
+          restartPolicy: OnFailure
 
-#           containers:
-#           - name: newsletter-sender
-#             image: cloudappdev-social-service:latest
-#             imagePullPolicy: Always
+          containers:
+          - name: newsletter-sender
+            image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.2.27
+            imagePullPolicy: Always
 
-#             # Run the newsletter send command
-#             command:
-#             - npm
-#             - run
-#             - newsletter:send-weekly
+            # Run the newsletter send command
+            command:
+            - npm
+            - run
+            - newsletter:send-weekly
 
-#             # Environment variables
-#             env:
-#             # Database configuration
-#             - name: MONGODB_URI
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: cloudappdev-secrets
-#                   key: social-mongodb-uri
+            # Environment variables
+            env:
+            # Database configuration
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: MONGODB_URI
 
-#             # Email configuration
-#             - name: NEWSLETTER_SMTP_HOST
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: cloudappdev-secrets
-#                   key: newsletter-smtp-host
-#             - name: NEWSLETTER_SMTP_PORT
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: cloudappdev-secrets
-#                   key: newsletter-smtp-port
-#             - name: NEWSLETTER_SMTP_USER
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: cloudappdev-secrets
-#                   key: newsletter-smtp-user
-#             - name: NEWSLETTER_SMTP_PASSWORD
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: cloudappdev-secrets
-#                   key: newsletter-smtp-password
-#             - name: NEWSLETTER_FROM_EMAIL
-#               valueFrom:
-#                 secretKeyRef:
-#                   name: cloudappdev-secrets
-#                   key: newsletter-from-email
-#             - name: NEWSLETTER_FROM_NAME
-#               value: "CloudAppDev Newsletter"
+            # Email configuration (SendGrid)
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_API_KEY
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_FROM_EMAIL
+            - name: NEWSLETTER_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: NEWSLETTER_FROM_NAME
 
-#             # Service URLs
-#             - name: USER_SERVICE_URL
-#               value: "http://user-service:8080/api/v1"
-#             - name: ITINERARY_SERVICE_URL
-#               value: "http://itinerary-service:8081/api/v1"
+            # Service URLs
+            - name: USER_SERVICE_URL
+              value: "http://user-service:8080/api/v1"
+            - name: ITINERARY_SERVICE_URL
+              value: "http://itinerary-service:8081/api/v1"
 
-#             # Newsletter settings
-#             - name: NEWSLETTER_ENABLED
-#               value: "true"
-#             - name: NEWSLETTER_BATCH_SIZE
-#               value: "50"
-#             - name: NEWSLETTER_RETRY_LIMIT
-#               value: "3"
-#             - name: NEWSLETTER_RETRY_DELAY_MS
-#               value: "5000"
+            # Newsletter settings
+            - name: NEWSLETTER_ENABLED
+              value: "true"
+            - name: NEWSLETTER_BATCH_SIZE
+              value: "50"
+            - name: NEWSLETTER_RETRY_LIMIT
+              value: "3"
+            - name: NEWSLETTER_RETRY_DELAY_MS
+              value: "5000"
 
-#             # App configuration
-#             - name: FRONTEND_URL
-#               value: "https://cloudappdev.example.com"
-#             - name: NODE_ENV
-#               value: "production"
+            # App configuration
+            - name: FRONTEND_URL
+              value: "https://cloudappdev.example.com"
+            - name: NODE_ENV
+              value: "production"
 
-#             # Logging
-#             - name: LOG_LEVEL
-#               value: "log"
+            # Newsletter mode
+            - name: NEWSLETTER_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: NEWSLETTER_MODE
 
-#             # Resource limits
-#             resources:
-#               requests:
-#                 memory: "256Mi"
-#                 cpu: "100m"
-#               limits:
-#                 memory: "512Mi"
-#                 cpu: "500m"
+            # Logging
+            - name: LOG_LEVEL
+              value: "log"
 
-#             # Liveness probe (optional)
-#             livenessProbe:
-#               exec:
-#                 command:
-#                 - npm
-#                 - --version
-#               initialDelaySeconds: 5
-#               periodSeconds: 30
-#               timeoutSeconds: 5
-#               failureThreshold: 2
+            # Resource limits
+            # Increased from 256/512Mi to support newsletter processing
+            # Newsletter needs to load subscriber data, render templates, etc.
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1Gi"
+                cpu: "1000m"
 
-#           # Pod-level tolerations (if using node affinity)
-#           tolerations:
-#           - key: "batch-jobs"
-#             operator: "Equal"
-#             value: "true"
-#             effect: "NoSchedule"
+          # Pod-level tolerations (if using node affinity)
+          tolerations:
+          - key: "batch-jobs"
+            operator: "Equal"
+            value: "true"
+            effect: "NoSchedule"
 
-#           # Optional: Pod affinity
-#           affinity:
-#             podAntiAffinity:
-#               preferredDuringSchedulingIgnoredDuringExecution:
-#               - weight: 100
-#                 podAffinityTerm:
-#                   labelSelector:
-#                     matchExpressions:
-#                     - key: app
-#                       operator: In
-#                       values:
-#                       - cloudappdev-app
-#                   topologyKey: kubernetes.io/hostname
+          # Optional: Pod affinity
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                      - cloudappdev-app
+                  topologyKey: kubernetes.io/hostname
 
-# ---
-# # ServiceMonitor for Prometheus (if using kube-prometheus)
-# # Uncomment to enable Prometheus monitoring for newsletter jobs
-# apiVersion: v1
-# kind: ConfigMap
-# metadata:
-#   name: newsletter-config
-#   namespace: default
-#   labels:
-#     app: cloudappdev
-#     service: social-service
-#     component: newsletter
-# data:
-#   # Newsletter job configuration
-#   batch-size: "50"
-#   retry-limit: "3"
-#   retry-delay-ms: "5000"
-#   max-concurrent-sends: "10"
-#   timeout-per-email-ms: "10000"
-
-# ---
-# # Optional: PrometheusRule for alerting
-# # Uncomment to enable monitoring and alerting for newsletter jobs
-# apiVersion: v1
-# kind: ConfigMap
-# metadata:
-#   name: newsletter-alerting-rules
-#   namespace: default
-#   labels:
-#     app: cloudappdev
-#     service: social-service
-# spec:
-#   rules.yaml: |
-#     # Newsletter alerting rules
-#     # Alert: Newsletter job failed
-#     # Condition: Any newsletter job fails
-#     # Action: Page on-call engineer
-
-#     # Alert: Newsletter job timeout
-#     # Condition: Job exceeds 15 minute timeout
-#     # Action: Check logs and retry manually
-
-#     # Alert: Newsletter delivery failures
-#     # Condition: >5% of emails fail to send
-#     # Action: Check SMTP service and retry
-
-# ---
-# # OPTIONAL: Service Monitor for Prometheus metrics
-# # Uncomment if using Prometheus/Grafana monitoring
-# # apiVersion: monitoring.coreos.com/v1
-# # kind: ServiceMonitor
-# # metadata:
-# #   name: newsletter-cronjob
-# #   namespace: default
-# # spec:
-# #   selector:
-# #     matchLabels:
-# #       service: social-service
-# #   endpoints:
-# #   - port: metrics
-# #     interval: 30s
+---
+# ConfigMap for newsletter job configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: newsletter-config
+  namespace: default
+  labels:
+    app: cloudappdev
+    service: social-service
+    component: newsletter
+data:
+  # Newsletter job configuration
+  batch-size: "50"
+  retry-limit: "3"
+  retry-delay-ms: "5000"
+  max-concurrent-sends: "10"
+  timeout-per-email-ms: "10000"
