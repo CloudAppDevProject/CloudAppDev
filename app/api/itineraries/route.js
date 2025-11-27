@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-const ITINERARY_SERVICE_URL = process.env.ITINERARY_SERVICE_URL || 'http://localhost:8000/api/v1/itineraries';
+const ITINERARY_SERVICE_URL =
+  `${process.env.API_GATEWAY_URL}/api/v1/itineraries` ||
+  "http://localhost:8000/api/v1/itineraries";
 
 export async function POST(req) {
   try {
