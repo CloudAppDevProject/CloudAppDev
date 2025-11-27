@@ -535,6 +535,14 @@ export class NewsletterService {
             itineraryId: item.itineraryId,
           });
 
+          // If cached entry is incomplete (title is "Untitled"), refresh it
+          if (cached && cached.title === 'Untitled Itinerary') {
+            this.logger.debug(
+              `Cache entry for itinerary ${item.itineraryId} is incomplete (title is "Untitled"), refreshing...`,
+            );
+            cached = null; // Force refresh
+          }
+
           if (!cached) {
             // Fetch real itinerary data from Itinerary Service
             try {
@@ -553,6 +561,10 @@ export class NewsletterService {
               if (response.ok) {
                 const itineraryData = await response.json();
                 const itinerary = itineraryData.data || itineraryData;
+
+                this.logger.debug(
+                  `Fetched itinerary ${item.itineraryId} - title: "${itinerary.title || 'MISSING'}", user_id: ${itinerary.userId}`,
+                );
 
                 // Fetch creator details from User Service
                 let creatorName = 'Unknown';
@@ -578,10 +590,13 @@ export class NewsletterService {
                   }
                 }
 
+                // Ensure title is not empty - use multiple fallbacks
+                const finalTitle = itinerary.title?.trim() || itinerary.short_desc?.trim() || 'Untitled Itinerary';
+
                 // Create enriched cache entry
                 cached = await this.trendingItineraryModel.create({
                   itineraryId: item.itineraryId,
-                  title: itinerary.title || 'Untitled Itinerary',
+                  title: finalTitle,
                   userId: itinerary.userId || 0,
                   userName: creatorName,
                   likeCount: item.likeCount,
@@ -599,7 +614,7 @@ export class NewsletterService {
                     description: img.description,
                   })),
                   keywords: this.extractKeywords(
-                    `${itinerary.title} ${itinerary.description || ''}`,
+                    `${finalTitle} ${itinerary.description || ''}`,
                     20,
                   ),
                   tags: itinerary.tags || [],
