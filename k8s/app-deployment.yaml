@@ -21,7 +21,10 @@ spec:
               name: frontend-port
           env:
             - name: API_GATEWAY_URL
-              value: "http://api-gateway:80"
+              valueFrom:
+                secretKeyRef:
+                  name: cloudappdev-secrets
+                  key: API_GATEWAY_URL
           resources:
             requests:
               cpu: "250m"
