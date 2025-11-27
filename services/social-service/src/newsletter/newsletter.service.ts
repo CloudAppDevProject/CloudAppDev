@@ -918,29 +918,303 @@ export class NewsletterService {
   }
 
   /**
+   * Get itineraries from users similar to the target user
+   * Uses simple collaborative filtering: finds users who liked the same itineraries
+   * and recommends their other itineraries
+   * Excludes provided itinerary IDs (e.g., trending) for variety
+   */
+  private async getFollowedUserItineraries(
+    userId: number,
+    limit: number = 3,
+    excludeIds: number[] = [],
+  ): Promise<
+    Array<{
+      itineraryId: number;
+      title: string;
+      userName: string;
+      likeCount: number;
+      commentCount: number;
+      locations: Array<{ name: string }>;
+      thumbnail?: string;
+      similarUsersCount: number;
+    }>
+  > {
+    try {
+      // Log what we're excluding
+      if (excludeIds.length > 0) {
+        this.logger.debug(`Excluding trending IDs from similar travelers section: ${excludeIds.join(',')}`);
+      }
+
+      // Step 1: Find itineraries the user liked
+      const userLikes = await this.likesModel
+        .find({ userId })
+        .select('itineraryId')
+        .lean();
+
+      if (!userLikes || userLikes.length === 0) {
+        this.logger.debug(
+          `User ${userId} has no likes, using random popular itineraries (excluding ${excludeIds.length} trending items)`,
+        );
+        return this.getRandomPopularItineraries(limit, excludeIds);
+      }
+
+      const likedItineraryIds = userLikes.map(like => like.itineraryId);
+
+      // Step 2: Find other users who liked the same itineraries
+      const similarUsers = await this.likesModel
+        .find({
+          itineraryId: { $in: likedItineraryIds },
+          userId: { $ne: userId }, // Exclude the user themselves
+        })
+        .select('userId')
+        .distinct('userId')
+        .lean();
+
+      if (!similarUsers || similarUsers.length === 0) {
+        this.logger.debug(
+          `No similar users found for user ${userId}, using random popular itineraries (excluding ${excludeIds.length} trending items)`,
+        );
+        return this.getRandomPopularItineraries(limit, excludeIds);
+      }
+
+      // Step 3: Find itineraries liked by similar users (but not by the target user or excluded IDs)
+      const idsToExclude = [...likedItineraryIds, ...excludeIds];
+      const similarUserItineraries = await this.likesModel
+        .aggregate([
+          {
+            $match: {
+              userId: { $in: similarUsers },
+              itineraryId: { $nin: idsToExclude }, // Exclude already liked + excluded IDs
+            },
+          },
+          {
+            $group: {
+              _id: '$itineraryId',
+              similarUsersCount: { $sum: 1 }, // Count how many similar users liked it
+              likes: { $first: '$likes' },
+            },
+          },
+          {
+            $sort: { similarUsersCount: -1 },
+          },
+          {
+            $limit: limit * 2, // Get extra to filter
+          },
+        ])
+        .exec();
+
+      if (!similarUserItineraries || similarUserItineraries.length === 0) {
+        this.logger.debug(
+          `No similar user itineraries found for user ${userId}, using random popular (excluding ${excludeIds.length} trending items)`,
+        );
+        return this.getRandomPopularItineraries(limit, excludeIds);
+      }
+
+      // Step 4: Enrich with full itinerary details
+      const results: Array<{
+        itineraryId: number;
+        title: string;
+        userName: string;
+        likeCount: number;
+        commentCount: number;
+        locations: Array<{ name: string }>;
+        thumbnail?: string;
+        similarUsersCount: number;
+      }> = [];
+
+      for (const item of similarUserItineraries) {
+        try {
+          const itineraryId = item._id as number;
+          const cached = await this.trendingItineraryModel.findOne({
+            itineraryId,
+          });
+
+          if (cached) {
+            results.push({
+              itineraryId,
+              title: cached.title,
+              userName: cached.userName || 'Unknown',
+              likeCount: cached.likeCount,
+              commentCount: cached.commentCount,
+              locations: (cached.locations || []).map(loc => ({
+                name: typeof loc === 'string' ? loc : loc.name,
+              })),
+              thumbnail: cached.images?.[0]?.url,
+              similarUsersCount: item.similarUsersCount,
+            });
+
+            if (results.length >= limit) break;
+          }
+        } catch (err) {
+          this.logger.debug(
+            `Error enriching itinerary ${item._id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          continue;
+        }
+      }
+
+      if (results.length > 0) {
+        const resultIds = results.map(r => r.itineraryId).join(',');
+        this.logger.log(
+          `Found ${results.length} itineraries from similar users for user ${userId}: ${resultIds}`,
+        );
+        return results.slice(0, limit);
+      }
+
+      this.logger.debug(`No similar user itineraries found, falling back to random popular (excluding ${excludeIds.join(',')})`);
+      return this.getRandomPopularItineraries(limit, excludeIds);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to get followed user itineraries for user ${userId}:`,
+        errorMsg,
+      );
+      return this.getRandomPopularItineraries(limit, excludeIds);
+    }
+  }
+
+  /**
+   * Get random popular itineraries with smart fallback strategy
+   * Never returns empty - tries multiple sources to ensure recommendations
+   * Excludes provided itinerary IDs for variety
+   */
+  private async getRandomPopularItineraries(
+    limit: number = 3,
+    excludeIds: number[] = [],
+  ): Promise<
+    Array<{
+      itineraryId: number;
+      title: string;
+      userName: string;
+      likeCount: number;
+      commentCount: number;
+      locations: Array<{ name: string }>;
+      thumbnail?: string;
+      similarUsersCount: number;
+    }>
+  > {
+    try {
+      // Combine excluded IDs with trending for variety
+      const idsToExclude = new Set(excludeIds);
+
+      if (excludeIds.length > 0) {
+        this.logger.debug(`[getRandomPopularItineraries] Excluding ${excludeIds.length} trending IDs: ${Array.from(idsToExclude).join(',')}`);
+      }
+
+      // Strategy 1: Get popular itineraries excluding specified IDs (for variety)
+      let randomItems = await this.trendingItineraryModel
+        .find({
+          itineraryId: { $nin: Array.from(idsToExclude) },
+          likeCount: { $gte: 1 }, // Lower threshold for secondary picks
+        })
+        .sort({ likeCount: -1 })
+        .limit(limit)
+        .lean();
+
+      if (randomItems.length > 0) {
+        const returnedIds = randomItems.map(i => i.itineraryId).join(',');
+        this.logger.debug(`[getRandomPopularItineraries] Strategy 1 returned ${randomItems.length} items: ${returnedIds}`);
+      }
+
+      // Strategy 2: If not enough variety, fall back to all popular (still excluding excluded IDs)
+      if (!randomItems || randomItems.length === 0) {
+        this.logger.debug(
+          `No variety items found, using all popular itineraries (still excluding specified IDs)`,
+        );
+        randomItems = await this.trendingItineraryModel
+          .find({
+            itineraryId: { $nin: Array.from(idsToExclude) },
+            likeCount: { $gte: 1 },
+          })
+          .sort({ likeCount: -1 })
+          .limit(limit)
+          .lean();
+      }
+
+      // Strategy 3: If still empty, get ANY itineraries (as last resort)
+      if (!randomItems || randomItems.length === 0) {
+        this.logger.debug(`No popular items found, getting any available itineraries`);
+        randomItems = await this.trendingItineraryModel
+          .find({})
+          .sort({ likeCount: -1, _id: -1 })
+          .limit(limit)
+          .lean();
+      }
+
+      if (!randomItems || randomItems.length === 0) {
+        this.logger.warn(
+          `No itineraries available in database for recommendations`,
+        );
+        return [];
+      }
+
+      const itemIds = randomItems.map(i => i.itineraryId).join(',');
+      this.logger.log(
+        `Found ${randomItems.length} random popular itineraries for recommendations: ${itemIds}`,
+      );
+
+      return randomItems.map(item => ({
+        itineraryId: item.itineraryId,
+        title: item.title,
+        userName: item.userName || 'Unknown',
+        likeCount: item.likeCount,
+        commentCount: item.commentCount,
+        locations: (item.locations || []).map(loc => ({
+          name: typeof loc === 'string' ? loc : loc.name,
+        })),
+        thumbnail: item.images?.[0]?.url,
+        similarUsersCount: 0,
+      }));
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error('Failed to get random popular itineraries:', errorMsg);
+      return [];
+    }
+  }
+
+  /**
    * Generate personalized newsletter content for a user
    * Includes activity summary and trending items
    */
   /**
    * Load and compile Handlebars template
+   * Tries multiple paths to support both dev and production environments
    */
   private loadTemplate(templateName: string): HandlebarsTemplateDelegate | null {
     try {
-      const templatePath = path.join(
-        __dirname,
-        'templates',
-        `${templateName}.hbs`,
-      );
+      // Try multiple possible paths (dev and production)
+      const possiblePaths = [
+        // Production: /app/dist/newsletter/templates/
+        path.join(process.cwd(), 'dist', 'newsletter', 'templates', `${templateName}.hbs`),
+        // Production (alternate): /app/dist/src/newsletter/templates/
+        path.join(process.cwd(), 'dist', 'src', 'newsletter', 'templates', `${templateName}.hbs`),
+        // Development: src/newsletter/templates/
+        path.join(process.cwd(), 'src', 'newsletter', 'templates', `${templateName}.hbs`),
+        // Fallback for nested builds
+        path.join(process.cwd(), 'newsletter', 'templates', `${templateName}.hbs`),
+      ];
 
-      if (!fs.existsSync(templatePath)) {
-        this.logger.warn(`Template not found: ${templatePath}, using fallback`);
+      let templatePath: string | null = null;
+      for (const candidate of possiblePaths) {
+        if (fs.existsSync(candidate)) {
+          templatePath = candidate;
+          break;
+        }
+      }
+
+      if (!templatePath) {
+        this.logger.warn(
+          `Template not found at any path. Tried: ${possiblePaths.join(', ')}. Using fallback`,
+        );
         return null as any;
       }
 
+      this.logger.debug(`Loading template from: ${templatePath}`);
       const templateContent = fs.readFileSync(templatePath, 'utf-8');
       return Handlebars.compile(templateContent);
     } catch (error) {
-      this.logger.error(`Failed to load template ${templateName}:`, error.message);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to load template ${templateName}:`, errorMsg);
       return null as any;
     }
   }
@@ -992,9 +1266,18 @@ export class NewsletterService {
 
       // Enrich trending data with locations and images
       const enrichedTrending = await this.enrichTrendingItineraries(trending);
+      const trendingIds = trending.map(t => t.itineraryId);
+
+      this.logger.debug(`[generateNewsletterContent] Extracted trending IDs for exclusion: ${trendingIds.join(',')}`);
 
       // Get personalized recommendations based on user interests
       const recommendations = await this.getRecommendedItineraries(user.userId, 5);
+
+      // Get itineraries from similar users (collaborative filtering), excluding trending for variety
+      this.logger.debug(`[generateNewsletterContent] Calling getFollowedUserItineraries with excludeIds: ${trendingIds.join(',')}`);
+      const followedUserItineraries = await this.getFollowedUserItineraries(user.userId, 3, trendingIds);
+      const followedIds = followedUserItineraries.map(f => f.itineraryId).join(',');
+      this.logger.debug(`[generateNewsletterContent] Got followedUserItineraries: ${followedIds}`);
 
       const templateData = {
         userName: user.userName || `User ${user.userId}`,
@@ -1035,6 +1318,18 @@ export class NewsletterService {
           thumbnail: rec.thumbnail,
         })),
         hasRecommendations: recommendations.length > 0,
+        followedUserItineraries: followedUserItineraries.map(item => ({
+          itineraryId: item.itineraryId,
+          title: item.title || `Itinerary #${item.itineraryId}`,
+          userName: item.userName,
+          likeCount: item.likeCount,
+          commentCount: item.commentCount,
+          locations: (item.locations || []).slice(0, 2).map(l => l.name).join(', '),
+          locationCount: item.locations?.length || 0,
+          thumbnail: item.thumbnail,
+          recentComments: [], // Placeholder for consistency with trending format
+        })),
+        hasFollowedUserItineraries: followedUserItineraries.length > 0,
         preferencesUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/preferences/${user.userId}`,
         unsubscribeUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/unsubscribe/${user.userId}`,
         appUrl: process.env.FRONTEND_URL || 'http://localhost:3000',

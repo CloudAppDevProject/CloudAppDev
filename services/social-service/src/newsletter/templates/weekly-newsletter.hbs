@@ -223,11 +223,15 @@
                         <div class="itinerary-item">
                             <div class="itinerary-title">{{this.title}}</div>
                             <div class="itinerary-meta">
-                                <span class="likes-badge">❤️ {{this.likeCount}} likes</span>
-                                {{#if this.commentCount}}
-                                <span class="comments-badge">💬 {{this.commentCount}} comments</span>
+                                by {{this.userName}}
+                                {{#if this.locations}}
+                                • 📍 {{this.locations}}
                                 {{/if}}
                             </div>
+                            {{#if this.thumbnail}}
+                            <img src="{{this.thumbnail}}" alt="Itinerary thumbnail" class="thumbnail">
+                            {{/if}}
+                            <div class="meta">❤️ {{this.likeCount}} likes | 💬 {{this.commentCount}} comments</div>
                         </div>
                         {{/each}}
                         {{else}}
@@ -243,32 +247,36 @@
                 </div>
             </div>
 
-            <!-- SOCIAL SECTION (From Followed Travelers) -->
+            <!-- SOCIAL SECTION (From Similar Travelers) -->
             <div class="section">
-                <div class="section-title">👥 From Travelers You Follow</div>
+                <div class="section-title">👥 Popular With Similar Travelers</div>
                 <div class="section-content">
-                    {{#if followedUserItineraries}}
+                    {{#if hasFollowedUserItineraries}}
                         {{#if followedUserItineraries.length}}
-                        <p>New itineraries from your connections:</p>
+                        <p>Itineraries loved by travelers with similar interests:</p>
                         {{#each followedUserItineraries}}
                         <div class="itinerary-item">
                             <div class="itinerary-title">{{this.title}}</div>
                             <div class="itinerary-meta">
-                                Created by <strong>{{this.userName}}</strong>
-                                {{#if this.locationCount}}
-                                • {{this.locationCount}} locations
+                                by {{this.userName}}
+                                {{#if this.locations}}
+                                • 📍 {{this.locations}}
                                 {{/if}}
                             </div>
+                            {{#if this.thumbnail}}
+                            <img src="{{this.thumbnail}}" alt="Itinerary thumbnail" class="thumbnail">
+                            {{/if}}
+                            <div class="meta">❤️ {{this.likeCount}} likes | 💬 {{this.commentCount}} comments</div>
                         </div>
                         {{/each}}
                         {{else}}
                         <div class="empty-message">
-                            Follow more travelers to see their itineraries here!
+                            Start liking itineraries to get personalized recommendations!
                         </div>
                         {{/if}}
                     {{else}}
                     <div class="empty-message">
-                        Follow more travelers to see their itineraries here!
+                        Start liking itineraries to get personalized recommendations!
                     </div>
                     {{/if}}
                 </div>
