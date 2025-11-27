@@ -536,10 +536,12 @@ export class NewsletterService {
           });
 
           // If cached entry is incomplete (title is "Untitled"), refresh it
-          if (cached && cached.title === 'Untitled Itinerary') {
-            this.logger.debug(
-              `Cache entry for itinerary ${item.itineraryId} is incomplete (title is "Untitled"), refreshing...`,
+          if (cached && (cached.title === 'Untitled Itinerary' || !cached.title || cached.title.trim() === '')) {
+            this.logger.warn(
+              `Cache entry for itinerary ${item.itineraryId} is incomplete (title: "${cached.title}"), forcing refresh...`,
             );
+            // Delete the incomplete entry and force refresh
+            await this.trendingItineraryModel.deleteOne({ itineraryId: item.itineraryId });
             cached = null; // Force refresh
           }
 
@@ -548,91 +550,13 @@ export class NewsletterService {
             try {
               const itineraryServiceUrl = process.env.ITINERARY_SERVICE_URL;
               if (!itineraryServiceUrl) {
-                this.logger.warn(
-                  `ITINERARY_SERVICE_URL not configured, skipping enrichment for itinerary ${item.itineraryId}`,
+                this.logger.error(
+                  `CRITICAL: ITINERARY_SERVICE_URL not configured! Cannot enrich itinerary ${item.itineraryId}. Check Kubernetes secrets.`,
                 );
-                continue;
-              }
-
-              const url = `${itineraryServiceUrl}/api/v1/itineraries/${item.itineraryId}`;
-              this.logger.debug(`Fetching itinerary details from: ${url}`);
-              const response = await fetch(url);
-
-              if (response.ok) {
-                const itineraryData = await response.json();
-                const itinerary = itineraryData.data || itineraryData;
-
-                this.logger.debug(
-                  `Fetched itinerary ${item.itineraryId} - title: "${itinerary.title || 'MISSING'}", user_id: ${itinerary.userId}`,
-                );
-
-                // Fetch creator details from User Service
-                let creatorName = 'Unknown';
-                if (itinerary.userId) {
-                  try {
-                    const userServiceUrl = process.env.USER_SERVICE_URL;
-                    if (userServiceUrl) {
-                      const userUrl = `${userServiceUrl}/api/v1/users/${itinerary.userId}`;
-                      const userResponse = await fetch(userUrl);
-                      if (userResponse.ok) {
-                        const userData = await userResponse.json();
-                        creatorName = userData.data?.name || userData.name || 'Unknown';
-                      } else {
-                        this.logger.debug(
-                          `User Service returned ${userResponse.status} for user ${itinerary.userId}`,
-                        );
-                      }
-                    }
-                  } catch (userError) {
-                    this.logger.debug(
-                      `Could not fetch creator for itinerary ${item.itineraryId}: ${userError instanceof Error ? userError.message : String(userError)}`,
-                    );
-                  }
-                }
-
-                // Ensure title is not empty - use multiple fallbacks
-                const finalTitle = itinerary.title?.trim() || itinerary.short_desc?.trim() || 'Untitled Itinerary';
-
-                // Create enriched cache entry
+                // Continue with empty entry instead of skipping entirely
                 cached = await this.trendingItineraryModel.create({
                   itineraryId: item.itineraryId,
-                  title: finalTitle,
-                  userId: itinerary.userId || 0,
-                  userName: creatorName,
-                  likeCount: item.likeCount,
-                  commentCount: item.commentCount,
-                  score: item.score,
-                  locations: (itinerary.locations || []).map((loc: any) => ({
-                    id: loc.id,
-                    name: loc.name,
-                    description: loc.description,
-                    latitude: loc.latitude,
-                    longitude: loc.longitude,
-                  })),
-                  images: (itinerary.images || []).map((img: any) => ({
-                    url: img.url || img.imageUrl,
-                    description: img.description,
-                  })),
-                  keywords: this.extractKeywords(
-                    `${finalTitle} ${itinerary.description || ''}`,
-                    20,
-                  ),
-                  tags: itinerary.tags || [],
-                  recentComments: [], // Will be populated when comments are fetched
-                  trendingComputedAt: new Date(),
-                });
-
-                this.logger.debug(
-                  `Created cache entry for itinerary ${item.itineraryId}: "${cached.title}" by ${cached.userName}`,
-                );
-              } else {
-                // Response not ok, create basic entry
-                this.logger.warn(
-                  `Itinerary service returned ${response.status} for itinerary ${item.itineraryId}`,
-                );
-                cached = await this.trendingItineraryModel.create({
-                  itineraryId: item.itineraryId,
-                  title: `Untitled Itinerary`,
+                  title: `Itinerary #${item.itineraryId}`,
                   userId: 0,
                   userName: 'Unknown',
                   likeCount: item.likeCount,
@@ -643,15 +567,118 @@ export class NewsletterService {
                   keywords: [],
                   recentComments: [],
                 });
+              } else {
+                const url = `${itineraryServiceUrl}/api/v1/itineraries/${item.itineraryId}`;
+                this.logger.debug(`Fetching itinerary details from: ${url}`);
+
+                let response: Response;
+                try {
+                  response = await fetch(url);
+                } catch (networkError) {
+                  this.logger.error(
+                    `NETWORK ERROR fetching itinerary ${item.itineraryId} from ${url}: ${networkError instanceof Error ? networkError.message : String(networkError)}`,
+                  );
+                  throw networkError;
+                }
+
+                if (response.ok) {
+                  const itineraryData = await response.json();
+                  const itinerary = itineraryData.data || itineraryData;
+
+                  this.logger.log(
+                    `✓ Successfully fetched itinerary ${item.itineraryId} - title: "${itinerary.title || 'MISSING'}", user_id: ${itinerary.userId}`,
+                  );
+
+                  // Fetch creator details from User Service
+                  let creatorName = 'Unknown';
+                  if (itinerary.userId) {
+                    try {
+                      const userServiceUrl = process.env.USER_SERVICE_URL;
+                      if (userServiceUrl) {
+                        const userUrl = `${userServiceUrl}/api/v1/users/${itinerary.userId}`;
+                        const userResponse = await fetch(userUrl);
+                        if (userResponse.ok) {
+                          const userData = await userResponse.json();
+                          creatorName = userData.data?.name || userData.name || 'Unknown';
+                        } else {
+                          this.logger.warn(
+                            `User Service returned ${userResponse.status} for user ${itinerary.userId}`,
+                          );
+                        }
+                      }
+                    } catch (userError) {
+                      this.logger.debug(
+                        `Could not fetch creator for itinerary ${item.itineraryId}: ${userError instanceof Error ? userError.message : String(userError)}`,
+                      );
+                    }
+                  }
+
+                  // Ensure title is not empty - use multiple fallbacks
+                  const finalTitle = itinerary.title?.trim() || itinerary.short_desc?.trim() || `Itinerary #${item.itineraryId}`;
+
+                  // Create enriched cache entry
+                  cached = await this.trendingItineraryModel.create({
+                    itineraryId: item.itineraryId,
+                    title: finalTitle,
+                    userId: itinerary.userId || 0,
+                    userName: creatorName,
+                    likeCount: item.likeCount,
+                    commentCount: item.commentCount,
+                    score: item.score,
+                    locations: (itinerary.locations || []).map((loc: any) => ({
+                      id: loc.id,
+                      name: loc.name,
+                      description: loc.description,
+                      latitude: loc.latitude,
+                      longitude: loc.longitude,
+                    })),
+                    images: (itinerary.images || []).map((img: any) => ({
+                      url: img.url || img.imageUrl,
+                      description: img.description,
+                    })),
+                    keywords: this.extractKeywords(
+                      `${finalTitle} ${itinerary.description || ''}`,
+                      20,
+                    ),
+                    tags: itinerary.tags || [],
+                    recentComments: [], // Will be populated when comments are fetched
+                    trendingComputedAt: new Date(),
+                  });
+
+                  this.logger.debug(
+                    `Created cache entry for itinerary ${item.itineraryId}: "${cached.title}" by ${cached.userName}`,
+                  );
+                } else {
+                  // Response not ok, create basic entry
+                  this.logger.error(
+                    `Itinerary service returned ${response.status} for itinerary ${item.itineraryId} at ${url}`,
+                  );
+                  const responseText = await response.text();
+                  this.logger.debug(`Response body: ${responseText}`);
+
+                  cached = await this.trendingItineraryModel.create({
+                    itineraryId: item.itineraryId,
+                    title: `Itinerary #${item.itineraryId}`,
+                    userId: 0,
+                    userName: 'Unknown',
+                    likeCount: item.likeCount,
+                    commentCount: item.commentCount,
+                    score: item.score,
+                    locations: [],
+                    images: [],
+                    keywords: [],
+                    recentComments: [],
+                  });
+                }
               }
             } catch (fetchError) {
               // If service call fails, create basic entry
-              this.logger.warn(
-                `Failed to fetch itinerary ${item.itineraryId} details, creating basic entry`,
+              this.logger.error(
+                `Failed to fetch itinerary ${item.itineraryId} details: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
               );
               cached = await this.trendingItineraryModel.create({
                 itineraryId: item.itineraryId,
-                title: `Untitled Itinerary`,
+                title: `Itinerary #${item.itineraryId}`,
                 userId: 0,
                 userName: 'Unknown',
                 likeCount: item.likeCount,
@@ -667,7 +694,7 @@ export class NewsletterService {
 
           enriched.push({
             itineraryId: item.itineraryId,
-            title: cached.title || `Untitled Itinerary`,
+            title: cached.title || `Itinerary #${item.itineraryId}`,
             userName: cached.userName || 'Unknown',
             likeCount: item.likeCount,
             commentCount: item.commentCount,
@@ -683,7 +710,7 @@ export class NewsletterService {
           );
           enriched.push({
             itineraryId: item.itineraryId,
-            title: `Untitled Itinerary`,
+            title: `Itinerary #${item.itineraryId}`,
             userName: 'Unknown',
             locations: [],
             images: [],
@@ -702,7 +729,7 @@ export class NewsletterService {
       this.logger.error('Failed to enrich trending itineraries:', errorMsg);
       return trendingList.map(item => ({
         itineraryId: item.itineraryId,
-        title: `Untitled Itinerary`,
+        title: `Itinerary #${item.itineraryId}`,
         userName: 'Unknown',
         locations: [],
         images: [],
@@ -2108,5 +2135,37 @@ export class NewsletterService {
     return this.trendingCache
       ? new Date(this.trendingCache.timestamp)
       : null;
+  }
+
+  /**
+   * Clear stale cache entries from MongoDB TrendingItinerary collection
+   * Removes entries with "Untitled Itinerary", empty titles, or null titles
+   * Use this when newsletter shows "Untitled" instead of actual titles
+   */
+  async clearStaleCache(): Promise<number> {
+    try {
+      this.logger.warn(
+        'Starting cleanup of stale trending itinerary cache entries',
+      );
+
+      // Delete entries with problematic titles
+      const result = await this.trendingItineraryModel.deleteMany({
+        $or: [
+          { title: 'Untitled Itinerary' },
+          { title: { $in: ['', null, undefined] } },
+          { title: /^Itinerary #\d+$/ }, // Also clear placeholder IDs created on failures
+        ],
+      });
+
+      this.logger.log(
+        `✓ Cleared ${result.deletedCount} stale cache entries from TrendingItinerary collection`,
+      );
+
+      return result.deletedCount || 0;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to clear stale cache: ${errorMsg}`);
+      throw error;
+    }
   }
 }

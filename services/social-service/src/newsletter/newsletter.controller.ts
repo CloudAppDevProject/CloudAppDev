@@ -441,4 +441,41 @@ export class NewsletterController {
       };
     }
   }
+
+  /**
+   * DELETE /newsletter/cache/clear
+   * Clear stale cache entries (incomplete itineraries with "Untitled" or missing titles)
+   * Admin only - use when newsletter shows "Untitled Itinerary"
+   *
+   * Response: 200 OK with count of cleared entries
+   */
+  @Delete('cache/clear')
+  @HttpCode(200)
+  async clearStaleCache() {
+    this.logger.log('Clearing stale trending itinerary cache entries');
+
+    try {
+      const clearedCount = await this.newsletterService.clearStaleCache();
+
+      return {
+        success: true,
+        message: `Cleared ${clearedCount} stale cache entries`,
+        data: {
+          clearedCount,
+          timestamp: new Date(),
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        'Failed to clear cache:',
+        error instanceof Error ? error.message : String(error),
+      );
+
+      return {
+        success: false,
+        message: 'Failed to clear cache',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
 }
