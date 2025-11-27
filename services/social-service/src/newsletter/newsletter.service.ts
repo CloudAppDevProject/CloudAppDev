@@ -798,6 +798,69 @@ export class NewsletterService {
   }
 
   /**
+   * Fetch user email from User Service
+   * Throws error if USER_SERVICE_URL is not configured or user not found
+   */
+  async fetchUserEmail(userId: number): Promise<string> {
+    const userServiceUrl = process.env.USER_SERVICE_URL;
+
+    // Log configuration status
+    this.logger.debug(`Fetching email for user ${userId}`);
+    if (!userServiceUrl) {
+      this.logger.error(
+        `USER_SERVICE_URL environment variable is not configured. ` +
+        `Cannot fetch email for user ${userId}. Check Kubernetes secrets.`,
+      );
+      throw new Error(
+        'USER_SERVICE_URL environment variable is not configured. ' +
+        'This must be set in Kubernetes secrets for the social-service deployment.',
+      );
+    }
+
+    this.logger.debug(`USER_SERVICE_URL: ${userServiceUrl}`);
+
+    try {
+      const url = `${userServiceUrl}/api/v1/users/${userId}`;
+      this.logger.debug(`Fetching user from: ${url}`);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        this.logger.error(
+          `User Service returned ${response.status} ${response.statusText} for user ${userId}. ` +
+          `URL: ${url}`,
+        );
+        throw new Error(
+          `User Service error: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const userData = await response.json();
+      this.logger.debug(`User data received for user ${userId}`);
+
+      // Handle both wrapped and unwrapped responses
+      const email = userData.data?.email || userData.email;
+
+      if (!email) {
+        this.logger.error(
+          `No email found in user data for user ${userId}. ` +
+          `Response structure: ${JSON.stringify(userData)}`,
+        );
+        throw new Error(`No email field in user data for user ${userId}`);
+      }
+
+      this.logger.debug(`Successfully fetched email for user ${userId}`);
+      return email;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to fetch email for user ${userId}: ${errorMsg}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Send email via configured provider (SendGrid or SMTP)
    */
   async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
@@ -1134,46 +1197,17 @@ export class NewsletterService {
       }
 
       // Fetch user email from User Service (not stored in MongoDB for data persistence)
-      let userEmail = '';
+      let userEmail: string;
       try {
-        // Try API Gateway first, then fallback to direct service URL
-        let userServiceUrl = process.env.USER_SERVICE_URL || 'http://api-gateway:80';
-        let url = `${userServiceUrl}/api/v1/users/${user.userId}`;
-
-        this.logger.debug(`Fetching user email from: ${url}`);
-
-        let response: Response;
-        try {
-          response = await fetch(url);
-        } catch (gatewayError) {
-          // Fallback to direct service URL if gateway fails
-          this.logger.warn(`Gateway fetch failed, trying direct user-service connection`);
-          userServiceUrl = 'http://user-service:8080';
-          url = `${userServiceUrl}/api/v1/users/${user.userId}`;
-          this.logger.debug(`Retrying with direct URL: ${url}`);
-          response = await fetch(url);
-        }
-
-        if (!response.ok) {
-          throw new Error(`User Service returned ${response.status}: ${response.statusText}`);
-        }
-
-        const userData = await response.json();
-        this.logger.debug(`User data received for user ${user.userId}`);
-
-        // Handle both wrapped and unwrapped responses
-        userEmail = userData.data?.email || userData.email || '';
-
-        if (!userEmail) {
-          throw new Error(`No email found in user data for user ${user.userId}`);
-        }
+        userEmail = await this.fetchUserEmail(user.userId);
       } catch (userLookupError) {
         const errorMsg = userLookupError instanceof Error ? userLookupError.message : String(userLookupError);
-        this.logger.error(`Failed to fetch email for user ${user.userId}: ${errorMsg}`);
 
         // Instead of throwing, log and skip this user
         // This allows partial newsletter sends if user service is temporarily unavailable
-        this.logger.warn(`Skipping newsletter for user ${user.userId} due to email fetch failure`);
+        this.logger.warn(
+          `Skipping newsletter for user ${user.userId} due to email fetch failure: ${errorMsg}`,
+        );
         return;
       }
 
@@ -1474,16 +1508,9 @@ export class NewsletterService {
           }
 
           // Fetch email from User Service (not stored in MongoDB)
-          let userEmail = '';
+          let userEmail: string;
           try {
-            const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
-            const response = await fetch(`${userServiceUrl}/api/v1/users/${delivery.userId}`);
-            const userData = await response.json();
-            userEmail = userData.data?.email || userData.email || '';
-
-            if (!userEmail) {
-              throw new Error(`No email found for user ${delivery.userId}`);
-            }
+            userEmail = await this.fetchUserEmail(delivery.userId);
           } catch (userLookupError) {
             const errorMsg = userLookupError instanceof Error ? userLookupError.message : String(userLookupError);
             this.logger.error(`Failed to fetch email for retry, user ${delivery.userId}: ${errorMsg}`);

@@ -150,21 +150,20 @@ export class NewsletterController {
       }
 
       // Fetch email from User Service (not stored in MongoDB)
-      let email = '';
+      let email = 'N/A';
       try {
-        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
-        const response = await fetch(`${userServiceUrl}/api/v1/users/${userId_num}`);
-        const userData = await response.json();
-        email = userData.data?.email || userData.email || '';
+        email = await this.newsletterService.fetchUserEmail(userId_num);
       } catch (err) {
-        this.logger.warn(`Failed to fetch email for user ${userId_num}`);
+        this.logger.debug(
+          `Could not fetch email for user ${userId_num}: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
 
       return {
         success: true,
         data: {
           userId: subscription.userId,
-          email: email || 'N/A',
+          email,
           isSubscribed: subscription.isSubscribed,
           frequency: subscription.frequency,
           subscribedAt: subscription.createdAt,
@@ -217,14 +216,13 @@ export class NewsletterController {
       }
 
       // Fetch email from User Service (not stored in MongoDB)
-      let email = '';
+      let email = 'N/A';
       try {
-        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
-        const response = await fetch(`${userServiceUrl}/api/v1/users/${userId_num}`);
-        const userData = await response.json();
-        email = userData.data?.email || userData.email || '';
+        email = await this.newsletterService.fetchUserEmail(userId_num);
       } catch (err) {
-        this.logger.warn(`Failed to fetch email for user ${userId_num}`);
+        this.logger.debug(
+          `Could not fetch email for user ${userId_num}: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
 
       return {
@@ -232,7 +230,7 @@ export class NewsletterController {
         message: `Preferences updated for user ${userId_num}`,
         data: {
           userId: updated.userId,
-          email: email || 'N/A',
+          email,
           isSubscribed: updated.isSubscribed,
           frequency: updated.frequency,
         },
@@ -272,24 +270,18 @@ export class NewsletterController {
       }
 
       // Fetch email from User Service (not stored in MongoDB)
-      let userEmail = '';
+      let userEmail: string;
       try {
-        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:8080';
-        const response = await fetch(`${userServiceUrl}/api/v1/users/${userId_num}`);
-        const userData = await response.json();
-        userEmail = userData.data?.email || userData.email || '';
-
-        if (!userEmail) {
-          return {
-            success: false,
-            message: `No email found for user ${userId_num}`,
-          };
-        }
+        userEmail = await this.newsletterService.fetchUserEmail(userId_num);
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `Failed to fetch email for manual send, user ${userId_num}: ${errorMsg}`,
+        );
         return {
           success: false,
           message: `Failed to fetch email for user ${userId_num}`,
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMsg,
         };
       }
 
