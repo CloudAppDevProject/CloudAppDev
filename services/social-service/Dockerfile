@@ -8,9 +8,10 @@ FROM base AS build
 RUN npm ci
 COPY . .
 RUN npm run build
-# Note: NOT pruning production dependencies to keep ts-node and TypeScript
-# for CLI scripts (newsletter) that run in Kubernetes CronJobs
-# This slightly increases image size but is necessary for async workflows
+# Note: Using npm prune to reduce image size
+# CLI scripts use pre-compiled JavaScript (node, not ts-node)
+# This keeps the image lean while supporting async workflows
+RUN npm prune --production
 
 # Production stage
 FROM node:20-alpine AS production
@@ -22,13 +23,9 @@ COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
 COPY --from=build --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nestjs:nodejs /app/package*.json ./
 
-# CRITICAL: Copy source code and build tools for CLI scripts (newsletter, etc.)
-# This is needed for ts-node to execute CLI commands in Kubernetes CronJobs
-COPY --from=build --chown=nestjs:nodejs /app/src ./src
-COPY --from=build --chown=nestjs:nodejs /app/tsconfig.json ./tsconfig.json
-
-# Copy newsletter templates for email rendering
-RUN mkdir -p ./dist/newsletter/templates
+# Copy newsletter Handlebars templates needed for email rendering
+# Note: These are static .hbs files, not compiled code
+# The build stage compiles TypeScript to dist/, but these templates aren't compiled
 COPY --from=build --chown=nestjs:nodejs /app/src/newsletter/templates ./dist/newsletter/templates
 
 USER nestjs

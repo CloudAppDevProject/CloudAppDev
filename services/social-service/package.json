@@ -18,10 +18,10 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "newsletter:send-weekly": "ts-node src/newsletter/cli/send-newsletter.ts weekly",
-    "newsletter:send-monthly": "ts-node src/newsletter/cli/send-newsletter.ts monthly",
-    "newsletter:send-dry-run": "ts-node src/newsletter/cli/send-newsletter.ts weekly --dry-run",
-    "newsletter:retry-failed": "ts-node src/newsletter/cli/send-newsletter.ts weekly --retry"
+    "newsletter:send-weekly": "node dist/newsletter/cli/send-newsletter.js weekly",
+    "newsletter:send-monthly": "node dist/newsletter/cli/send-newsletter.js monthly",
+    "newsletter:send-dry-run": "node dist/newsletter/cli/send-newsletter.js weekly --dry-run",
+    "newsletter:retry-failed": "node dist/newsletter/cli/send-newsletter.js weekly --retry"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
