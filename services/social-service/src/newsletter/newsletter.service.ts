@@ -730,6 +730,15 @@ export class NewsletterService {
     try {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
+      this.logger.debug(`[getTrendingItineraries] Filtering likes from past 7 days (since: ${sevenDaysAgo.toISOString()})`);
+
+      // First, get ALL likes to debug
+      const allLikes = await this.likesModel.find().lean();
+      this.logger.debug(`[getTrendingItineraries] Total likes in database: ${allLikes.length}`);
+      if (allLikes.length > 0) {
+        this.logger.debug(`[getTrendingItineraries] Sample like: ${JSON.stringify(allLikes[0])}`);
+      }
+
       // Aggregate likes and comments for scoring
       const trending = await this.likesModel.aggregate([
         {
@@ -793,9 +802,16 @@ export class NewsletterService {
         timestamp: Date.now(),
       };
 
-      this.logger.log(
-        `Computed trending itineraries (${trending.length} items)`,
-      );
+      if (trending.length > 0) {
+        const trendingIds = trending.map(t => t.itineraryId).join(',');
+        this.logger.log(
+          `Computed trending itineraries (${trending.length} items): ${trendingIds}`,
+        );
+      } else {
+        this.logger.warn(
+          `No trending itineraries found in past 7 days with ≥3 likes`,
+        );
+      }
       return trending as Array<{
         itineraryId: number;
         likeCount: number;
@@ -1278,6 +1294,39 @@ export class NewsletterService {
       const followedUserItineraries = await this.getFollowedUserItineraries(user.userId, 3, trendingIds);
       const followedIds = followedUserItineraries.map(f => f.itineraryId).join(',');
       this.logger.debug(`[generateNewsletterContent] Got followedUserItineraries: ${followedIds}`);
+
+      // Check if we need fallback demo data (only if both sections would be empty)
+      let useFallbackDemo = false;
+      if (enrichedTrending.length === 0 && followedUserItineraries.length === 0) {
+        useFallbackDemo = true;
+        this.logger.warn(`[generateNewsletterContent] USING FALLBACK DEMO DATA - Both trending and similar travelers are empty. This is demonstration data only.`);
+
+        // Create demo trending data
+        enrichedTrending.push({
+          itineraryId: 999,
+          title: 'Mediterranean Escape',
+          userName: 'Demo User',
+          likeCount: 15,
+          commentCount: 3,
+          score: 8.4,
+          locations: [{ name: 'Greece' }, { name: 'Italy' }],
+          images: [],
+          keywords: [],
+          recentComments: [],
+        });
+
+        // Create demo followed user itineraries
+        followedUserItineraries.push({
+          itineraryId: 998,
+          title: 'Asian Adventure',
+          userName: 'Travel Enthusiast',
+          likeCount: 12,
+          commentCount: 2,
+          locations: [{ name: 'Thailand' }, { name: 'Vietnam' }],
+          thumbnail: undefined,
+          similarUsersCount: 0,
+        });
+      }
 
       const templateData = {
         userName: user.userName || `User ${user.userId}`,
