@@ -821,9 +821,10 @@ export class NewsletterService {
     this.logger.debug(`USER_SERVICE_URL: ${userServiceUrl}`);
 
     try {
-      // USER_SERVICE_URL should point directly to the User Service endpoint
+      // USER_SERVICE_URL should point directly to the User Service base URL
       // Example: http://user-service:8080 (Kubernetes) or http://localhost:8080 (Docker)
-      const url = `${userServiceUrl}/${userId}`;
+      // User Service has global prefix: api/v1/users
+      const url = `${userServiceUrl}/api/v1/users/${userId}`;
       this.logger.debug(`Fetching user from: ${url}`);
 
       const response = await fetch(url);
