@@ -1,15 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
-
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
-  }
-
+  constructor() {}
+  
   /**
    * Health check endpoint for Kubernetes/service discovery
    * Used by load balancers and async job schedulers
