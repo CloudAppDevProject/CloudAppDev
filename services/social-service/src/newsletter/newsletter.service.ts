@@ -164,13 +164,17 @@ export class NewsletterService {
     const userServiceUrl = process.env.USER_SERVICE_URL || '';
     const itineraryServiceUrl = process.env.ITINERARY_SERVICE_URL || '';
 
+    // Log environment variables for debugging
+    this.logger.debug(`USER_SERVICE_URL env var: ${userServiceUrl}`);
+    this.logger.debug(`ITINERARY_SERVICE_URL env var: ${itineraryServiceUrl}`);
+
     const checkService = async (
       url: string,
       name: string,
       pathSegment: string,
     ): Promise<boolean> => {
       if (!url) {
-        this.logger.warn(`${name} URL not configured`);
+        this.logger.error(`${name} URL not configured - env var is empty`);
         return false;
       }
 
@@ -184,7 +188,9 @@ export class NewsletterService {
         // ITINERARY_SERVICE_URL = http://itinerary-service:8081 -> /api/v1/itineraries/health
         const healthUrl = `${url}${pathSegment}/health`;
 
-        this.logger.log(`Checking health for ${name} at ${healthUrl} (timeout: 10s)`);
+        this.logger.log(`[${name}] Attempting health check at: ${healthUrl}`);
+        this.logger.log(`[${name}] Base URL: ${url}, Path Segment: ${pathSegment}, Full URL: ${healthUrl}`);
+        this.logger.log(`[${name}] Timeout: 10s`);
 
         const response = await fetch(healthUrl, {
           method: 'GET',
@@ -193,11 +199,15 @@ export class NewsletterService {
 
         clearTimeout(timeout);
         const isHealthy = response.status === 200;
-        this.logger.log(`${name} health check: ${isHealthy ? 'OK' : 'FAILED'} (status: ${response.status})`);
+        this.logger.log(`[${name}] Health check complete: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'} (HTTP ${response.status})`);
         return isHealthy;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Health check failed for ${name}: ${errorMsg}`);
+        const errorType = error instanceof Error ? error.constructor.name : typeof error;
+        this.logger.error(`[${name}] Health check FAILED`);
+        this.logger.error(`[${name}] Error Type: ${errorType}`);
+        this.logger.error(`[${name}] Error Message: ${errorMsg}`);
+        this.logger.error(`[${name}] Full URL attempted: ${url}${pathSegment}/health`);
         return false;
       }
     };
@@ -1424,7 +1434,7 @@ export class NewsletterService {
         })),
         hasFollowedUserItineraries: followedUserItineraries.length > 0,
         preferencesUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/preferences/${user.userId}`,
-        unsubscribeUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/unsubscribe/${user.userId}`,
+        unsubscribeUrl: `${process.env.API_GATEWAY_URL || 'http://localhost:8000'}/api/v1/social/newsletter/unsubscribe/${user.userId}`,
         appUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
         email: user.email,
         frequency: user.frequency || 'weekly',

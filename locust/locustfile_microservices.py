@@ -2,14 +2,23 @@
 Locust Load Testing for CloudAppDev Microservices Architecture
 ================================================================
 
-This load test file is designed for the microservices architecture with API Gateway.
-All requests go through the API Gateway (http://localhost:8000 or deployed gateway).
+This load test file is designed for the microservices architecture with server-side proxy routes.
+All requests go through the Next.js frontend proxy routes (http://localhost:3000).
 
 Architecture:
+- Next.js Frontend with Proxy Routes on port 3000 (/api/*)
+  ↓
 - API Gateway (Nginx) on port 8000
-- User Service: /api/v1/users
-- Itinerary Service: /api/v1/itineraries  
-- Social Service: /api/v1/social/comments and /api/v1/social/likes
+  ↓
+- Microservices (User, Itinerary, Social, Travel-Info)
+
+Proxy Routes:
+- /api/auth/register - User registration
+- /api/auth/login - User login
+- /api/user - Get user data
+- /api/itineraries - Itinerary CRUD
+- /api/comments - Social comments
+- /api/likes - Social likes
 
 Requirements for Milestone 2 Performance Testing:
 
@@ -24,19 +33,20 @@ Requirements for Milestone 2 Performance Testing:
 Usage:
 ------
 # Standard load test (use with PowerShell script for specific scenarios)
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000
+# IMPORTANT: Use http://localhost:3000 (Next.js frontend), NOT http://localhost:8000
+locust -f locust/locustfile_microservices.py --host=http://localhost:3000
 
 # Periodic workload - Scenario A (100/10 users) - uses PeriodicShapeA
-LOCUST_SHAPE=periodic_a locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+LOCUST_SHAPE=periodic_a locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --headless
 
-# Periodic workload - Scenario B (1000/20 users) - uses PeriodicShapeB  
-LOCUST_SHAPE=periodic_b locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+# Periodic workload - Scenario B (1000/20 users) - uses PeriodicShapeB
+LOCUST_SHAPE=periodic_b locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --headless
 
 # Once-in-a-lifetime (continuous growth from 10 users)
-LOCUST_SHAPE=lifetime locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+LOCUST_SHAPE=lifetime locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --headless
 
 # Manual mode (no shape, use --users and --spawn-rate)
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --users 100 --spawn-rate 10
+locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --users 100 --spawn-rate 10
 """
 
 from locust import HttpUser, task, between, events, TaskSet, LoadTestShape
@@ -256,15 +266,15 @@ class BaseAPIUser(HttpUser):
     available_itinerary_ids = []
     
     def register_user(self):
-        """Register a new user via User Service"""
+        """Register a new user via proxy route"""
         retry_count = 0
         while self.user_id is None and retry_count < self.max_retries:
             self.test_email = random_email()
             name = random_name()
-            
+
             try:
-                # POST /api/v1/users - User Service registration
-                response = self.client.post("/api/v1/users", json={
+                # POST /api/auth/register - Server-side proxy to User Service
+                response = self.client.post("/api/auth/register", json={
                     "name": name,
                     "email": self.test_email,
                     "password": self.test_password
@@ -289,18 +299,18 @@ class BaseAPIUser(HttpUser):
         return self.user_id is not None
     
     def _fetch_available_itineraries(self):
-        """Fetch list of available itinerary IDs from Itinerary Service"""
+        """Fetch list of available itinerary IDs"""
         current_time = time.time()
-        
+
         # Use cached IDs if recently fetched
         if shared_state.itinerary_ids and (current_time - shared_state.last_fetch) < shared_state.fetch_interval:
             self.available_itinerary_ids = shared_state.itinerary_ids.copy()
             return
-        
+
         try:
-            # GET /api/v1/itineraries - Itinerary Service
-            with self.client.get("/api/v1/itineraries?page=1&limit=100", 
-                                catch_response=True, 
+            # GET /api/itineraries - Server-side proxy to Itinerary Service
+            with self.client.get("/api/itineraries?page=1&limit=100",
+                                catch_response=True,
                                 name="Fetch Available Itineraries") as response:
                 if response.status_code == 200:
                     data = safe_json_parse(response, "Fetch Itineraries")
@@ -346,13 +356,13 @@ class NewUserJourney(TaskSet):
         """Browse popular itineraries (most common new user action)"""
         if not self.user.user_id:
             return
-        
+
         page = random.randint(1, 3)
         limit = random.choice([10, 20])
-        
-        # GET /api/v1/itineraries?page=X&limit=Y
+
+        # GET /api/itineraries?page=X&limit=Y - Server-side proxy
         response = self.client.get(
-            f"/api/v1/itineraries?page={page}&limit={limit}",
+            f"/api/itineraries?page={page}&limit={limit}",
             name="Journey: Browse Popular"
         )
         
@@ -372,10 +382,10 @@ class NewUserJourney(TaskSet):
         """Search for specific destinations"""
         destinations = ["Paris", "Tokyo", "New York", "London", "Bali", "Barcelona", "Rome"]
         search_term = random.choice(destinations)
-        
-        # GET /api/v1/itineraries?search=X
+
+        # GET /api/itineraries?search=X - Server-side proxy
         self.client.get(
-            f"/api/v1/itineraries?search={quote(search_term)}",
+            f"/api/itineraries?search={quote(search_term)}",
             name="Journey: Search Destination"
         )
         time.sleep(random.uniform(0.5, 2))
@@ -385,20 +395,20 @@ class NewUserJourney(TaskSet):
         """View detailed itinerary information"""
         if not self.user.user_id:
             return
-        
+
         itinerary_id = self.user.get_random_itinerary_id()
         if itinerary_id:
-            # GET /api/v1/itineraries/:id
+            # GET /api/itineraries/:id - Server-side proxy
             response = self.client.get(
-                f"/api/v1/itineraries/{itinerary_id}",
+                f"/api/itineraries/{itinerary_id}",
                 name="Journey: View Details"
             )
             time.sleep(random.uniform(1, 3))  # User reads itinerary
-            
+
             # Like the itinerary (50% chance)
             if response.status_code == 200 and random.random() < 0.5:
-                # POST /api/v1/social/likes/toggle
-                self.client.post("/api/v1/social/likes/toggle", json={
+                # POST /api/likes - Server-side proxy
+                self.client.post("/api/likes", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id
                 }, name="Journey: Like Itinerary")
@@ -408,16 +418,16 @@ class NewUserJourney(TaskSet):
         """Create their first itinerary"""
         if not self.user.user_id:
             return
-        
+
         destinations = [
-            "Paris, France", "Tokyo, Japan", "Barcelona, Spain", 
+            "Paris, France", "Tokyo, Japan", "Barcelona, Spain",
             "Bali, Indonesia", "New Zealand", "Swiss Alps"
         ]
         destination = random.choice(destinations)
         start_date, end_date = get_random_dates()
-        
-        # POST /api/v1/itineraries - Create with locations
-        response = self.client.post("/api/v1/itineraries", json={
+
+        # POST /api/itineraries - Server-side proxy
+        response = self.client.post("/api/itineraries", json={
             "title": f"My First Trip to {destination.split(',')[0]}",
             "destination": destination,
             "start_date": start_date,
@@ -454,16 +464,16 @@ class NewUserJourney(TaskSet):
         """View and comment on other itineraries"""
         if not self.user.user_id:
             return
-        
+
         itinerary_id = self.user.get_random_itinerary_id()
         if itinerary_id:
-            # GET /api/v1/social/comments/itinerary/:id
+            # GET /api/comments - Server-side proxy
             self.client.get(
-                f"/api/v1/social/comments/itinerary/{itinerary_id}",
+                f"/api/comments?itineraryId={itinerary_id}",
                 name="Journey: View Comments"
             )
             time.sleep(random.uniform(0.5, 1.5))
-            
+
             # Add a comment (50% chance)
             if random.random() < 0.5:
                 comments = [
@@ -473,9 +483,9 @@ class NewUserJourney(TaskSet):
                     "Thanks for sharing!",
                     "Very inspiring!"
                 ]
-                
-                # POST /api/v1/social/comments
-                self.client.post("/api/v1/social/comments", json={
+
+                # POST /api/comments - Server-side proxy
+                self.client.post("/api/comments", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id,
                     "text": random.choice(comments)
@@ -502,14 +512,14 @@ class ActiveUserJourney(TaskSet):
         """Browse feed and engage with content"""
         if not self.user.user_id:
             return
-        
+
         page = random.randint(1, 3)
-        # GET /api/v1/itineraries
+        # GET /api/itineraries - Server-side proxy
         response = self.client.get(
-            f"/api/v1/itineraries?page={page}&limit=20",
+            f"/api/itineraries?page={page}&limit=20",
             name="Journey: Browse Feed"
         )
-        
+
         # Update available IDs
         if response.status_code == 200:
             try:
@@ -518,16 +528,16 @@ class ActiveUserJourney(TaskSet):
                     self.user.available_itinerary_ids = [item['id'] for item in data if 'id' in item]
             except:
                 pass
-        
+
         time.sleep(random.uniform(0.5, 2))
-        
+
         # Like 1-2 itineraries
         num_likes = random.randint(1, 2)
         for _ in range(num_likes):
             itinerary_id = self.user.get_random_itinerary_id()
             if itinerary_id:
-                # POST /api/v1/social/likes/toggle
-                self.client.post("/api/v1/social/likes/toggle", json={
+                # POST /api/likes - Server-side proxy
+                self.client.post("/api/likes", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id
                 }, name="Journey: Like")
@@ -538,10 +548,10 @@ class ActiveUserJourney(TaskSet):
         """Check their own itineraries"""
         if not self.user.user_id:
             return
-        
-        # GET /api/v1/itineraries?userId=X
+
+        # GET /api/itineraries?userId=X - Server-side proxy
         self.client.get(
-            f"/api/v1/itineraries?userId={self.user.user_id}",
+            f"/api/itineraries?userId={self.user.user_id}",
             name="Journey: My Itineraries"
         )
     
@@ -550,19 +560,19 @@ class ActiveUserJourney(TaskSet):
         """Add a new itinerary"""
         if not self.user.user_id:
             return
-        
+
         destinations = [
             "Tokyo, Japan", "Paris, France", "Rome, Italy",
             "New York, USA", "London, UK", "Sydney, Australia"
         ]
-        
+
         destination = random.choice(destinations)
         start_date, end_date = get_random_dates()
-        
+
         # Active users create more detailed itineraries with multiple locations
         num_locations = random.randint(2, 4)
         locations = []
-        
+
         for i in range(num_locations):
             locations.append({
                 "name": f"Stop {i+1} - {destination.split(',')[0]}",
@@ -571,9 +581,9 @@ class ActiveUserJourney(TaskSet):
                 "short_desc": f"Exploring location {i+1}",
                 "images": []
             })
-        
-        # POST /api/v1/itineraries
-        response = self.client.post("/api/v1/itineraries", json={
+
+        # POST /api/itineraries - Server-side proxy
+        response = self.client.post("/api/itineraries", json={
             "title": f"Trip to {destination.split(',')[0]}",
             "destination": destination,
             "start_date": start_date,
@@ -600,23 +610,23 @@ class ActiveUserJourney(TaskSet):
         """View itineraries and leave comments"""
         if not self.user.user_id:
             return
-        
+
         itinerary_id = self.user.get_random_itinerary_id()
         if itinerary_id:
-            # GET /api/v1/itineraries/:id
+            # GET /api/itineraries/:id - Server-side proxy
             response = self.client.get(
-                f"/api/v1/itineraries/{itinerary_id}",
+                f"/api/itineraries/{itinerary_id}",
                 name="Journey: View Detail"
             )
             time.sleep(random.uniform(1, 2))
-            
-            # GET /api/v1/social/comments/itinerary/:id
+
+            # GET /api/comments - Server-side proxy
             self.client.get(
-                f"/api/v1/social/comments/itinerary/{itinerary_id}",
+                f"/api/comments?itineraryId={itinerary_id}",
                 name="Journey: View Comments"
             )
             time.sleep(random.uniform(0.5, 1))
-            
+
             # Add a comment (60% chance for active users)
             if random.random() < 0.6:
                 comments = [
@@ -626,9 +636,9 @@ class ActiveUserJourney(TaskSet):
                     "Thanks for sharing!",
                     "Amazing photos!"
                 ]
-                
-                # POST /api/v1/social/comments
-                self.client.post("/api/v1/social/comments", json={
+
+                # POST /api/comments - Server-side proxy
+                self.client.post("/api/comments", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id,
                     "text": random.choice(comments)
@@ -654,13 +664,13 @@ class CasualBrowserJourney(TaskSet):
     def quick_browse(self):
         """Quick browse through itineraries"""
         page = random.randint(1, 3)
-        
-        # GET /api/v1/itineraries
+
+        # GET /api/itineraries - Server-side proxy
         response = self.client.get(
-            f"/api/v1/itineraries?page={page}&limit=10",
+            f"/api/itineraries?page={page}&limit=10",
             name="Journey: Quick Browse"
         )
-        
+
         # Update available IDs
         if response.status_code == 200:
             try:
@@ -669,21 +679,21 @@ class CasualBrowserJourney(TaskSet):
                     self.user.available_itinerary_ids = [item['id'] for item in data if 'id' in item]
             except:
                 pass
-        
+
         time.sleep(random.uniform(0.5, 1.5))
     
     @task(3)
     def search_destinations(self):
         """Search for destinations"""
         popular_destinations = [
-            "Paris", "Tokyo", "New York", "London", "Bali", 
+            "Paris", "Tokyo", "New York", "London", "Bali",
             "Barcelona", "Rome", "Dubai", "Sydney"
         ]
-        
+
         search_term = random.choice(popular_destinations)
-        # GET /api/v1/itineraries?search=X
+        # GET /api/itineraries?search=X - Server-side proxy
         self.client.get(
-            f"/api/v1/itineraries?search={quote(search_term)}",
+            f"/api/itineraries?search={quote(search_term)}",
             name="Journey: Search"
         )
         time.sleep(random.uniform(0.5, 1.5))
@@ -693,9 +703,9 @@ class CasualBrowserJourney(TaskSet):
         """View popular itineraries"""
         itinerary_id = self.user.get_random_itinerary_id()
         if itinerary_id:
-            # GET /api/v1/itineraries/:id
+            # GET /api/itineraries/:id - Server-side proxy
             self.client.get(
-                f"/api/v1/itineraries/{itinerary_id}",
+                f"/api/itineraries/{itinerary_id}",
                 name="Journey: View Popular"
             )
             time.sleep(random.uniform(1, 3))

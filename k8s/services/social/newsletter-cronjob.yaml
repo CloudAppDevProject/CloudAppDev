@@ -52,7 +52,7 @@ spec:
 
           containers:
           - name: newsletter-sender
-            image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.2.27
+            image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.2.30
             imagePullPolicy: Always
 
             # Run the newsletter send command
@@ -81,17 +81,23 @@ spec:
                 secretKeyRef:
                   name: social-service-secrets
                   key: SENDGRID_FROM_EMAIL
-            - name: NEWSLETTER_FROM_NAME
+            - name: SENDGRID_FROM_NAME
               valueFrom:
                 secretKeyRef:
                   name: social-service-secrets
-                  key: NEWSLETTER_FROM_NAME
+                  key: SENDGRID_FROM_NAME
 
             # Service URLs
             - name: USER_SERVICE_URL
-              value: "http://user-service:8080/api/v1"
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: USER_SERVICE_URL
             - name: ITINERARY_SERVICE_URL
-              value: "http://itinerary-service:8081/api/v1"
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: ITINERARY_SERVICE_URL
 
             # Newsletter settings
             - name: NEWSLETTER_ENABLED
@@ -105,7 +111,10 @@ spec:
 
             # App configuration
             - name: FRONTEND_URL
-              value: "https://cloudappdev.example.com"
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: FRONTEND_URL
             - name: NODE_ENV
               value: "production"
 
