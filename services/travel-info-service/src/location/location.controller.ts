@@ -15,7 +15,15 @@ export class LocationController {
       throw new BadRequestException('Query parameter "name" is required');
     }
 
-    return await this.locationService.getCoordinatesByLocationName(name);
+    this.logger.debug(`Fetching coordinates for location: "${name}"`);
+    const result =
+      await this.locationService.getCoordinatesByLocationName(name);
+    if (result) {
+      this.logger.log(
+        `Successfully retrieved coordinates for "${name}": lat=${result.lat}, lon=${result.lon}`,
+      );
+    }
+    return result;
   }
 
   @Get('city')
@@ -36,9 +44,18 @@ export class LocationController {
       throw new BadRequestException('Invalid latitude or longitude');
     }
 
-    return await this.locationService.getCityNameByCoordinates(
+    this.logger.debug(
+      `Reverse geocoding coordinates: latitude=${latitude}, longitude=${longitude}`,
+    );
+    const result = await this.locationService.getCityNameByCoordinates(
       latitude,
       longitude,
     );
+    if (result) {
+      this.logger.log(
+        `Successfully resolved city name for coordinates (${latitude}, ${longitude}): "${result.name}"`,
+      );
+    }
+    return result;
   }
 }
