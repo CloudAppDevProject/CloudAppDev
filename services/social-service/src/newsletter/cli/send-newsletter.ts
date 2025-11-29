@@ -7,6 +7,8 @@ import { Logger } from '@nestjs/common';
 
 const logger = new Logger('NewsletterCLI');
 
+let app: any = null;
+
 /**
  * CLI script for sending newsletters
  * Used by Kubernetes CronJob and manual triggers
@@ -24,7 +26,31 @@ async function bootstrap() {
   logger.log(`Dry Run: ${dryRun}`);
   logger.log('====================================================');
 
-  let app;
+  // Handle graceful shutdown on SIGTERM (Kubernetes termination)
+  process.on('SIGTERM', async () => {
+    logger.warn('Received SIGTERM - gracefully shutting down...');
+    if (app) {
+      try {
+        await app.close();
+      } catch (error) {
+        logger.error('Error closing app on SIGTERM:', error.message);
+      }
+    }
+    process.exit(0);
+  });
+
+  // Handle graceful shutdown on SIGINT (Ctrl+C)
+  process.on('SIGINT', async () => {
+    logger.warn('Received SIGINT - gracefully shutting down...');
+    if (app) {
+      try {
+        await app.close();
+      } catch (error) {
+        logger.error('Error closing app on SIGINT:', error.message);
+      }
+    }
+    process.exit(0);
+  });
 
   try {
     // Create NestJS application context
