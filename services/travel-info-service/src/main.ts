@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+  });
 
   // Global prefix for all routes (API Gateway ready)
   app.setGlobalPrefix('api/v1/travel-info');
@@ -15,6 +18,8 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  await app.listen(process.env.PORT ?? 8083);
+  const port = process.env.PORT ?? 8083;
+  await app.listen(port);
+  Logger.log(`Travel Info Service is running on port ${port}`, 'Bootstrap');
 }
 void bootstrap();

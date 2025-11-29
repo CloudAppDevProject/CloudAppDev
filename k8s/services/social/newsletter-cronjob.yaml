@@ -1,7 +1,3 @@
----
-# Kubernetes CronJob for weekly newsletter distribution
-# Schedules automatic newsletter sends every Sunday at 8 PM UTC
-# Integrates with CloudAppDev social-service for email delivery
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -17,25 +13,14 @@ spec:
   # Schedule: Sunday 8 PM UTC (20:00)
   # Format: minute hour day-of-month month day-of-week
   schedule: "0 20 * * 0"
-
-  # Timezone (optional, requires K8s 1.25+)
-  # timeZone: "UTC"
-
-  # Keep last 3 failed and 1 successful job
   failedJobsHistoryLimit: 3
   successfulJobsHistoryLimit: 1
-
-  # Concurrency policy: prevent overlapping jobs
   concurrencyPolicy: Forbid
-
   jobTemplate:
     spec:
-      # Backoff limit: max 1 retry on failure
       backoffLimit: 1
-
       # Job timeout: 15 minutes
       ttlSecondsAfterFinished: 3600
-
       template:
         metadata:
           labels:
@@ -46,31 +31,21 @@ spec:
             description: "Weekly newsletter send job"
         spec:
           serviceAccountName: cloudappdev-sa
-
-          # Restart policy: don't restart on failure (K8s job handles retries)
           restartPolicy: OnFailure
-
           containers:
           - name: newsletter-sender
             image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.2.30
             imagePullPolicy: Always
-
-            # Run the newsletter send command
             command:
             - npm
             - run
             - newsletter:send-weekly
-
-            # Environment variables
             env:
-            # Database configuration
             - name: MONGODB_URI
               valueFrom:
                 secretKeyRef:
                   name: social-service-secrets
                   key: MONGODB_URI
-
-            # Email configuration (SendGrid)
             - name: SENDGRID_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -86,8 +61,6 @@ spec:
                 secretKeyRef:
                   name: social-service-secrets
                   key: SENDGRID_FROM_NAME
-
-            # Service URLs
             - name: USER_SERVICE_URL
               valueFrom:
                 secretKeyRef:
@@ -98,8 +71,6 @@ spec:
                 secretKeyRef:
                   name: social-service-secrets
                   key: ITINERARY_SERVICE_URL
-
-            # Newsletter settings
             - name: NEWSLETTER_ENABLED
               value: "true"
             - name: NEWSLETTER_BATCH_SIZE
@@ -108,8 +79,6 @@ spec:
               value: "3"
             - name: NEWSLETTER_RETRY_DELAY_MS
               value: "5000"
-
-            # App configuration
             - name: FRONTEND_URL
               valueFrom:
                 secretKeyRef:
@@ -117,21 +86,11 @@ spec:
                   key: FRONTEND_URL
             - name: NODE_ENV
               value: "production"
-
-            # Newsletter mode
             - name: NEWSLETTER_MODE
               valueFrom:
                 secretKeyRef:
                   name: social-service-secrets
                   key: NEWSLETTER_MODE
-
-            # Logging
-            - name: LOG_LEVEL
-              value: "log"
-
-            # Resource limits
-            # Increased from 256/512Mi to support newsletter processing
-            # Newsletter needs to load subscriber data, render templates, etc.
             resources:
               requests:
                 memory: "512Mi"
@@ -139,15 +98,11 @@ spec:
               limits:
                 memory: "1Gi"
                 cpu: "1000m"
-
-          # Pod-level tolerations (if using node affinity)
           tolerations:
           - key: "batch-jobs"
             operator: "Equal"
             value: "true"
             effect: "NoSchedule"
-
-          # Optional: Pod affinity
           affinity:
             podAntiAffinity:
               preferredDuringSchedulingIgnoredDuringExecution:
@@ -160,22 +115,3 @@ spec:
                       values:
                       - cloudappdev-app
                   topologyKey: kubernetes.io/hostname
-
----
-# ConfigMap for newsletter job configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: newsletter-config
-  namespace: default
-  labels:
-    app: cloudappdev
-    service: social-service
-    component: newsletter
-data:
-  # Newsletter job configuration
-  batch-size: "50"
-  retry-limit: "3"
-  retry-delay-ms: "5000"
-  max-concurrent-sends: "10"
-  timeout-per-email-ms: "10000"
