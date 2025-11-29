@@ -126,6 +126,36 @@ export class NewsletterController {
   }
 
   /**
+   * GET /newsletter/unsubscribe/:userId
+   * Unsubscribe via email link (GET request for email clients)
+   * Works with email links that don't support DELETE method
+   *
+   * Response: 200 OK with JSON
+   */
+  @Get('unsubscribe/:userId')
+  @HttpCode(200)
+  async unsubscribeViaLink(@Param('userId') userId: string) {
+    const userId_num = parseInt(userId, 10);
+
+    this.logger.log(`Unsubscribing user ${userId_num} via email link`);
+
+    try {
+      await this.newsletterService.unsubscribeUser(userId_num);
+
+      return {
+        success: true,
+        message: `You have been successfully unsubscribed from our newsletter. You will not receive any more emails.`,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to unsubscribe user ${userId_num} via link:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
    * GET /newsletter/preferences/:userId
    * Get user's newsletter preferences
    *

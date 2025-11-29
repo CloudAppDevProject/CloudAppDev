@@ -1434,7 +1434,7 @@ export class NewsletterService {
         })),
         hasFollowedUserItineraries: followedUserItineraries.length > 0,
         preferencesUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/preferences/${user.userId}`,
-        unsubscribeUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/newsletter/unsubscribe/${user.userId}`,
+        unsubscribeUrl: `${process.env.API_GATEWAY_URL || 'http://localhost:8000'}/api/v1/social/newsletter/unsubscribe/${user.userId}`,
         appUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
         email: user.email,
         frequency: user.frequency || 'weekly',
