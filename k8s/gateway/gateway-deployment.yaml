@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-api-gateway@sha256:befd307bf38bf8ec7b56e00620b17f96a5480fba5a50948ace6063958053ade1
+        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-api-gateway:0.2.11
         resources:
           limits:
             memory: "128Mi"
