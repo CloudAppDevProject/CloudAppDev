@@ -7,8 +7,19 @@
 
 
 ### 1.1 System Context
-<!-- Sam -->
-<!-- Requirements: Provide a system context diagram and describe neighboring systems, external interfaces, and actors. -->
+The following diagram shows the system context containing an User, the application, an external Weather provider and an external geolocation service.
+
+![System Context Diagram](system-context-diagram.drawio.svg)
+
+#### User
+The user interacts with the application by planning, creating and viewing itineraries. These can either be his own or from other users.
+
+#### Weather provider
+The weather provider is an open api which can be accessed with an api key to obtain the current weather aswell as the forecast for up to 7 days.
+
+#### Geographic location provider
+Another Public api which serves latitude and longitude for a certain City or
+the City for a given pair of coordinates. 
 
 
 ### 1.2 Feature Overview
@@ -943,14 +954,21 @@ erDiagram
 
 ## 3 Runtime View
 
-
-
 ### 3.1 Runtime Overview
-<!-- Sam -->
-<!-- Requirements: Describe cloud resources (diagram), external interfaces, UI interfaces, configuration of cloud resources, synchronous/asynchronous services, and links to running application/environment. -->
+Our application can be found here: [CloudAppDev.site](https://cloudappdev.site)\
+Links: 
+- [Google Cloud Platform Project](https://console.cloud.google.com/welcome?project=oceanic-citadel-474512-c1) 
+- [GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=oceanic-citadel-474512-c1)
+- [GKE Gateways](https://console.cloud.google.com/kubernetes/gateways?project=oceanic-citadel-474512-c1)
+- [Cloud SQL](https://console.cloud.google.com/sql/instances?project=oceanic-citadel-474512-c1)
+- [Cloud Firestore](https://console.cloud.google.com/firestore/databases?project=oceanic-citadel-474512-c1)
+- [Cloud Storage Buckets](https://console.cloud.google.com/storage/browser?project=oceanic-citadel-474512-c1&prefix=&forceOnBucketsSortingFiltering=true&bucketType=live)
 
+#### Architecture Diagram
+The following diagramm shows our architecture at run time, including all services, cron-jobs, inter service communication etc.
+![Mircoservice Architecture diagram](/docs/Micro-Architektur.drawio.svg)
 
-
+#### Service description
 ### 3.2 Microservices
 <!-- Simon² -->
 <!-- Requirements: Detailed description of each microservice incl. components, runtime config, scaling, security, external cloud connections. -->
