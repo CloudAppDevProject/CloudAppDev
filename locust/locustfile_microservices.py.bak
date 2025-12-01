@@ -67,7 +67,7 @@ class PeriodicShapeA(LoadTestShape):
     """
     Periodic Workload - Scenario A: 100 peak / 10 low demand
     
-    Pattern: Low(10) -> Ramp up -> Peak(100) -> Ramp down -> Low(10) -> repeat
+    Pattern: Low(10) → Ramp up → Peak(100) → Ramp down → Low(10) → repeat
     Total duration: ~15 minutes with 2 full cycles
     """
     
@@ -120,7 +120,7 @@ class PeriodicShapeB(LoadTestShape):
     """
     Periodic Workload - Scenario B: 1000 peak / 20 low demand
     
-    Pattern: Low(20) -> Ramp up -> Peak(1000) -> Ramp down -> Low(20) -> repeat
+    Pattern: Low(20) → Ramp up → Peak(1000) → Ramp down → Low(20) → repeat
     Total duration: ~30 minutes with 2 full cycles
     """
     
@@ -261,7 +261,7 @@ class BaseAPIUser(HttpUser):
     abstract = True
     user_id = None
     test_email = None
-    test_password = "LoadTest123"
+    test_password = "LoadTest123!"
     max_retries = 3
     available_itinerary_ids = []
     
@@ -282,21 +282,10 @@ class BaseAPIUser(HttpUser):
                 
                 if response.status_code == 201:
                     data = safe_json_parse(response, "Registration")
-                    if data:
-                        # Handle nested response structure: {user: {id: ...}} or {id: ...}
-                        user_id = None
-                        if "user" in data and isinstance(data.get("user"), dict):
-                            user_id = data["user"].get("id")
-                        elif "id" in data:
-                            user_id = data.get("id")
-
-                        if user_id:
-                            self.user_id = user_id
-                            shared_state.user_ids.append(self.user_id)
-                            return True
-                        else:
-                            retry_count += 1
-                            time.sleep(2)
+                    if data and data.get("id"):
+                        self.user_id = data.get("id")
+                        shared_state.user_ids.append(self.user_id)
+                        return True
                     else:
                         retry_count += 1
                         time.sleep(2)
@@ -325,18 +314,12 @@ class BaseAPIUser(HttpUser):
                                 name="Fetch Available Itineraries") as response:
                 if response.status_code == 200:
                     data = safe_json_parse(response, "Fetch Itineraries")
-                    if data:
-                        # Handle both list response and paginated response {data: [...], pagination: {...}}
-                        itineraries = data
-                        if isinstance(data, dict) and 'data' in data:
-                            itineraries = data['data']
-
-                        if isinstance(itineraries, list):
-                            ids = [item['id'] for item in itineraries if 'id' in item]
-                            if ids:
-                                self.available_itinerary_ids = ids
-                                shared_state.itinerary_ids = ids
-                                shared_state.last_fetch = current_time
+                    if data and isinstance(data, list):
+                        ids = [item['id'] for item in data if 'id' in item]
+                        if ids:
+                            self.available_itinerary_ids = ids
+                            shared_state.itinerary_ids = ids
+                            shared_state.last_fetch = current_time
                     response.success()
                 else:
                     response.failure(f"Failed to fetch: {response.status_code}")
@@ -359,7 +342,7 @@ class BaseAPIUser(HttpUser):
 class NewUserJourney(TaskSet):
     """
     Represents a new user exploring the platform for the first time.
-    Typical flow: Register -> Browse -> Search -> View Details -> Like -> Create First Itinerary
+    Typical flow: Register → Browse → Search → View Details → Like → Create First Itinerary
     """
     
     def on_start(self):
@@ -368,7 +351,7 @@ class NewUserJourney(TaskSet):
             self.interrupt()
         self.user._fetch_available_itineraries()
     
-    
+    @task(3)
     def browse_popular_itineraries(self):
         """Browse popular itineraries (most common new user action)"""
         if not self.user.user_id:
@@ -382,23 +365,19 @@ class NewUserJourney(TaskSet):
             f"/api/itineraries?page={page}&limit={limit}",
             name="Journey: Browse Popular"
         )
-
+        
         # Update available IDs from response
         if response.status_code == 200:
             try:
                 data = response.json()
-                # Handle both list and paginated {data: [...], pagination: {...}} responses
-                itineraries = data
-                if isinstance(data, dict) and 'data' in data:
-                    itineraries = data['data']
-                if isinstance(itineraries, list):
-                    self.user.available_itinerary_ids = [item['id'] for item in itineraries if 'id' in item]
+                if isinstance(data, list):
+                    self.user.available_itinerary_ids = [item['id'] for item in data if 'id' in item]
             except:
                 pass
         
         time.sleep(random.uniform(1, 3))  # User reads content
     
-    
+    @task(2)
     def search_destinations(self):
         """Search for specific destinations"""
         destinations = ["Paris", "Tokyo", "New York", "London", "Bali", "Barcelona", "Rome"]
@@ -411,7 +390,7 @@ class NewUserJourney(TaskSet):
         )
         time.sleep(random.uniform(0.5, 2))
     
-    
+    @task(2)
     def view_itinerary_details(self):
         """View detailed itinerary information"""
         if not self.user.user_id:
@@ -421,7 +400,7 @@ class NewUserJourney(TaskSet):
         if itinerary_id:
             # GET /api/itineraries/:id - Server-side proxy
             response = self.client.get(
-                f"/api/itineraries?id={itinerary_id}",
+                f"/api/itineraries/{itinerary_id}",
                 name="Journey: View Details"
             )
             time.sleep(random.uniform(1, 3))  # User reads itinerary
@@ -434,7 +413,7 @@ class NewUserJourney(TaskSet):
                     "itineraryId": itinerary_id
                 }, name="Journey: Like Itinerary")
     
-    
+    @task(1)
     def create_first_itinerary(self):
         """Create their first itinerary"""
         if not self.user.user_id:
@@ -480,7 +459,7 @@ class NewUserJourney(TaskSet):
         
         time.sleep(random.uniform(1, 2))
     
-    
+    @task(1)
     def view_and_comment(self):
         """View and comment on other itineraries"""
         if not self.user.user_id:
@@ -519,7 +498,7 @@ class NewUserJourney(TaskSet):
 class ActiveUserJourney(TaskSet):
     """
     Represents an active user who regularly uses the platform.
-    Typical flow: Login -> Check Own Itineraries -> Browse -> Like -> Comment -> Create New
+    Typical flow: Login → Check Own Itineraries → Browse → Like → Comment → Create New
     """
     
     def on_start(self):
@@ -528,7 +507,7 @@ class ActiveUserJourney(TaskSet):
             self.interrupt()
         self.user._fetch_available_itineraries()
     
-    
+    @task(4)
     def browse_and_engage(self):
         """Browse feed and engage with content"""
         if not self.user.user_id:
@@ -545,12 +524,8 @@ class ActiveUserJourney(TaskSet):
         if response.status_code == 200:
             try:
                 data = response.json()
-                # Handle both list and paginated {data: [...], pagination: {...}} responses
-                itineraries = data
-                if isinstance(data, dict) and 'data' in data:
-                    itineraries = data['data']
-                if isinstance(itineraries, list):
-                    self.user.available_itinerary_ids = [item['id'] for item in itineraries if 'id' in item]
+                if isinstance(data, list):
+                    self.user.available_itinerary_ids = [item['id'] for item in data if 'id' in item]
             except:
                 pass
 
@@ -568,7 +543,7 @@ class ActiveUserJourney(TaskSet):
                 }, name="Journey: Like")
                 time.sleep(random.uniform(0.2, 0.8))
     
-    
+    @task(3)
     def check_my_itineraries(self):
         """Check their own itineraries"""
         if not self.user.user_id:
@@ -580,7 +555,7 @@ class ActiveUserJourney(TaskSet):
             name="Journey: My Itineraries"
         )
     
-    
+    @task(2)
     def create_new_itinerary(self):
         """Add a new itinerary"""
         if not self.user.user_id:
@@ -630,7 +605,7 @@ class ActiveUserJourney(TaskSet):
             except:
                 pass
     
-    
+    @task(3)
     def view_and_comment(self):
         """View itineraries and leave comments"""
         if not self.user.user_id:
@@ -640,7 +615,7 @@ class ActiveUserJourney(TaskSet):
         if itinerary_id:
             # GET /api/itineraries/:id - Server-side proxy
             response = self.client.get(
-                f"/api/itineraries?id={itinerary_id}",
+                f"/api/itineraries/{itinerary_id}",
                 name="Journey: View Detail"
             )
             time.sleep(random.uniform(1, 2))
@@ -676,7 +651,7 @@ class ActiveUserJourney(TaskSet):
 class CasualBrowserJourney(TaskSet):
     """
     Represents a casual visitor who browses without necessarily engaging deeply.
-    Typical flow: Quick Browse -> Search -> View Popular -> Maybe Register
+    Typical flow: Quick Browse → Search → View Popular → Maybe Register
     """
     
     def on_start(self):
@@ -685,7 +660,7 @@ class CasualBrowserJourney(TaskSet):
         self.is_registered = False
         self.user._fetch_available_itineraries()
     
-    
+    @task(5)
     def quick_browse(self):
         """Quick browse through itineraries"""
         page = random.randint(1, 3)
@@ -700,18 +675,14 @@ class CasualBrowserJourney(TaskSet):
         if response.status_code == 200:
             try:
                 data = response.json()
-                # Handle both list and paginated {data: [...], pagination: {...}} responses
-                itineraries = data
-                if isinstance(data, dict) and 'data' in data:
-                    itineraries = data['data']
-                if isinstance(itineraries, list):
-                    self.user.available_itinerary_ids = [item['id'] for item in itineraries if 'id' in item]
+                if isinstance(data, list):
+                    self.user.available_itinerary_ids = [item['id'] for item in data if 'id' in item]
             except:
                 pass
 
         time.sleep(random.uniform(0.5, 1.5))
     
-    
+    @task(3)
     def search_destinations(self):
         """Search for destinations"""
         popular_destinations = [
@@ -727,47 +698,24 @@ class CasualBrowserJourney(TaskSet):
         )
         time.sleep(random.uniform(0.5, 1.5))
     
-    
+    @task(2)
     def view_popular_itineraries(self):
         """View popular itineraries"""
         itinerary_id = self.user.get_random_itinerary_id()
         if itinerary_id:
             # GET /api/itineraries/:id - Server-side proxy
             self.client.get(
-                f"/api/itineraries?id={itinerary_id}",
+                f"/api/itineraries/{itinerary_id}",
                 name="Journey: View Popular"
             )
             time.sleep(random.uniform(1, 3))
     
-    
+    @task(1)
     def maybe_register(self):
         """20% chance to convert to registered user"""
         if not self.is_registered and random.random() < 0.2:
             if self.user.register_user():
                 self.is_registered = True
-
-# Populate task dictionaries (explicit task weights required for Locust to collect all tasks)
-NewUserJourney.tasks = {
-    NewUserJourney.browse_popular_itineraries: 3,
-    NewUserJourney.search_destinations: 2,
-    NewUserJourney.view_itinerary_details: 2,
-    NewUserJourney.create_first_itinerary: 1,
-    NewUserJourney.view_and_comment: 1,
-}
-
-ActiveUserJourney.tasks = {
-    ActiveUserJourney.browse_and_engage: 4,
-    ActiveUserJourney.check_my_itineraries: 3,
-    ActiveUserJourney.create_new_itinerary: 2,
-    ActiveUserJourney.view_and_comment: 3,
-}
-
-CasualBrowserJourney.tasks = {
-    CasualBrowserJourney.quick_browse: 5,
-    CasualBrowserJourney.search_destinations: 3,
-    CasualBrowserJourney.view_popular_itineraries: 2,
-    CasualBrowserJourney.maybe_register: 1,
-}
 
 # ============================================================================
 # USER WORKLOAD CLASSES (Traffic Distribution)

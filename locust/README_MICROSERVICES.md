@@ -115,24 +115,24 @@ docker-compose -f docker-compose.microservices.yml ps
 ```bash
 # Periodic Scenario A (100 peak / 10 low - cycling)
 $env:LOCUST_SHAPE="periodic_a"
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless --html=locust/reports/periodic_a.html
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 --headless --html=locust/reports/periodic_a.html
 
 # Periodic Scenario B (1000 peak / 20 low - cycling)
 $env:LOCUST_SHAPE="periodic_b"
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless --html=locust/reports/periodic_b.html
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 --headless --html=locust/reports/periodic_b.html
 
 # Once-in-a-Lifetime (continuous growth)
 $env:LOCUST_SHAPE="lifetime"
 $env:GROWTH_RATE="20"  # users per minute
 $env:MAX_USERS="3000"
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless --html=locust/reports/lifetime.html
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 --headless --html=locust/reports/lifetime.html
 ```
 
 #### Option C: Interactive Web UI (Manual Control)
 
 ```bash
 # No shape - use manual --users and --spawn-rate
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000
 ```
 
 Then open browser: **http://localhost:8089**
@@ -299,18 +299,18 @@ Users
 ```bash
 # Periodic A
 export LOCUST_SHAPE=periodic_a
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 --headless
 
 # Periodic B
 export LOCUST_SHAPE=periodic_b
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 --headless
 
 # Once-in-a-Lifetime with custom settings
 export LOCUST_SHAPE=lifetime
 export GROWTH_RATE=30
 export MAX_USERS=2500
 export MAX_DURATION=2400  # 40 minutes
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 --headless
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 --headless
 ```
 
 ---
@@ -436,7 +436,7 @@ locust ... --users 100 --spawn-rate 10 --run-time 5m
 ```bash
 # This is normal - services are warming up
 # Run a warmup test first:
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 \
     --users 10 --spawn-rate 2 --run-time 2m --headless
 ```
 
@@ -450,13 +450,13 @@ Run tests against both architectures and compare:
 
 ```bash
 # Monolithic (Milestone 1)
-locust -f locust/locustfile.py --host=http://localhost:3000 \
+locust -f locust/locustfile.py -TargetHost http://localhost:3000 \
     --users 100 --spawn-rate 10 --run-time 5m --headless \
     --html=locust/reports/monolithic_100users.html
 
 # Microservices (Milestone 2)
 $env:LOCUST_SHAPE="periodic_a"
-locust -f locust/locustfile_microservices.py --host=http://localhost:8000 \
+locust -f locust/locustfile_microservices.py -TargetHost http://localhost:8000 \
     --headless --html=locust/reports/microservices_periodic_a.html
 ```
 

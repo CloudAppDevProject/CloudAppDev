@@ -49,7 +49,8 @@ LOCUST_SHAPE=lifetime locust -f locust/locustfile_microservices.py --host=http:/
 locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --users 100 --spawn-rate 10
 """
 
-from locust import HttpUser, task, between, events, TaskSet, LoadTestShape
+from locust import HttpUser, task, between, events, TaskSet
+from locust import LoadTestShape as BaseLoadTestShape
 from datetime import datetime, timedelta
 import random
 import string
@@ -63,7 +64,7 @@ import math
 # LOAD TEST SHAPES FOR DIFFERENT SCENARIOS
 # ============================================================================
 
-class PeriodicShapeA(LoadTestShape):
+class LoadTestShape(BaseLoadTestShape):
     """
     Periodic Workload - Scenario A: 100 peak / 10 low demand
     
@@ -116,97 +117,8 @@ class PeriodicShapeA(LoadTestShape):
             return (self.low_users, self.low_users)
 
 
-class PeriodicShapeB(LoadTestShape):
-    """
-    Periodic Workload - Scenario B: 1000 peak / 20 low demand
-    
-    Pattern: Low(20) -> Ramp up -> Peak(1000) -> Ramp down -> Low(20) -> repeat
-    Total duration: ~30 minutes with 2 full cycles
-    """
-    
-    # Configuration
-    peak_users = 1000
-    low_users = 20
-    cycle_duration = 900  # 15 minutes per cycle
-    ramp_time = 120  # 2 minutes to ramp up/down (slower for more users)
-    peak_duration = 420  # 7 minutes at peak
-    low_duration = 240  # 4 minutes at low
-    total_cycles = 2
-    
-    def tick(self):
-        run_time = self.get_run_time()
-        total_duration = self.cycle_duration * self.total_cycles
-        
-        if run_time > total_duration:
-            return None  # Stop test
-        
-        # Calculate position in cycle
-        cycle_position = run_time % self.cycle_duration
-        
-        if cycle_position < self.low_duration:
-            # Low demand phase
-            return (self.low_users, self.low_users)
-        
-        elif cycle_position < self.low_duration + self.ramp_time:
-            # Ramping up to peak
-            progress = (cycle_position - self.low_duration) / self.ramp_time
-            users = int(self.low_users + (self.peak_users - self.low_users) * progress)
-            return (users, 50)  # spawn rate of 50/s for faster ramp
-        
-        elif cycle_position < self.low_duration + self.ramp_time + self.peak_duration:
-            # Peak phase
-            return (self.peak_users, self.peak_users)
-        
-        elif cycle_position < self.low_duration + self.ramp_time + self.peak_duration + self.ramp_time:
-            # Ramping down to low
-            ramp_down_start = self.low_duration + self.ramp_time + self.peak_duration
-            progress = (cycle_position - ramp_down_start) / self.ramp_time
-            users = int(self.peak_users - (self.peak_users - self.low_users) * progress)
-            return (users, 50)
-        
-        else:
-            # Back to low (end of cycle)
-            return (self.low_users, self.low_users)
 
-
-class OnceInALifetimeShape(LoadTestShape):
-    """
-    Once-in-a-Lifetime Workload - Continuous Growth
-    
-    Pattern: Start with 10 users, constantly add users at a steady rate
-    Goal: Find the breaking point - when the application fails
-    
-    Growth rate: Configurable users per minute (default: 20 users/minute)
-    Max duration: 30 minutes (will reach ~610 users with default rate)
-    
-    The test records metrics to determine:
-    - Without degradation: response time p95 < 500ms, error rate < 1%
-    - With degradation: response time p95 < 2000ms, error rate < 5%
-    - Failure: response time p95 > 5000ms or error rate > 10%
-    """
-    
-    # Configuration - can be overridden via environment variables
-    base_users = 10
-    growth_rate = float(os.getenv('GROWTH_RATE', '20'))  # users per minute
-    max_users = int(os.getenv('MAX_USERS', '3000'))  # safety limit
-    max_duration = int(os.getenv('MAX_DURATION', '1800'))  # 30 minutes default
-    spawn_rate = 10  # users per second when adding
-    
-    def tick(self):
-        run_time = self.get_run_time()
-        
-        if run_time > self.max_duration:
-            return None  # Stop test after max duration
-        
-        # Calculate target users: base + (growth_rate * minutes elapsed)
-        minutes_elapsed = run_time / 60
-        target_users = int(self.base_users + (self.growth_rate * minutes_elapsed))
-        
-        # Cap at max users
-        target_users = min(target_users, self.max_users)
-        
-        return (target_users, self.spawn_rate)
-
+# ============================================================================
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -282,21 +194,10 @@ class BaseAPIUser(HttpUser):
                 
                 if response.status_code == 201:
                     data = safe_json_parse(response, "Registration")
-                    if data:
-                        # Handle nested response structure: {user: {id: ...}} or {id: ...}
-                        user_id = None
-                        if "user" in data and isinstance(data.get("user"), dict):
-                            user_id = data["user"].get("id")
-                        elif "id" in data:
-                            user_id = data.get("id")
-
-                        if user_id:
-                            self.user_id = user_id
-                            shared_state.user_ids.append(self.user_id)
-                            return True
-                        else:
-                            retry_count += 1
-                            time.sleep(2)
+                    if data and data.get("user") and data.get("user").get("id"):
+                        self.user_id = data.get("user").get("id")
+                        shared_state.user_ids.append(self.user_id)
+                        return True
                     else:
                         retry_count += 1
                         time.sleep(2)
@@ -326,17 +227,16 @@ class BaseAPIUser(HttpUser):
                 if response.status_code == 200:
                     data = safe_json_parse(response, "Fetch Itineraries")
                     if data:
-                        # Handle both list response and paginated response {data: [...], pagination: {...}}
+                        # Handle both list and paginated {data: [...], pagination: {...}} responses
                         itineraries = data
                         if isinstance(data, dict) and 'data' in data:
                             itineraries = data['data']
-
                         if isinstance(itineraries, list):
                             ids = [item['id'] for item in itineraries if 'id' in item]
-                            if ids:
-                                self.available_itinerary_ids = ids
-                                shared_state.itinerary_ids = ids
-                                shared_state.last_fetch = current_time
+                        if ids:
+                            self.available_itinerary_ids = ids
+                            shared_state.itinerary_ids = ids
+                            shared_state.last_fetch = current_time
                     response.success()
                 else:
                     response.failure(f"Failed to fetch: {response.status_code}")
@@ -369,6 +269,7 @@ class NewUserJourney(TaskSet):
         self.user._fetch_available_itineraries()
     
     
+    @task(3)
     def browse_popular_itineraries(self):
         """Browse popular itineraries (most common new user action)"""
         if not self.user.user_id:
@@ -382,7 +283,7 @@ class NewUserJourney(TaskSet):
             f"/api/itineraries?page={page}&limit={limit}",
             name="Journey: Browse Popular"
         )
-
+        
         # Update available IDs from response
         if response.status_code == 200:
             try:
@@ -399,6 +300,7 @@ class NewUserJourney(TaskSet):
         time.sleep(random.uniform(1, 3))  # User reads content
     
     
+    @task(2)
     def search_destinations(self):
         """Search for specific destinations"""
         destinations = ["Paris", "Tokyo", "New York", "London", "Bali", "Barcelona", "Rome"]
@@ -411,7 +313,8 @@ class NewUserJourney(TaskSet):
         )
         time.sleep(random.uniform(0.5, 2))
     
-    
+
+    @task(2)
     def view_itinerary_details(self):
         """View detailed itinerary information"""
         if not self.user.user_id:
@@ -434,7 +337,8 @@ class NewUserJourney(TaskSet):
                     "itineraryId": itinerary_id
                 }, name="Journey: Like Itinerary")
     
-    
+
+    @task(1)
     def create_first_itinerary(self):
         """Create their first itinerary"""
         if not self.user.user_id:
@@ -479,8 +383,8 @@ class NewUserJourney(TaskSet):
                 pass
         
         time.sleep(random.uniform(1, 2))
-    
-    
+
+    @task(1)
     def view_and_comment(self):
         """View and comment on other itineraries"""
         if not self.user.user_id:
@@ -527,8 +431,8 @@ class ActiveUserJourney(TaskSet):
         if not self.user.register_user():
             self.interrupt()
         self.user._fetch_available_itineraries()
-    
-    
+
+    @task(4)
     def browse_and_engage(self):
         """Browse feed and engage with content"""
         if not self.user.user_id:
@@ -567,8 +471,8 @@ class ActiveUserJourney(TaskSet):
                     "itineraryId": itinerary_id
                 }, name="Journey: Like")
                 time.sleep(random.uniform(0.2, 0.8))
-    
-    
+
+    @task(3)
     def check_my_itineraries(self):
         """Check their own itineraries"""
         if not self.user.user_id:
@@ -579,8 +483,8 @@ class ActiveUserJourney(TaskSet):
             f"/api/itineraries?userId={self.user.user_id}",
             name="Journey: My Itineraries"
         )
-    
-    
+
+    @task(2)
     def create_new_itinerary(self):
         """Add a new itinerary"""
         if not self.user.user_id:
@@ -629,8 +533,8 @@ class ActiveUserJourney(TaskSet):
                         shared_state.itinerary_ids.append(new_id)
             except:
                 pass
-    
-    
+
+    @task(3)
     def view_and_comment(self):
         """View itineraries and leave comments"""
         if not self.user.user_id:
@@ -684,8 +588,8 @@ class CasualBrowserJourney(TaskSet):
         self.user.user_id = None
         self.is_registered = False
         self.user._fetch_available_itineraries()
-    
-    
+
+    @task(5)
     def quick_browse(self):
         """Quick browse through itineraries"""
         page = random.randint(1, 3)
@@ -710,8 +614,8 @@ class CasualBrowserJourney(TaskSet):
                 pass
 
         time.sleep(random.uniform(0.5, 1.5))
-    
-    
+
+    @task(3)
     def search_destinations(self):
         """Search for destinations"""
         popular_destinations = [
@@ -726,8 +630,8 @@ class CasualBrowserJourney(TaskSet):
             name="Journey: Search"
         )
         time.sleep(random.uniform(0.5, 1.5))
-    
-    
+
+    @task(2)
     def view_popular_itineraries(self):
         """View popular itineraries"""
         itinerary_id = self.user.get_random_itinerary_id()
@@ -738,8 +642,8 @@ class CasualBrowserJourney(TaskSet):
                 name="Journey: View Popular"
             )
             time.sleep(random.uniform(1, 3))
-    
-    
+
+    @task(1)
     def maybe_register(self):
         """20% chance to convert to registered user"""
         if not self.is_registered and random.random() < 0.2:
@@ -795,22 +699,7 @@ class CasualBrowserWorkload(BaseAPIUser):
 # DYNAMIC SHAPE SELECTION
 # ============================================================================
 
-# Select shape based on environment variable
-SHAPE_ENV = os.getenv('LOCUST_SHAPE', '').lower()
-
-if SHAPE_ENV == 'periodic_a':
-    class TestShape(PeriodicShapeA):
-        """Active shape for Periodic Scenario A"""
-        pass
-elif SHAPE_ENV == 'periodic_b':
-    class TestShape(PeriodicShapeB):
-        """Active shape for Periodic Scenario B"""
-        pass
-elif SHAPE_ENV == 'lifetime':
-    class TestShape(OnceInALifetimeShape):
-        """Active shape for Once-in-a-Lifetime test"""
-        pass
-# If no shape specified, Locust uses manual --users and --spawn-rate
+# SCENARIO A: 100 peak / 10 low users (LoadTestShape class defined above)
 
 # ============================================================================
 # REPORTING HOOKS
@@ -836,7 +725,7 @@ def on_request(request_type, name, response_time, response_length, response, con
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """Called when the load test starts"""
-    shape_name = SHAPE_ENV if SHAPE_ENV else "Manual (--users/--spawn-rate)"
+    shape_name = "Periodic Workload - Scenario A (100 peak / 10 low)"
     
     print("\n" + "="*80)
     print("MICROSERVICES LOAD TEST STARTED")
@@ -849,18 +738,8 @@ def on_test_start(environment, **kwargs):
     print(f"  - Itinerary Service: /api/v1/itineraries")
     print(f"  - Social Service: /api/v1/social/comments, /api/v1/social/likes")
     
-    if SHAPE_ENV == 'periodic_a':
-        print(f"\nPeriodic Scenario A: 100 peak / 10 low users")
-        print(f"  - 2 full cycles, ~14 minutes total")
-    elif SHAPE_ENV == 'periodic_b':
-        print(f"\nPeriodic Scenario B: 1000 peak / 20 low users")
-        print(f"  - 2 full cycles, ~30 minutes total")
-    elif SHAPE_ENV == 'lifetime':
-        growth_rate = os.getenv('GROWTH_RATE', '20')
-        max_users = os.getenv('MAX_USERS', '3000')
-        print(f"\nOnce-in-a-Lifetime: Continuous growth")
-        print(f"  - Base: 10 users, Growth: {growth_rate} users/min")
-        print(f"  - Max: {max_users} users, Duration: 30 min")
+    print(f"\nPeriodic Scenario A: 100 peak / 10 low users")
+    print(f"  - 2 full cycles, ~14 minutes total")
     
     print("="*80 + "\n")
 
@@ -892,8 +771,10 @@ def on_test_stop(environment, **kwargs):
     print(f"   95th percentile: {stats.total.get_response_time_percentile(0.95):.2f}ms")
     print(f"   99th percentile: {stats.total.get_response_time_percentile(0.99):.2f}ms")
     
-    # Threshold Analysis for Once-in-a-Lifetime
-    if SHAPE_ENV == 'lifetime':
+    # This is Scenario A (Periodic), not Once-in-a-Lifetime
+    # For Periodic scenarios, just log completion
+
+    if True:  # Placeholder for potential future Lifetime-specific logic
         p95 = stats.total.get_response_time_percentile(0.95)
         failure_rate = (stats.total.num_failures / max(stats.total.num_requests, 1)) * 100
         

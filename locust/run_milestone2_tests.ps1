@@ -13,7 +13,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$TargetHost = "http://localhost:8000",
+    [string]$TargetHost = "http://localhost:3000",
     
     [Parameter(Mandatory=$false)]
     [ValidateSet("periodic-a", "periodic-b", "lifetime", "lifetime-slow", "lifetime-fast", "all")]
@@ -34,6 +34,8 @@ Write-Host "  Milestone 2 Performance Testing - Microservices Architecture" -For
 Write-Host "=====================================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Target Host: $TargetHost" -ForegroundColor Yellow
+Write-Host "Note: Tests use Next.js proxy routes (/api/*) at http://localhost:3000" -ForegroundColor Cyan
+Write-Host "      (API Gateway routes are /api/v1/* at http://localhost:8000)" -ForegroundColor Cyan
 Write-Host "Test Type: $TestType" -ForegroundColor Yellow
 Write-Host ""
 
@@ -43,44 +45,34 @@ if (!(Test-Path $reportsDir)) {
     New-Item -ItemType Directory -Path $reportsDir | Out-Null
 }
 
-# Function to run a test with shape
-function Run-ShapedTest {
+# Function to run a test with dedicated locustfile
+function Run-ScenarioTest {
     param(
         [string]$TestName,
-        [string]$Shape,
-        [string]$Description,
-        [hashtable]$EnvVars = @{}
+        [string]$LocustFile,
+        [string]$Description
     )
-    
+
     Write-Host "---------------------------------------------------------------------" -ForegroundColor Green
     Write-Host "Running: $TestName" -ForegroundColor Green
     Write-Host "Description: $Description" -ForegroundColor White
-    Write-Host "Shape: $Shape" -ForegroundColor White
+    Write-Host "Locustfile: $LocustFile" -ForegroundColor White
     Write-Host "---------------------------------------------------------------------" -ForegroundColor Green
     Write-Host ""
-    
+
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $reportName = "${TestName}_${timestamp}"
-    
-    # Set environment variables
-    $env:LOCUST_SHAPE = $Shape
-    foreach ($key in $EnvVars.Keys) {
-        Set-Item -Path "env:$key" -Value $EnvVars[$key]
-    }
-    
-    # Run Locust with shape (no --users or --spawn-rate needed, shape controls it)
-    locust -f locust/locustfile_microservices.py `
+
+    # Run Locust with dedicated scenario file
+    Write-Host "Running Locust with scenario-specific file: $LocustFile" -ForegroundColor Gray
+    Write-Host ""
+
+    & locust -f $LocustFile `
         --host=$TargetHost `
         --headless `
         --html="$reportsDir/${reportName}.html" `
         --csv="$reportsDir/${reportName}"
-    
-    # Clean up environment
-    Remove-Item env:LOCUST_SHAPE -ErrorAction SilentlyContinue
-    foreach ($key in $EnvVars.Keys) {
-        Remove-Item "env:$key" -ErrorAction SilentlyContinue
-    }
-    
+
     Write-Host ""
     Write-Host "Test completed: $reportName" -ForegroundColor Green
     Write-Host "HTML Report: $reportsDir/${reportName}.html" -ForegroundColor Cyan
@@ -100,12 +92,12 @@ if ($TestType -eq "periodic-a" -or $TestType -eq "all") {
     Write-Host "Pattern: Low(10) -> Ramp up -> Peak(100) -> Ramp down -> Low(10)" -ForegroundColor White
     Write-Host "Duration: ~14 minutes (2 full cycles)" -ForegroundColor White
     Write-Host ""
-    
-    Run-ShapedTest `
+
+    Run-ScenarioTest `
         -TestName "periodic_scenario_a" `
-        -Shape "periodic_a" `
+        -LocustFile "locust/locustfile_scenario_a.py" `
         -Description "Periodic workload: 100 users peak, 10 users low demand (2 cycles)"
-    
+
     Write-Host "Cooldown period (30s)..." -ForegroundColor Gray
     Start-Sleep -Seconds 30
 }
@@ -119,12 +111,12 @@ if ($TestType -eq "periodic-b" -or $TestType -eq "all") {
     Write-Host "Pattern: Low(20) -> Ramp up -> Peak(1000) -> Ramp down -> Low(20)" -ForegroundColor White
     Write-Host "Duration: ~30 minutes (2 full cycles)" -ForegroundColor White
     Write-Host ""
-    
-    Run-ShapedTest `
+
+    Run-ScenarioTest `
         -TestName "periodic_scenario_b" `
-        -Shape "periodic_b" `
+        -LocustFile "locust/locustfile_scenario_b.py" `
         -Description "Periodic workload: 1000 users peak, 20 users low demand (2 cycles)"
-    
+
     Write-Host "Cooldown period (60s)..." -ForegroundColor Gray
     Start-Sleep -Seconds 60
 }
@@ -147,16 +139,11 @@ if ($TestType -eq "lifetime" -or $TestType -eq "all") {
     Write-Host "  - With degradation (p95 < 2000ms, error < 5%)" -ForegroundColor White
     Write-Host "  - Failure (p95 >= 2000ms or error >= 5%)" -ForegroundColor White
     Write-Host ""
-    
-    Run-ShapedTest `
+
+    Run-ScenarioTest `
         -TestName "lifetime_growth_${GrowthRate}users_per_min" `
-        -Shape "lifetime" `
-        -Description "Once-in-a-lifetime: Continuous growth from 10 users at $GrowthRate users/min" `
-        -EnvVars @{
-            "GROWTH_RATE" = "$GrowthRate"
-            "MAX_USERS" = "$MaxUsers"
-            "MAX_DURATION" = "$MaxDuration"
-        }
+        -LocustFile "locust/locustfile_scenario_lifetime.py" `
+        -Description "Once-in-a-lifetime: Continuous growth from 10 users at $GrowthRate users/min"
 }
 
 # Additional lifetime test variations
@@ -166,16 +153,11 @@ if ($TestType -eq "lifetime-slow") {
     Write-Host "  5.2 Once-in-a-Lifetime - Slow Growth (10 users/min)" -ForegroundColor Magenta
     Write-Host "======================================================================" -ForegroundColor Magenta
     Write-Host ""
-    
-    Run-ShapedTest `
+
+    Run-ScenarioTest `
         -TestName "lifetime_slow_growth" `
-        -Shape "lifetime" `
-        -Description "Once-in-a-lifetime: Slow growth (10 users/min)" `
-        -EnvVars @{
-            "GROWTH_RATE" = "10"
-            "MAX_USERS" = "2000"
-            "MAX_DURATION" = "2400"  # 40 minutes
-        }
+        -LocustFile "locust/locustfile_scenario_lifetime.py" `
+        -Description "Once-in-a-lifetime: Slow growth (10 users/min)"
 }
 
 if ($TestType -eq "lifetime-fast") {
@@ -184,16 +166,11 @@ if ($TestType -eq "lifetime-fast") {
     Write-Host "  5.2 Once-in-a-Lifetime - Fast Growth (50 users/min)" -ForegroundColor Magenta
     Write-Host "======================================================================" -ForegroundColor Magenta
     Write-Host ""
-    
-    Run-ShapedTest `
+
+    Run-ScenarioTest `
         -TestName "lifetime_fast_growth" `
-        -Shape "lifetime" `
-        -Description "Once-in-a-lifetime: Fast growth (50 users/min)" `
-        -EnvVars @{
-            "GROWTH_RATE" = "50"
-            "MAX_USERS" = "3000"
-            "MAX_DURATION" = "1200"  # 20 minutes
-        }
+        -LocustFile "locust/locustfile_scenario_lifetime.py" `
+        -Description "Once-in-a-lifetime: Fast growth (50 users/min)"
 }
 
 # ============================================================================

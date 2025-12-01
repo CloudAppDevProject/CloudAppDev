@@ -4,6 +4,12 @@ services:
     image: postgres:16-alpine
     container_name: cloudappdev_postgres_users
     restart: unless-stopped
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=1000"
+      - "-c"
+      - "shared_buffers=256MB"
     environment:
       POSTGRES_DB: users_db
       POSTGRES_USER: appuser
@@ -22,6 +28,12 @@ services:
     image: postgres:16-alpine
     container_name: cloudappdev_postgres_itineraries
     restart: unless-stopped
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=1000"
+      - "-c"
+      - "shared_buffers=256MB"
     environment:
       POSTGRES_DB: itineraries_db
       POSTGRES_USER: appuser
@@ -162,6 +174,11 @@ services:
     restart: unless-stopped
     ports:
       - "8000:80"
+    environment:
+      # Use Docker's built-in DNS resolver for service discovery
+      # In Docker Compose: 127.0.0.11:53 (Docker daemon's embedded DNS server)
+      # Override with RESOLVER_IP=kube-dns.kube-system.svc.cluster.local for Kubernetes
+      RESOLVER_IP: "127.0.0.11"
     depends_on:
       - user-service
       - itinerary-service
