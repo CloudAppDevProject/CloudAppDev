@@ -92,7 +92,7 @@ class LoadTestShape(BaseLoadTestShape):
     base_users = 10
     growth_rate = float(os.getenv('GROWTH_RATE', '120'))  # users per minute (default: 120 = 2 users/sec)
     max_users = int(os.getenv('MAX_USERS', '3500'))  # safety limit
-    max_duration = int(os.getenv('MAX_DURATION', '1800'))  # 30 minutes default (reach 3000+ users)
+    max_duration = int(os.getenv('MAX_DURATION', '900'))  # 15 minutes default (reach 3000+ users)
     spawn_rate = 30  # users per second when adding (faster spawning)
     
     def tick(self):
