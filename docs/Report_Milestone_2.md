@@ -7,8 +7,19 @@
 
 
 ### 1.1 System Context
-<!-- Sam -->
-<!-- Requirements: Provide a system context diagram and describe neighboring systems, external interfaces, and actors. -->
+The following diagram shows the system context containing an User, the application, an external Weather provider and an external geolocation service.
+
+![System Context Diagram](system-context-diagram.drawio.svg)
+
+#### 1.1.1 User
+The user interacts with the application by planning, creating and viewing itineraries. These can either be his own or from other users.
+
+#### 1.1.2 Weather provider
+The weather provider is an open api which can be accessed with an api key to obtain the current weather aswell as the forecast for up to 7 days.
+
+#### 1.1.3 Geographic location provider
+Another Public api which serves latitude and longitude for a certain City or
+the City for a given pair of coordinates. 
 
 
 ### 1.2 Feature Overview
@@ -943,13 +954,22 @@ erDiagram
 
 ## 3 Runtime View
 
-
-
 ### 3.1 Runtime Overview
-<!-- Sam -->
-<!-- Requirements: Describe cloud resources (diagram), external interfaces, UI interfaces, configuration of cloud resources, synchronous/asynchronous services, and links to running application/environment. -->
+The application is publicly accessible: [CloudAppDev.site](https://cloudappdev.site)\
+Links: 
+- [Google Cloud Platform Project](https://console.cloud.google.com/welcome?project=oceanic-citadel-474512-c1) 
+- [GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=oceanic-citadel-474512-c1)
+- [GKE Gateways](https://console.cloud.google.com/kubernetes/gateways?project=oceanic-citadel-474512-c1)
+- [Cloud SQL](https://console.cloud.google.com/sql/instances?project=oceanic-citadel-474512-c1)
+- [Cloud Firestore](https://console.cloud.google.com/firestore/databases?project=oceanic-citadel-474512-c1)
+- [Cloud Storage Buckets](https://console.cloud.google.com/storage/browser?project=oceanic-citadel-474512-c1&prefix=&forceOnBucketsSortingFiltering=true&bucketType=live)
 
+#### 3.1.1 Architecture Diagram
+The following diagramm shows our architecture at run time, including all services, cron-jobs, inter service communication etc.
+![Mircoservice Architecture diagram](/docs/Micro-Architektur.drawio.svg)
 
+#### 3.1.2 Service description
+<!-- SAM TODO -->
 
 ### 3.2 Microservices
 <!-- Simon² -->
@@ -1342,11 +1362,26 @@ Each service is independently deployable, scalable, and maintainable following c
 
 ## 4 DevOps
 
-
-
 ### 4.1 IaC
-<!-- Sam -->
-<!-- Requirements: Describe Infrastructure-as-Code setup. -->
+The infratructure is split into 2 configurations. The first part is Terraform and the other is Helm & Kubernetes. 
+
+#### 4.1.1 Terraform
+Here is all google cloud service accounts with roles and any needed cloud storage configured. This includes Cloud PostgresSQL databases, Firestore NoSQL databases and Cloud bucket file storage. 
+
+#### 4.1.2 Helm & Kubernetes
+All the microservices and required componentes to publish the webservice reside inside a kubernetes cluster. This includes the following:
+- External & Internal Gateways
+- HTTP Routes
+- Service Healthchecks
+- GKE service accounts
+
+And for each of the Microservices: 
+1. The deployment of the service code
+2. A kubernetes service to make deployed service accessible
+3. A Horizontal Pod Autoscaler
+4. Secrets containing the required environment variables, keys and tokens
+
+Helm is used to allow easy maintenance of service configurations and versioning.
 
 ## 5 Performance Tests
 
