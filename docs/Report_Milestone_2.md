@@ -968,8 +968,26 @@ Links:
 The following diagramm shows our architecture at run time, including all services, cron-jobs, inter service communication etc.
 ![Mircoservice Architecture diagram](/docs/Micro-Architektur.drawio.svg)
 
-#### 3.1.2 Service description
-<!-- SAM TODO -->
+#### 3.1.2 Service Description
+
+- **Synchronous Services:**
+  - The web frontend (Next.js) implements both server-side rendering (SSR) and client-side rendering (CSR), providing immediate user feedback and direct API calls to backend microservices.
+  - All backend microservices expose RESTful HTTP APIs, enabling synchronous request-response interactions for CRUD operations, authentication, and data retrieval. These APIs are consumed by the frontend and other services using standard HTTP calls over internal cluster DNS.
+  - Synchronous communication ensures real-time responses for user actions, such as login, itinerary creation, and social interactions (likes, comments).
+
+- **Asynchronous Services:**
+  - Asynchronous operations are implemented using Kubernetes CronJobs and background jobs. For example, the Social Service includes a `newsletter-cronjob.yaml` that periodically triggers newsletter generation and delivery, decoupled from user-facing requests.
+  - Email delivery (SendGrid, Nodemailer) and batch processing tasks (e.g., retrying failed newsletter deliveries) are handled asynchronously, allowing the system to process large volumes of data or external API calls without blocking user interactions.
+  - Seeder Service runs as a Kubernetes Job, initializing databases asynchronously during deployment or on demand.
+  - Asynchronous patterns ensure scalability and reliability for tasks that do not require immediate user feedback, such as scheduled notifications, data seeding, and batch updates.
+
+**Common Runtime Features**
+- All microservices are stateless and horizontally scalable via HPA.
+- Each service is exposed via a dedicated LoadBalancer service for direct access and load balancing.
+- Inter-service communication uses internal cluster DNS and REST APIs, not the API Gateway.
+- Sidecars (Cloud SQL Proxy) are used for secure database access where needed.
+- Secrets and sensitive configs are injected via Kubernetes Secrets and environment variables.
+
 
 ### 3.2 Microservices
 <!-- Simon² -->
