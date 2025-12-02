@@ -5,6 +5,7 @@
   "scripts": {
     "build": "slidev build",
     "dev": "slidev --open",
+    "dev:milestone-2": "npx slidev slides2.md --open",
     "export": "slidev export"
   },
   "dependencies": {
