@@ -14,14 +14,28 @@ spec:
       serviceAccountName: cloudappdev-sa
       containers:
       - name: social-service
-        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.2.27
+        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service:0.2.31
         resources:
           limits:
+            memory: "512Mi"
+            cpu: "1000m"
+          requests:
             memory: "128Mi"
-            cpu: "500m"
+            cpu: "200m"
         ports:
         - containerPort: 8082
           name: social-port
+        startupProbe:
+          tcpSocket:
+            port: 8082
+          initialDelaySeconds: 5
+          failureThreshold: 30
+          periodSeconds: 1
+        livenessProbe:
+          tcpSocket:
+            port: 8082
+          initialDelaySeconds: 30
+          periodSeconds: 10
         env:
         - name: NODE_ENV
           valueFrom:
@@ -57,7 +71,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: social-service-secrets
-              key: NEWSLETTER_FROM_NAME
+              key: SENDGRID_FROM_NAME
         - name: NEWSLETTER_MODE
           valueFrom:
             secretKeyRef:

@@ -1,0 +1,25 @@
+Method,Name,Error,Occurrences
+POST,Journey: Create First Itinerary,HTTPError('503 Server Error: Service Unavailable for url: Journey: Create First Itinerary'),2475
+POST,Journey: Create Itinerary,HTTPError('503 Server Error: Service Unavailable for url: Journey: Create Itinerary'),4495
+GET,Journey: Browse Popular,HTTPError('503 Server Error: Service Unavailable for url: Journey: Browse Popular'),2
+GET,Journey: Quick Browse,HTTPError('500 Server Error: Internal Server Error for url: Journey: Quick Browse'),16631
+GET,Journey: View Comments,HTTPError('500 Server Error: Internal Server Error for url: Journey: View Comments'),608
+GET,Journey: My Itineraries,HTTPError('503 Server Error: Service Unavailable for url: Journey: My Itineraries'),1
+GET,Journey: View Detail,HTTPError('500 Server Error: Internal Server Error for url: Journey: View Detail'),6737
+GET,Journey: Search Destination,HTTPError('500 Server Error: Internal Server Error for url: Journey: Search Destination'),4338
+GET,Journey: Browse Feed,HTTPError('500 Server Error: Internal Server Error for url: Journey: Browse Feed'),7507
+POST,Journey: Like,HTTPError('500 Server Error: Internal Server Error for url: Journey: Like'),644
+POST,Journey: Like Itinerary,HTTPError('500 Server Error: Internal Server Error for url: Journey: Like Itinerary'),10
+GET,Journey: My Itineraries,HTTPError('500 Server Error: Internal Server Error for url: Journey: My Itineraries'),7596
+GET,Journey: Browse Popular,HTTPError('500 Server Error: Internal Server Error for url: Journey: Browse Popular'),4145
+GET,Journey: Search Destination,HTTPError('504 Server Error: Gateway Timeout for url: Journey: Search Destination'),72
+GET,Journey: Search,HTTPError('500 Server Error: Internal Server Error for url: Journey: Search'),16631
+GET,Journey: Search,HTTPError('503 Server Error: Service Unavailable for url: Journey: Search'),2
+GET,Journey: View Popular,HTTPError('500 Server Error: Internal Server Error for url: Journey: View Popular'),14643
+GET,Fetch Available Itineraries,CatchResponseError('Failed to fetch: 500'),200
+GET,Journey: View Comments,HTTPError('503 Server Error: Service Unavailable for url: Journey: View Comments'),1
+POST,Journey: Create Itinerary,HTTPError('500 Server Error: Internal Server Error for url: Journey: Create Itinerary'),2488
+POST,Journey: Add Comment,HTTPError('500 Server Error: Internal Server Error for url: Journey: Add Comment'),324
+POST,Journey: Create First Itinerary,HTTPError('500 Server Error: Internal Server Error for url: Journey: Create First Itinerary'),1376
+GET,Journey: Search,HTTPError('504 Server Error: Gateway Timeout for url: Journey: Search'),296
+GET,Journey: View Details,HTTPError('500 Server Error: Internal Server Error for url: Journey: View Details'),3800

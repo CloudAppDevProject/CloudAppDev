@@ -1,0 +1,129 @@
+================================================================================
+MICROSERVICES LOAD TEST REPORT
+================================================================================
+Timestamp: 2025-12-02 01:15:25
+Target Host: https://cloudappdev.site
+Architecture: Microservices with API Gateway
+
+SUMMARY STATISTICS
+--------------------------------------------------------------------------------
+Total Requests: 245145
+Total Failures: 95175
+Average Response Time: 6145.17ms
+Min Response Time: 37.40ms
+Max Response Time: 53362.65ms
+Requests/sec: 271.95
+Failure Rate: 38.82%
+
+RESPONSE TIME PERCENTILES
+--------------------------------------------------------------------------------
+50th percentile: 8400.00ms
+75th percentile: 10000.00ms
+90th percentile: 10000.00ms
+95th percentile: 11000.00ms
+99th percentile: 17000.00ms
+
+DETAILED ENDPOINT STATISTICS
+--------------------------------------------------------------------------------
+
+Endpoint: Fetch Available Itineraries
+  Requests: 551
+  Failures: 200
+  Avg Response Time: 8699.21ms
+  Min/Max: 170.24ms / 12670.75ms
+
+Endpoint: Journey: View Popular
+  Requests: 30672
+  Failures: 14666
+  Avg Response Time: 7613.71ms
+  Min/Max: 43.37ms / 22768.24ms
+
+Endpoint: Journey: Quick Browse
+  Requests: 30912
+  Failures: 16666
+  Avg Response Time: 7717.87ms
+  Min/Max: 42.02ms / 23095.36ms
+
+Endpoint: Journey: Search
+  Requests: 30433
+  Failures: 16962
+  Avg Response Time: 10108.04ms
+  Min/Max: 44.87ms / 30728.50ms
+
+Endpoint: User Registration
+  Requests: 3421
+  Failures: 0
+  Avg Response Time: 371.82ms
+  Min/Max: 128.14ms / 5927.99ms
+
+Endpoint: Journey: View Comments
+  Requests: 22404
+  Failures: 609
+  Avg Response Time: 179.21ms
+  Min/Max: 40.45ms / 6965.22ms
+
+Endpoint: Journey: Create Itinerary
+  Requests: 14983
+  Failures: 6996
+  Avg Response Time: 7476.77ms
+  Min/Max: 47.22ms / 22028.42ms
+
+Endpoint: Journey: Browse Feed
+  Requests: 14576
+  Failures: 7520
+  Avg Response Time: 7527.26ms
+  Min/Max: 45.49ms / 23160.71ms
+
+Endpoint: Journey: Search Destination
+  Requests: 7854
+  Failures: 4412
+  Avg Response Time: 10203.88ms
+  Min/Max: 50.53ms / 53362.65ms
+
+Endpoint: Journey: View Details
+  Requests: 7798
+  Failures: 3804
+  Avg Response Time: 7766.41ms
+  Min/Max: 45.13ms / 22285.49ms
+
+Endpoint: Journey: View Detail
+  Requests: 14830
+  Failures: 6748
+  Avg Response Time: 7392.72ms
+  Min/Max: 37.40ms / 21608.21ms
+
+Endpoint: Journey: Add Comment
+  Requests: 12664
+  Failures: 324
+  Avg Response Time: 183.86ms
+  Min/Max: 41.21ms / 7055.47ms
+
+Endpoint: Journey: Like
+  Requests: 21767
+  Failures: 644
+  Avg Response Time: 459.37ms
+  Min/Max: 42.25ms / 7444.70ms
+
+Endpoint: Journey: Browse Popular
+  Requests: 7704
+  Failures: 4147
+  Avg Response Time: 7856.16ms
+  Min/Max: 53.71ms / 21577.73ms
+
+Endpoint: Journey: Create First Itinerary
+  Requests: 7902
+  Failures: 3853
+  Avg Response Time: 7815.05ms
+  Min/Max: 44.13ms / 21789.80ms
+
+Endpoint: Journey: Like Itinerary
+  Requests: 1942
+  Failures: 10
+  Avg Response Time: 402.99ms
+  Min/Max: 47.18ms / 3257.82ms
+
+Endpoint: Journey: My Itineraries
+  Requests: 14732
+  Failures: 7614
+  Avg Response Time: 7411.69ms
+  Min/Max: 42.20ms / 21971.12ms

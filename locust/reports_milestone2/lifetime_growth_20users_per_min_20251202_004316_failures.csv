@@ -1,0 +1,26 @@
+Method,Name,Error,Occurrences
+GET,Fetch Available Itineraries,CatchResponseError('Failed to fetch: 503'),1
+POST,Journey: Create First Itinerary,HTTPError('503 Server Error: Service Unavailable for url: Journey: Create First Itinerary'),6
+POST,Journey: Create Itinerary,HTTPError('503 Server Error: Service Unavailable for url: Journey: Create Itinerary'),20
+GET,Journey: Browse Popular,HTTPError('503 Server Error: Service Unavailable for url: Journey: Browse Popular'),15
+POST,Journey: Like,HTTPError('503 Server Error: Service Unavailable for url: Journey: Like'),20
+GET,Journey: Quick Browse,HTTPError('500 Server Error: Internal Server Error for url: Journey: Quick Browse'),3
+GET,Journey: My Itineraries,HTTPError('503 Server Error: Service Unavailable for url: Journey: My Itineraries'),15
+GET,Journey: View Detail,HTTPError('500 Server Error: Internal Server Error for url: Journey: View Detail'),1
+GET,Journey: Browse Feed,HTTPError('503 Server Error: Service Unavailable for url: Journey: Browse Feed'),11
+GET,Journey: Browse Feed,HTTPError('500 Server Error: Internal Server Error for url: Journey: Browse Feed'),1
+GET,Journey: My Itineraries,HTTPError('500 Server Error: Internal Server Error for url: Journey: My Itineraries'),1
+GET,Journey: Browse Popular,HTTPError('500 Server Error: Internal Server Error for url: Journey: Browse Popular'),1
+GET,Journey: View Popular,HTTPError('503 Server Error: Service Unavailable for url: Journey: View Popular'),36
+GET,Journey: View Detail,HTTPError('503 Server Error: Service Unavailable for url: Journey: View Detail'),21
+GET,Journey: View Details,HTTPError('503 Server Error: Service Unavailable for url: Journey: View Details'),9
+POST,User Registration,HTTPError('503 Server Error: Service Unavailable for url: User Registration'),6
+GET,Journey: Search,HTTPError('500 Server Error: Internal Server Error for url: Journey: Search'),5
+GET,Journey: Search,HTTPError('503 Server Error: Service Unavailable for url: Journey: Search'),34
+GET,Journey: View Popular,HTTPError('500 Server Error: Internal Server Error for url: Journey: View Popular'),1
+GET,Journey: View Comments,HTTPError('503 Server Error: Service Unavailable for url: Journey: View Comments'),26
+GET,Journey: Search Destination,HTTPError('503 Server Error: Service Unavailable for url: Journey: Search Destination'),10
+GET,Journey: Quick Browse,HTTPError('503 Server Error: Service Unavailable for url: Journey: Quick Browse'),36
+POST,Journey: Like Itinerary,HTTPError('503 Server Error: Service Unavailable for url: Journey: Like Itinerary'),1
+GET,Journey: View Details,HTTPError('500 Server Error: Internal Server Error for url: Journey: View Details'),1
+POST,Journey: Add Comment,HTTPError('503 Server Error: Service Unavailable for url: Journey: Add Comment'),12

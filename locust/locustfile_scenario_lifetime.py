@@ -90,7 +90,7 @@ class LoadTestShape(BaseLoadTestShape):
     
     # Configuration - can be overridden via environment variables
     base_users = 10
-    growth_rate = float(os.getenv('GROWTH_RATE', '120'))  # users per minute (default: 120 = 2 users/sec)
+    growth_rate = float(os.getenv('GROWTH_RATE', '360'))  # users per minute (default: 120 = 2 users/sec)
     max_users = int(os.getenv('MAX_USERS', '3500'))  # safety limit
     max_duration = int(os.getenv('MAX_DURATION', '900'))  # 15 minutes default (reach 3000+ users)
     spawn_rate = 30  # users per second when adding (faster spawning)
@@ -796,7 +796,6 @@ def on_test_stop(environment, **kwargs):
         f.write("="*80 + "\n")
         f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Target Host: {environment.host}\n")
-        f.write(f"Test Shape: {SHAPE_ENV if SHAPE_ENV else 'Manual'}\n")
         f.write(f"Architecture: Microservices with API Gateway\n\n")
         
         f.write("SUMMARY STATISTICS\n")

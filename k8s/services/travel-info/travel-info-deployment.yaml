@@ -16,8 +16,11 @@ spec:
         image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-travel-info-service:0.2.36
         resources:
           limits:
+            memory: "512Mi"
+            cpu: "1000m"
+          requests:
             memory: "128Mi"
-            cpu: "500m"
+            cpu: "200m"
         ports:
         - name: tis-port
           containerPort: 8083
