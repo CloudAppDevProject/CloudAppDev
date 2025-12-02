@@ -322,41 +322,27 @@ Locust Framework mit realistischen Workloads
 
 ### Seed Data
 
-**Database State:**
-- 10 diverse users (Emma, Liam, Sofia, ...)
-- 18 itineraries across 6 continents
+**Database:**
+- 10  users
+- 18 itineraries
 - 4 comments, 11 likes
-- Trending: Rome Colosseum, Tokyo Tech, Vienna
 
-**Coverage:**
-- Rome, Barcelona, Tokyo, Kyoto
-- Iceland, Norway, Bangkok, Mumbai
-- New Zealand, Australia, Russia
-- Switzerland, Vienna, Paris, Costa Rica
+
 
 </div>
 
 <div>
 
-### User Journeys
+### User Behavior
 
-**Casual Browsers (50%)**
-- Quick browse (5x)
-- Search destinations (3x)
-- View popular itineraries (2x)
-- Optional registration (1x)
+**Casual (50%)**
+- Browse, search, view itineraries
 
-**Active Users (30%)**
-- Browse & like (4x)
-- Check own itineraries (3x)
-- Create new route (2-4 locations)
-- Comment on posts (3x)
+**Active (30%)**
+- Browse, like, create itineraries, comment
 
-**New Users (20%)**
-- Register account
-- Browse popular (3x)
-- Create first itinerary
-- Engage with content
+**New (20%)**
+- Register, explore, create first trip
 
 </div>
 
@@ -394,25 +380,19 @@ Users
 
 <div>
 
-### Performance Metrics
+**Actual Test Results:**
 
-**Throughput:** 60-80 req/sec
+<div style="font-size: 0.70em;">
 
-**Response Times:**
-- p95 < 800ms @ peak
-- p99 < 1500ms
-- Error rate < 0.5%
+| Metric | Value |
+|--------|-------|
+| Total Requests | 20,151 |
+| Throughput | 24 RPS |
+| Response Times (Median) | 56ms |
+| Response Times (p95) | 170ms |
+| Failure Rate | 0.24% (49 failures) |
 
-**Resource Utilization:**
-- User Service: CPU 15-25%, Mem 100MB
-- Itinerary Service: CPU 20-35%, Mem 150MB
-- Social Service: CPU 10-15%, Mem 80MB
-- PostgreSQL: CPU 30-40%
-- MongoDB: < 100ms queries
-
-**Analysis:**
-System handles daily spikes efficiently. Latency remains acceptable, horizontal scaling not yet required.
-
+</div>
 </div>
 
 </div>
@@ -449,24 +429,20 @@ Users
 
 <div>
 
-### Performance Metrics
+**Actual Test Results:**
 
-**Throughput:** 600-800 req/sec
+<div style="font-size: 0.60em;">
 
-**Response Times:**
-- p95: 1500-2000ms (3x degradation)
-- p99: 3000ms+
-- Error rate: 0.5-2% @ peak
+| Metric | Value |
+|--------|-------|
+| Total Requests | 346,821 |
+| Throughput | 192.67 RPS (sustained) |
+| Response Times (Median) | 290ms |
+| Response Times (p95) | 4,200ms |
+| Failure Rate | 0.88% (3,044 failures) |
 
-**Bottleneck: PostgreSQL Connection Pool**
-- 20 connections/service (40 total)
-- Queue saturation @ 450+ users
-- 500-2000ms delays on simple queries
+</div>
 
-**Mitigation Strategy:**
-- PgBouncer: 200+ connections
-- Read replicas for Itinerary reads
-- Circuit breaker @ p95 > 1500ms
 
 </div>
 
@@ -476,55 +452,19 @@ Users
 
 # Once-in-a-Lifetime Workload
 
-<div class="grid grid-cols-2 gap-8 mt-6">
+<div class="grid grid-cols-2 gap-8 h-full">
 
 <div>
-
-### Continuous Growth Pattern
-
-```
-Users
-610 ┤                                              ╱
-    │                                            ╱
-500 ┤                                          ╱
-    │                                        ╱
-400 ┤                                      ╱
-    │                                    ╱
-300 ┤                                  ╱
-    │                                ╱
-200 ┤                              ╱
-    │                            ╱
-100 ┤                          ╱
-    │                        ╱
- 10 ┼═════════════════════════
-    └─────────────────────────────────────────────→ Time
-    0        10m       20m       30m
-```
-
-**Growth:** 20 users/minute
-**Formula:** `users = 10 + (20 × minutes)`
-**Max cap:** 3000 users (safety)
-
+<img src="/users_lifetime.png" alt="User Growth Over Time" style="width: auto; height: 95%; display: block; margin: 0 auto;">
 </div>
 
-<div>
+<div class="flex flex-col justify-center">
 
-### Breaking Points
+## Critical Findings
 
-| Users | Req/sec | p95 | Error | State |
-|-------|---------|-----|-------|-------|
-| 50 | 60 | 200ms | <0.1% | ✅ Green |
-| 150 | 180 | 400ms | <0.5% | ✅ Green |
-| 250 | 300 | 1000ms | 1.5% | ⚠️ Yellow |
-| 350 | 420 | 1500ms | 3% | 🔴 Red |
-| 450 | 540 | 2000ms | 5% | 🔴 Critical |
-| 550+ | 660+ | 3000ms+ | 10%+ | ⚫ Failed |
-
-**Primary Bottleneck:**
-PostgreSQL connection pool exhaustion
-
-**Secondary:**
-MongoDB disk I/O @ 500+ users
+- Error emergence: ~**1,800 concurrent users**
+- Linear error growth (0.45-0.65% per 100 users added)
+- Root Cause: Prisma connection pool exhaustion in Itinerary Service pods
 
 </div>
 
@@ -532,113 +472,44 @@ MongoDB disk I/O @ 500+ users
 
 ---
 
-# Performance Thresholds
+# Performance Thresholds (Updated Results)
 
 <div class="grid grid-cols-3 gap-6 mt-12">
 
 <div class="p-6 rounded-lg" style="background-color: #1f1d2e; border: 3px solid #9ccfd8;">
 <div class="text-2xl font-bold mb-4 text-center" style="color: #9ccfd8;">No Degradation</div>
 <div class="text-sm" style="color: #908caa;">
-<strong>Load:</strong> ~200 users (240 req/sec)<br/>
-<strong>Criteria:</strong> p95 < 500ms, error < 1%<br/>
-<strong>PostgreSQL:</strong> CPU < 40%<br/>
-<strong>Status:</strong> All services healthy
+<strong>Load:</strong> ~1,770 users<br/>
+<strong>Criteria:</strong> p95 9-10s, error < 0.03%<br/>
+<strong>Status:</strong> All services healthy<br/>
+<strong>Throughput:</strong> ~200-400 req/sec
 </div>
 </div>
 
 <div class="p-6 rounded-lg" style="background-color: #1f1d2e; border: 3px solid #f6c177;">
 <div class="text-2xl font-bold mb-4 text-center" style="color: #f6c177;">With Degradation</div>
 <div class="text-sm" style="color: #908caa;">
-<strong>Load:</strong> 200-450 users (240-540 req/sec)<br/>
-<strong>Criteria:</strong> p95 < 2000ms, error < 5%<br/>
-<strong>Connection Pool:</strong> 80%+ utilized<br/>
-<strong>Status:</strong> Functional but slower
+<strong>Load:</strong> 1,800-2,500 users<br/>
+<strong>Criteria:</strong> p95 10-12s, error 0.03-5.9%<br/>
+<strong>Pool Status:</strong> Approaching exhaustion<br/>
+<strong>Status:</strong> Linear error growth
 </div>
 </div>
 
 <div class="p-6 rounded-lg" style="background-color: #1f1d2e; border: 3px solid #eb6f92;">
 <div class="text-2xl font-bold mb-4 text-center" style="color: #eb6f92;">Failure</div>
 <div class="text-sm" style="color: #908caa;">
-<strong>Load:</strong> 450+ users (540+ req/sec)<br/>
-<strong>Criteria:</strong> p95 ≥ 2000ms OR error ≥ 5%<br/>
-<strong>Connection Pool:</strong> Exhausted<br/>
-<strong>Status:</strong> Cascading timeouts
+<strong>Load:</strong> 2,500+ users<br/>
+<strong>Criteria:</strong> p95 12s, error 5.9-38.75%<br/>
+<strong>Pool Status:</strong> Exhausted<br/>
+<strong>Status:</strong> Continuous degradation
 </div>
 </div>
 
 </div>
 
 <div class="mt-12 text-center" style="color: #908caa;">
-System exhibits <strong style="color: #c4a7e7;">graceful degradation</strong> — casual browsing degrades first, existing reads remain responsive
-</div>
-
----
-
-# Bottleneck Analysis
-
-<div class="grid grid-cols-2 gap-8 mt-6">
-
-<div>
-
-### Primary: PostgreSQL Connection Pool
-
-**Problem:**
-- 20 connections per service (40 total)
-- Queue saturation @ 450+ users
-- 500-2000ms delays vs. 10-50ms baseline
-
-**Impact:**
-- Itinerary creation slows significantly
-- Registration fails (1-2% error rate)
-- Cascading timeouts across services
-
-**Solution:**
-```yaml
-# PgBouncer Deployment
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pgbouncer
-spec:
-  template:
-    spec:
-      containers:
-      - name: pgbouncer
-        env:
-        - name: POOL_MODE
-          value: "session"
-        - name: MAX_CLIENT_CONN
-          value: "200"
-```
-
-</div>
-
-<div>
-
-### Recommended Optimizations
-
-**1. Connection Pooling**
-- Deploy PgBouncer (200+ connections)
-- Session-based pooling mode
-
-**2. Read-Write Splitting**
-- Route reads to replicas
-- Writes to primary only
-
-**3. Cache Layer**
-- Redis for popular itineraries
-- 60-second TTL
-
-**4. Circuit Breaker**
-- Reject registrations @ p95 > 1500ms
-- Queue overflow protection
-
-**5. Rate Limiting**
-- 100 req/min per user
-- 1000 req/sec global cap
-
-</div>
-
+System exhibits <strong style="color: #c4a7e7;">linear error growth</strong> — not discrete thresholds but continuous degradation as load increases
 </div>
 
 ---
@@ -815,6 +686,7 @@ resource "google_sql_database_instance" "users" {
 <div>
 
 ### Architectural Benefits
+<div style="font-size: 0.70em;">
 
 ✅ **Service Isolation**
 - Independent deployment & scaling
@@ -830,7 +702,7 @@ resource "google_sql_database_instance" "users" {
 - Clear domain boundaries
 - Easier testing & debugging
 - Team ownership per service
-
+</div>
 </div>
 
 <div>
@@ -841,11 +713,6 @@ resource "google_sql_database_instance" "users" {
 - Network latency overhead
 - Service discovery requirements
 - Complex debugging across services
-
-⚠️ **Database Bottlenecks**
-- Connection pool exhaustion @ 450+ users
-- Requires PgBouncer for production
-- Read-write splitting needed
 
 ⚠️ **Infrastructure Management**
 - Kubernetes learning curve
@@ -867,5 +734,5 @@ class: text-center
 
 <div class="mt-12 text-sm opacity-75">
 Microservices Architecture | Google Kubernetes Engine | Locust Performance Testing<br/>
-Express.js + Prisma | PostgreSQL 16 + MongoDB | Nginx API Gateway
+Nest.js + Prisma | PostgreSQL 16 + MongoDB | Nginx API Gateway
 </div>
