@@ -962,8 +962,26 @@ Links:
 The following diagramm shows our architecture at run time, including all services, cron-jobs, inter service communication etc.
 ![Mircoservice Architecture diagram](/docs/Micro-Architektur.drawio.svg)
 
-#### 3.1.2 Service description
-<!-- SAM TODO -->
+#### 3.1.2 Service Description
+
+- **Synchronous Services:**
+  - The web frontend (Next.js) implements both server-side rendering (SSR) and client-side rendering (CSR), providing immediate user feedback and direct API calls to backend microservices.
+  - All backend microservices expose RESTful HTTP APIs, enabling synchronous request-response interactions for CRUD operations, authentication, and data retrieval. These APIs are consumed by the frontend and other services using standard HTTP calls over internal cluster DNS.
+  - Synchronous communication ensures real-time responses for user actions, such as login, itinerary creation, and social interactions (likes, comments).
+
+- **Asynchronous Services:**
+  - Asynchronous operations are implemented using Kubernetes CronJobs and background jobs. For example, the Social Service includes a `newsletter-cronjob.yaml` that periodically triggers newsletter generation and delivery, decoupled from user-facing requests.
+  - Email delivery (SendGrid, Nodemailer) and batch processing tasks (e.g., retrying failed newsletter deliveries) are handled asynchronously, allowing the system to process large volumes of data or external API calls without blocking user interactions.
+  - Seeder Service runs as a Kubernetes Job, initializing databases asynchronously during deployment or on demand.
+  - Asynchronous patterns ensure scalability and reliability for tasks that do not require immediate user feedback, such as scheduled notifications, data seeding, and batch updates.
+
+**Common Runtime Features**
+- All microservices are stateless and horizontally scalable via HPA.
+- Each service is exposed via a dedicated LoadBalancer service for direct access and load balancing.
+- Inter-service communication uses internal cluster DNS and REST APIs, not the API Gateway.
+- Sidecars (Cloud SQL Proxy) are used for secure database access where needed.
+- Secrets and sensitive configs are injected via Kubernetes Secrets and environment variables.
+
 
 ### 3.2 Microservices
 <!-- Simon² -->
@@ -1352,7 +1370,26 @@ Each service is independently deployable, scalable, and maintainable following c
 
 ### 3.3 Datastores
 
-[Storage containers at runtime and links to data models to be added]
+| Storage Container | Environment | Type | Purpose | Data Model |
+|------------------|-------------|------|---------|-----------|
+| `postgres-users` | Docker/K8s | PostgreSQL | User accounts, profiles | [Section 2.2 - User Entity](#user-service-database-users_db) |
+| `postgres-itineraries` | Docker/K8s | PostgreSQL | Itineraries, locations | [Section 2.2 - Itinerary/Location](#itinerary-service-database-itineraries_db) |
+| `mongodb-social` / Firestore | Docker / K8s | NoSQL | Likes, comments, newsletter | [Section 2.2 - MongoDB Collections](#mongodb-collections) |
+| Google Cloud Storage | K8s Production | Object Storage | User avatars, location images | Image URLs in PostgreSQL |
+
+**Local Development (Docker):**
+- `cloudappdev_postgres_users` (port 5433)
+- `cloudappdev_postgres_itineraries` (port 5434)
+- `cloudappdev_mongodb_social` (port 27017)
+- Named volumes: `postgres-users-data`, `postgres-itineraries-data`, `mongodb-social-data`
+
+**Cloud Production (GCP):**
+- Cloud SQL PostgreSQL (Users & Itineraries databases)
+- Firestore (Social interactions, newsletter subscriptions & delivery logs)
+- Cloud Storage bucket (Images)
+- Cloud SQL Proxy for pod-to-database connections
+
+**See Section 2.2 for complete data model diagram and schema details.**
 
 ---
 
@@ -1383,7 +1420,58 @@ Helm is used to allow easy maintenance of service configurations and versioning.
 
 ## 5 Performance Tests
 
-### 5.1 Periodic Workload
+### 5.1 Periodic Workload Tests
+**Test Framework:** Locust (Python) on production deployment ([https://cloudappdev.site](https://cloudappdev.site))
+
+**Initialization:** Database seeded with 10 users, 18 itineraries across 6 continents, 4 comments, 11 likes
+
+**Transaction Mix:** 50% Casual Browsers (browse, search), 30% Active Users (create itineraries, comment), 20% New Users (register, explore)
+
+#### Scenario A: 100 Peak / 10 Low Users
+
+**Description:** Fluctuating load between 10 and 100 concurrent users, with 2 min low → 1 min ramp-up → 3 min peak → 1 min ramp-down cycles. Total duration: ~14 minutes (2 cycles).
+
+**Results:**
+
+| Metric | Value |
+|--------|-------|
+| **Total Requests** | 20,151 |
+| **Failure Rate** | 0.24% (49 failures) |
+| **Throughput** | 24 RPS |
+| **Response Times (Median)** | 56ms |
+| **Response Times (p95)** | 170ms |
+| **Resource Utilization** | Stable, low consumption |
+
+**Analysis:** System handles normal peak traffic with excellent performance. Sub-second response times and minimal failures confirm the architecture is well-sized for regular daily operations with moderate traffic fluctuations.
+
+---
+
+#### Scenario B: 1000 Peak / 20 Low Users
+
+**Description:** Fluctuating load between 20 and 1000 concurrent users, with 4 min low → 2 min ramp-up → 7 min peak → 2 min ramp-down cycles. Total duration: ~30 minutes (2 cycles).
+
+**Results:**
+
+| Metric | Value |
+|--------|-------|
+| **Total Requests** | 346,821 |
+| **Failure Rate** | 0.88% (3,044 failures) |
+| **Throughput** | 192.67 RPS (sustained) |
+| **Response Times (Median)** | 290ms |
+| **Response Times (p95)** | 4,200ms |
+| **Peak User Load Reached** | 1,000 users |
+
+**Endpoint Performance Analysis:**
+
+| Endpoint Category | Response Time (p95) | Failure Rate |
+|-------------------|-------------------|--------------|
+| Registration | 860ms | 0% |
+| Comments (read/write) | 560-570ms | 2.7% |
+| Likes (read/write) | 650-870ms | 2.9% |
+| Create/Browse Itineraries | 11,000ms | 46-47% |
+| Search Operations | 16,000ms | 55%+ |
+
+**Analysis:** System exhibits clear performance stratification. Fast operations (registration, comments, likes) maintain excellent p95 < 1000ms with minimal failures even at peak load. Heavy read operations (browse, search) and write operations (create itinerary) degrade significantly after ~270 RPS, with p95 timeouts and 46-55% failure rates. The bottleneck has shifted from connection pooling to database query optimization.
 
 #### 5.1.1 Test Overview
 
@@ -1497,7 +1585,6 @@ Scenario B reveals the primary bottleneck: **PostgreSQL connection pool exhausti
 
 **Scaling Requirements:** Horizontal scaling with 2-3 service replicas and **PgBouncer connection pooling** (200+ connections with session pooling) would resolve this bottleneck.
 
----
 
 ### 5.2 Once-in-a-Lifetime Workload
 
@@ -1627,3 +1714,61 @@ The system exhibits **graceful degradation** rather than total failure:
 ## Appendices
 
 [Any additional documentation, diagrams, or references to be added]
+**Description:** Continuous user growth simulation starting at 10 users and adding 20 users per minute continuously for 30+ minutes or until system failure. Growth rate: 20 users/min.
+
+**Results:**
+
+| Metric | Value |
+|--------|-------|
+| **Total Requests** | 244,939 |
+| **Total Failures** | 95,022 |
+| **Failure Rate** | 38.82% |
+| **Peak User Load** | 3,500 users |
+| **Response Times (Median)** | 8,400ms |
+| **Response Times (p95)** | 11,000ms |
+| **Response Times (p99)** | 17,000ms |
+| **Test Duration** | ~30 minutes (until time limit, not system failure) |
+
+**Performance by User Load (Continuous Growth):**
+
+| User Load | Failure Rate | p95 Response Time | Status |
+|-----------|-------------|------------------|--------|
+| 0-1,770 users | 0.0-0.03% | 9,000-10,000ms | ✅ Healthy |
+| 1,800 users | 0.03% | 10,000ms | ✅ Healthy |
+| 1,900 users | 0.16-0.20% | 10,000-11,000ms | ⚠️ Error Growth Begins |
+| 2,000 users | 0.45-0.48% | 11,000ms | ⚠️ Errors Accelerating |
+| 2,100 users | 1.0%+ | 11,000ms | ⚠️ Sustained Error Growth |
+| 2,300 users | 2.5-3% | 12,000ms | ⚠️ Progressive Degradation |
+| 2,500 users | 5.9% | 12,000ms | ⚠️ Error Growth Continues |
+| 2,700 users | 9.2% | 12,000ms | ⚠️ Approaching Failure |
+| 2,800+ users | 11-14% | 12,000ms | ❌ Significant Failures |
+| 3,000 users | 14.84% | 12,000ms | ❌ Critical Load |
+| 3,500 users | 38.75% | 11,000ms | ❌ Extreme Instability (spike) |
+
+**Error Growth Pattern:**
+
+The system exhibits **continuous, linear error growth** from ~1,800 users onward rather than a discrete "degradation phase":
+- **1,770 users:** Nearly 0% failures, responses stable at 9.5-10 seconds
+- **1,800-1,900 users:** Error emergence point; failures begin rising (0.03% → 0.20%)
+- **1,900-2,100 users:** Rapid acceleration; failures jump from 0.2% → 1.0%
+- **2,100-3,000 users:** Steady growth at ~0.45-0.65% per 100 users added
+- **3,000-3,500 users:** Escalation continues; failures grow from 14.84% → 38.75%
+
+**Key Observations:**
+
+1. **No Graceful Degradation:** Unlike Scenario B (which cycled), the lifetime test shows constant error growth. The system never reaches a "stable degraded state" but continuously worsens.
+2. **Response Time Plateau:** p95 response times stabilize at 11,000-12,000ms after ~1,800 users and do not worsen further, indicating the bottleneck is connection exhaustion, not query processing time.
+3. **Throughput Remains Stable:** RPS stays consistent at 180-300 throughout the load growth, confirming connections are limiting factor, not CPU/disk.
+
+**Critical Error Threshold:**
+
+Error emergence begins at ~**1,800 concurrent users** (0.03% failure rate, still negligible). Errors become significant at **2,000 users** (0.48%) and escalate rapidly. At **3,000 users**, failures reach 14.84%, and by **3,500 users**, spike to 38.75%.
+
+**Resource Utilization and Known Issues:**
+
+- **Database Connection Pool (Itinerary Service):** Prisma client connection pool exhaustion begins at ~1,800 users. Not all itinerary service pods could establish SQL connections due to pool timeout (100 connection limit per instance).
+- **Error Message Observed:** "Timed out fetching a new connection from the connection pool. More info: [Prisma Connection Pool Documentation](http://pris.ly/d/connection-pool) (Current connection pool timeout: 10, connection limit: 100)"
+- **Root Cause:** Itinerary service instances experiencing uneven connection pool initialization; some pods unable to acquire connections during high concurrency scenarios. This cascades into client request timeouts at API Gateway (10-second timeout).
+- **Progressive Failure Mode:** As user load increases, more requests queue waiting for connections, resulting in linear error rate growth until system capacity exhaustion.
+
+**Analysis:** System maintains healthy operation with excellent response times (9-10 second p95) up to ~1,770 concurrent users. Error emergence occurs at ~1,800 users due to connection pool exhaustion in Itinerary Service pods. Beyond this threshold, the system exhibits linear error growth: each additional 100 users adds approximately 0.45-0.65% additional failures. Response times plateau at 11-12 seconds, confirming the bottleneck is database connection management, not query execution. The test reaches 3,500 users before time limit (not system failure), at which point 38-39% of requests fail. The bottleneck is not query optimization but database connection pool management and uneven resource initialization across service instances. This is a classic connection pool saturation pattern requiring configuration adjustments (higher pool limits, connection reuse optimization, or pod replication) rather than query optimization.

@@ -23,25 +23,36 @@ spec:
             runAsNonRoot: true
           resources:
             requests:
-              # The proxy's memory use scales linearly with the number of active
-              # connections. Fewer open connections will use less memory. Adjust
-              # this value based on your application's requirements.
-              memory: "2Gi"
-              # The proxy's CPU use scales linearly with the amount of IO between
-              # the database and the application. Adjust this value based on your
-              # application's requirements.
-              cpu: "1"
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
 
       containers:
       - name: itinerary-service
         image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-itinerary-service:0.2.29
         resources:
           limits:
+            memory: "512Mi"
+            cpu: "1000m"
+          requests:
             memory: "128Mi"
-            cpu: "500m"
+            cpu: "200m"
         ports:
         - containerPort: 8081
           name: itinerary-port
+        startupProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 5
+          failureThreshold: 30
+          periodSeconds: 1
+        livenessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
         env:
         - name: NODE_ENV
           valueFrom:

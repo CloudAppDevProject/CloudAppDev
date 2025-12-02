@@ -13,14 +13,17 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-api-gateway:0.2.37
+        image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-api-gateway:0.2.38
         env:
         - name: RESOLVER_IP
           value: "kube-dns.kube-system.svc.cluster.local"
         resources:
           limits:
-            memory: "128Mi"
-            cpu: "500m"
+            memory: "512Mi"
+            cpu: "1000m"
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
         ports:
         - containerPort: 80
         livenessProbe:

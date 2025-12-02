@@ -27,16 +27,32 @@ spec:
                   key: API_GATEWAY_URL
           resources:
             requests:
-              cpu: "250m"
-              memory: "512Mi"
+              cpu: "200m"
+              memory: "256Mi"
             limits:
-              cpu: "500m"
-              memory: "1Gi"
+              cpu: "600m"
+              memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: "/"
+              port: 3000
+            initialDelaySeconds: 10
+            failureThreshold: 30
+            periodSeconds: 1
+            timeoutSeconds: 5
           livenessProbe:
-            httpGet: 
+            httpGet:
               path: "/"
               port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
-            httpGet: 
+            httpGet:
               path: "/"
               port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 2
