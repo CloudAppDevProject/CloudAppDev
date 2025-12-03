@@ -293,8 +293,8 @@ Locust Framework mit realistischen Workloads
 - 18 itineraries across 6 continents
 - 4 comments, 11 likes
 
-**Key Regions:**
-Rome, Tokyo, Barcelona, Bangkok, Iceland, Vienna, Costa Rica
+
+
 
 </div>
 
@@ -363,8 +363,8 @@ Users
 
 </div>
 
-**Analysis:**
-System handles daily spikes with **excellent performance**. Sub-200ms p95 latency and minimal failures confirm stable operation at peak load. Horizontal scaling not required at this intensity.
+
+
 
 </div>
 
@@ -418,24 +418,11 @@ Users
 
 </div>
 
-**Endpoint Performance Degradation:**
 
-<div style="font-size: 0.85em;">
 
-| Operation | p95 Response | Failure Rate |
-|-----------|-------------|--------------|
-| Registration | 860ms | 0% |
-| Comments (read/write) | 560-570ms | 2.7% |
-| Likes (read/write) | 650-870ms | 2.9% |
-| Create/Browse Itineraries | 11,000ms | 46-47% |
-| Search Operations | 16,000ms | 55%+ |
 
-</div>
 
-**Bottleneck: PostgreSQL Connection Pool**
-- System stratified: fast ops (registration, comments) stay responsive
-- Heavy operations degrade significantly after 270 RPS
-- Clear shift from connection pooling to query optimization needs
+
 
 </div>
 
@@ -445,33 +432,16 @@ Users
 
 # Once-in-a-Lifetime Workload
 
-<div class="mt-6 mb-8">
-
-### Continuous Growth Pattern
-
-<img src="/users_lifetime.png" alt="User Growth Over Time" style="width: 100%; max-height: 62vh; height: auto; display: block; margin: 0 auto;">
-
-**Growth:** 360 users/minute | **Formula:** `users = 10 + (360 × minutes)` | **Max cap:** 3,500 users | **Time to cap:** ~10 minutes
-
-</div>
-
-<div class="grid grid-cols-1 gap-8 mt-8">
+<div class="grid grid-cols-2 gap-8 h-full">
 
 <div>
+<img src="/users_lifetime.png" alt="User Growth Over Time" style="width: auto; height: 95%; display: block; margin: 0 auto;">
+</div>
 
-### Actual Breaking Points
+<div class="flex flex-col justify-center">
 
-| User Load | Failure Rate | p95 Response | System Status |
-|-----------|-------------|--------------|---------------|
-| 0-1,770 users | 0.0-0.03% | 9,000-10,000ms | ✅ Healthy |
-| 1,800 users | 0.03% | 10,000ms | ✅ Healthy |
-| 1,900 users | 0.16-0.20% | 10,000-11,000ms | ⚠️ Degradation Begins |
-| 2,000 users | 0.45-0.48% | 11,000ms | ⚠️ Accelerating |
-| 2,500 users | 5.9% | 12,000ms | ⚠️ Progressive Degradation |
-| 3,000 users | 14.84% | 12,000ms | ❌ Critical |
-| 3,500 users | 38.75% | 11,000ms | ❌ Extreme Instability |
+## Critical Findings
 
-**Critical Findings:**
 - Error emergence: ~**1,800 concurrent users**
 - Linear error growth (0.45-0.65% per 100 users added)
 - Root Cause: Prisma connection pool exhaustion in Itinerary Service pods
@@ -520,75 +490,6 @@ Users
 
 <div class="mt-12 text-center" style="color: #908caa;">
 System exhibits <strong style="color: #c4a7e7;">graceful degradation</strong> — casual browsing degrades first, existing reads remain responsive
-</div>
-
----
-
-# Bottleneck Analysis
-
-<div class="grid grid-cols-2 gap-8 mt-6">
-
-<div>
-
-### Primary: PostgreSQL Connection Pool
-
-**Problem:**
-- 20 connections per service (40 total)
-- Queue saturation @ 450+ users
-- 500-2000ms delays vs. 10-50ms baseline
-
-**Impact:**
-- Itinerary creation slows significantly
-- Registration fails (1-2% error rate)
-- Cascading timeouts across services
-
-**Solution:**
-```yaml
-# PgBouncer Deployment
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pgbouncer
-spec:
-  template:
-    spec:
-      containers:
-      - name: pgbouncer
-        env:
-        - name: POOL_MODE
-          value: "session"
-        - name: MAX_CLIENT_CONN
-          value: "200"
-```
-
-</div>
-
-<div>
-
-### Recommended Optimizations
-
-**1. Connection Pooling**
-- Deploy PgBouncer (200+ connections)
-- Session-based pooling mode
-
-**2. Read-Write Splitting**
-- Route reads to replicas
-- Writes to primary only
-
-**3. Cache Layer**
-- Redis for popular itineraries
-- 60-second TTL
-
-**4. Circuit Breaker**
-- Reject registrations @ p95 > 1500ms
-- Queue overflow protection
-
-**5. Rate Limiting**
-- 100 req/min per user
-- 1000 req/sec global cap
-
-</div>
-
 </div>
 
 ---
