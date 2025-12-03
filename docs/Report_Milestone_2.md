@@ -7,8 +7,8 @@
 ### 1.1 System Context
 
 The following diagram shows the system context containing an User, the application, an external Weather provider and an external geolocation service.
-
-![System Context Diagram](system-context-diagram.drawio.svg)
+or here: [WIKI](https://github.com/Sprayer115/CloudAppDev/wiki)
+![System Context Diagram](./Presentation/system-context-diagram.drawio.svg)
 
 #### 1.1.1 User
 The user interacts with the application by planning, creating and viewing itineraries. These can either be his own or from other users.
@@ -960,7 +960,8 @@ Links:
 
 #### 3.1.1 Architecture Diagram
 The following diagramm shows our architecture at run time, including all services, cron-jobs, inter service communication etc.
-![Mircoservice Architecture diagram](/docs/Micro-Architektur.drawio.svg)
+Or here: [WIKI](https://github.com/Sprayer115/CloudAppDev/wiki/Microservice-architecture)
+![Mircoservice Architecture diagram](./Presentation/Micro-Architektur.drawio.svg)
 
 #### 3.1.2 Service Description
 
@@ -1414,7 +1415,7 @@ And for each of the Microservices:
 3. A Horizontal Pod Autoscaler
 4. Secrets containing the required environment variables, keys and tokens
 
-Helm is used to allow easy maintenance of service configurations and versioning.
+Helm is used to allow easy maintenance of service configurations and versioning. Unfortunately we were unable to implement helm in time for this milestone. We will implement it for milestone 3.
 
 ---
 
