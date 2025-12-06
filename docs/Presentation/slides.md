@@ -500,8 +500,6 @@ System exhibits <strong style="color: #c4a7e7;">graceful degradation</strong> â€
 
 **Live Application:** [CloudAppDev.site](https://cloudappdev.site)
 
-**GCP Project:** oceanic-citadel-474512-c1
-
 </div>
 
 <div class="grid grid-cols-2 gap-6 mt-8">
