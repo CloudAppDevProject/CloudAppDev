@@ -1,0 +1,109 @@
+image:
+  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-itinerary-service
+  # This sets the pull policy for images.
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+container:
+  port: 8081
+
+initContainers:
+  - name: cloud-sql-proxy
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+    args:
+      - "--port=5432"
+      - "oceanic-citadel-474512-c1:europe-west1:cloudappdev-tf-itinerary-db"
+    restartPolicy: Always
+    securityContext:
+      runAsNonRoot: true
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+env:
+  - name: NODE_ENV
+    valueFrom:
+      secretKeyRef:
+        name: itinerary-service-secrets
+        key: NODE_ENV
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        key: DATABASE_URL
+        name: itinerary-service-secrets
+  - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+    valueFrom:
+      secretKeyRef:
+        name: itinerary-service-secrets
+        key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+  - name: GOOGLE_CLOUD_STORAGE_BUCKET
+    valueFrom:
+      secretKeyRef:
+        name: itinerary-service-secrets
+        key: GOOGLE_CLOUD_STORAGE_BUCKET
+  - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
+    valueFrom:
+      secretKeyRef:
+        name: itinerary-service-secrets
+        key: GOOGLE_CLOUD_CREDENTIALS_BASE64
+  - name: GOOGLE_CLOUD_PROJECT_ID
+    valueFrom:
+      secretKeyRef:
+        name: itinerary-service-secrets
+        key: GOOGLE_CLOUD_PROJECT_ID
+  - name: FRONTEND_URL
+    valueFrom: 
+      secretKeyRef:
+        key: FRONTEND_URL
+        name: itinerary-service-secrets
+
+serviceAccount:
+  # Specifies whether a service account should be created.
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account.
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template.
+  name: ""
+
+# This is for setting Kubernetes Annotations to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+# This is for setting Kubernetes Labels to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+service:
+  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  type: LoadBalancer
+  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
+  port: 80
+
+readinessProbe:
+  tcpSocket:
+    port: 8081
+  initialDelaySeconds: 5
+  failureThreshold: 30
+  periodSeconds: 1
+livenessProbe:
+  tcpSocket:
+    port: 8081
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
