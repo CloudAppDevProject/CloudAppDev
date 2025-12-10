@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cloudappdev-frontend
+  name: {{ include "app.fullname" . }}
   namespace: default
+  labels: {{ include "app.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      app: cloudappdev-frontend
+      {{ include "app.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: cloudappdev-frontend
+        {{ include "app.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: cloudappdev-sa
+      serviceAccountName: {{ include "app.serviceAccountName" . }}
       containers:
-        - name: frontend
-          image: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-frontend:0.2.15
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           ports:
             - containerPort: 3000
-              name: frontend-port
           env:
             - name: API_GATEWAY_URL
               valueFrom:

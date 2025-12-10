@@ -1,18 +1,18 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: external-gateway
+  name: {{ include "app.fullname" . }}-gateway
   namespace: default
   annotations:
     networking.gke.io/certmap: cloudappdev-map
 spec:
-  gatewayClassName: gke-l7-global-external-managed
+  gatewayClassName: {{ .Values.api.className | quote }}
   listeners:
     - name: https
       protocol: HTTPS
       port: 443
-      hostname: cloudappdev.site
+      hostname: {{ .Values.api.hostname | quote }}
     - name: http
       protocol: HTTP
       port: 80
-      hostname: cloudappdev.site
+      hostname: {{ .Values.api.hostname | quote }}

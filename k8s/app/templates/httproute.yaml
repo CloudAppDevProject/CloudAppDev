@@ -1,0 +1,26 @@
+{{- if .Values.httpRoute.enabled -}}
+{{- $fullName := include "app.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-http
+  namespace: default
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+  {{- with .Values.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    - name: {{ $fullName }}-gateway
+      sectionName: http
+  rules:
+    {{- range .Values.httpRoute.rules }}
+    {{- with .filters }}
+    - filters:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- end }}
+{{- end }}
