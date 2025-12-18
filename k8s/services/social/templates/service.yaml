@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "social.fullname" . }}
+  labels:
+    {{- include "social.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.container.port }}
+      protocol: TCP
+      name: social-svc-port
+  selector:
+    {{- include "social.selectorLabels" . | nindent 4 }}

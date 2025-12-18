@@ -76,6 +76,18 @@ resource "google_service_account_iam_member" "run_sa_gke_binding-itinerary" {
   member  = "serviceAccount:${var.project}.svc.id.goog[default/itinerary-service-sa]"
 }
 
+resource "google_service_account_iam_member" "run_sa_gke_binding-user-service" {
+  service_account_id = google_service_account.run_sa.name
+  role               = "roles/iam.workloadIdentityUser"
+  member  = "serviceAccount:${var.project}.svc.id.goog[default/user-service-sa]"
+}
+
+resource "google_service_account_iam_member" "run_sa_gke_binding-social-service" {
+  service_account_id = google_service_account.run_sa.name
+  role               = "roles/iam.workloadIdentityUser"
+  member  = "serviceAccount:${var.project}.svc.id.goog[default/social-service-sa]"
+}
+
 // ----------- STORAGE BUCKET -----------
 // Cloud storage bucket permissions
 resource "google_project_iam_member" "run_sa_bucket" {

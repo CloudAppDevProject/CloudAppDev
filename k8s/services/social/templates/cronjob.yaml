@@ -1,0 +1,107 @@
+{{- if .Values.newsletter.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "social.fullname" . }}-newsletter
+  labels:
+    {{- include "social.labels" . | nindent 4 }}
+    component: newsletter
+  annotations:
+    description: "Weekly newsletter distribution job for CloudAppDev platform"
+spec:
+  schedule: {{ .Values.newsletter.schedule | quote }}
+  failedJobsHistoryLimit: {{ .Values.newsletter.failedJobsHistoryLimit }}
+  successfulJobsHistoryLimit: {{ .Values.newsletter.successfulJobsHistoryLimit }}
+  concurrencyPolicy: {{ .Values.newsletter.concurrencyPolicy }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.newsletter.backoffLimit }}
+      ttlSecondsAfterFinished: {{ .Values.newsletter.ttlSecondsAfterFinished }}
+      template:
+        metadata:
+          labels:
+            {{- include "social.selectorLabels" . | nindent 12 }}
+            job-type: newsletter
+          annotations:
+            description: "Weekly newsletter send job"
+        spec:
+          serviceAccountName: {{ include "social.serviceAccountName" . }}
+          restartPolicy: OnFailure
+          containers:
+          - name: newsletter-sender
+            image: "{{ .Values.image.repository }}:{{ .Values.newsletter.image.tag | default .Chart.AppVersion }}"
+            imagePullPolicy: Always
+            command:
+            - npm
+            - run
+            - newsletter:send-weekly
+            env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: MONGODB_URI
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_API_KEY
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_FROM_EMAIL
+            - name: SENDGRID_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_FROM_NAME
+            - name: USER_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: USER_SERVICE_URL
+            - name: ITINERARY_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: ITINERARY_SERVICE_URL
+            - name: NEWSLETTER_ENABLED
+              value: {{ .Values.newsletter.env.NEWSLETTER_ENABLED | quote }}
+            - name: NEWSLETTER_BATCH_SIZE
+              value: {{ .Values.newsletter.env.NEWSLETTER_BATCH_SIZE | quote }}
+            - name: NEWSLETTER_RETRY_LIMIT
+              value: {{ .Values.newsletter.env.NEWSLETTER_RETRY_LIMIT | quote }}
+            - name: NEWSLETTER_RETRY_DELAY_MS
+              value: {{ .Values.newsletter.env.NEWSLETTER_RETRY_DELAY_MS | quote }}
+            - name: FRONTEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: FRONTEND_URL
+            - name: NODE_ENV
+              value: {{ .Values.newsletter.env.NODE_ENV | quote }}
+            - name: NEWSLETTER_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: NEWSLETTER_MODE
+            resources:
+              {{- toYaml .Values.newsletter.resources | nindent 14 }}
+          {{- with .Values.newsletter.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                      - cloudappdev-app
+                  topologyKey: kubernetes.io/hostname
+{{- end }}
