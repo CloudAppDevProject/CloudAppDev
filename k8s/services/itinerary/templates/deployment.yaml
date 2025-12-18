@@ -26,14 +26,13 @@ spec:
           ports:
             - name: itinerary-port
               containerPort: {{ .Values.container.port }}
-              protocol: TCP
           resources:
-          limits:
-            memory: "512Mi"
-            cpu: "1000m"
-          requests:
-            memory: "128Mi"
-            cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+            requests:
+              memory: "128Mi"
+              cpu: "200m"
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

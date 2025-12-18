@@ -11,6 +11,14 @@ env:
   - name: RESOLVER_IP
     value: "kube-dns.kube-system.svc.cluster.local"
 
+resources:
+  limits:
+    memory: "512Mi"
+    cpu: "1000m"
+  requests:
+    memory: "32Mi"
+    cpu: "50m"
+    
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
   type: LoadBalancer

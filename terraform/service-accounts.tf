@@ -70,6 +70,12 @@ resource "google_service_account_iam_member" "run_sa_gke_binding" {
   member  = "serviceAccount:${var.project}.svc.id.goog[default/cloudappdev-sa]"
 }
 
+resource "google_service_account_iam_member" "run_sa_gke_binding-itinerary" {
+  service_account_id = google_service_account.run_sa.name
+  role               = "roles/iam.workloadIdentityUser"
+  member  = "serviceAccount:${var.project}.svc.id.goog[default/itinerary-service-sa]"
+}
+
 // ----------- STORAGE BUCKET -----------
 // Cloud storage bucket permissions
 resource "google_project_iam_member" "run_sa_bucket" {
