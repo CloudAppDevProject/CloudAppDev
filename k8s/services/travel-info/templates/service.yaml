@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "travel-info.fullname" . }}
+  labels:
+    {{- include "travel-info.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.container.port }}
+  selector:
+    {{- include "travel-info.selectorLabels" . | nindent 4 }}
