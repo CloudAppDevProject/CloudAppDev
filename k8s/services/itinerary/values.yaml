@@ -5,6 +5,10 @@ image:
 
 container:
   port: 8081
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
 
 podLabels: {}
 
@@ -19,11 +23,8 @@ initContainers:
       runAsNonRoot: true
     resources:
       requests:
-        memory: "256Mi"
         cpu: "250m"
-      limits:
         memory: "512Mi"
-        cpu: "500m"
 
 env:
   - name: NODE_ENV

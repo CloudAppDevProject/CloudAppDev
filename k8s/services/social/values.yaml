@@ -5,6 +5,10 @@ image:
 
 container:
   port: 8082
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
 
 podLabels: {}
 
@@ -97,11 +101,8 @@ newsletter:
     NODE_ENV: "production"
   resources:
     requests:
-      memory: "512Mi"
-      cpu: "250m"
-    limits:
+      cpu: "500m"
       memory: "1Gi"
-      cpu: "1000m"
   tolerations:
     - key: "batch-jobs"
       operator: "Equal"

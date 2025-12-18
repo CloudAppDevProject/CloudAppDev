@@ -23,14 +23,11 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: social-port
-              containerPort: {{ .Values.container.port }}
+              containerPort: {{ .Values.container.port }}       
+          {{- with .Values.container.resources }}
           resources:
-            limits:
-              memory: "512Mi"
-              cpu: "1000m"
-            requests:
-              memory: "128Mi"
-              cpu: "200m"
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.startupProbe }}
           startupProbe:
             {{- toYaml . | nindent 12 }}

@@ -5,6 +5,10 @@ image:
 
 container:
   port: 8083
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
 
 podLabels: {}
 
