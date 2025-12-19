@@ -76,11 +76,17 @@ CloudAppDev/*
 
 # terraform
 **/.terraform/
-.terraform/
-terraform.tfstate
-terraform.tfstate.*
-*.tfvars
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/tfplan
+**/*.tfvars
+!**/*.tfvars.example
+**/crash.log
+**/crash.*.log
+**/.terraformrc
 /scripts/node_modules
+terraform/backup-state.json
 
 # services
 /services/**/node_modules

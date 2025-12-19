@@ -1,0 +1,11 @@
+# Production Environment Configuration
+# Copy this file to terraform.tfvars and fill in actual values
+
+project_id         = "your-gcp-project-id-prod"
+region             = "europe-west1"
+zone               = "europe-west1-c"
+environment        = "prod"
+project_name       = "cloudappdev"
+db_tier            = "db-custom-4-16384"
+cloudflare_zone_id = "your-cloudflare-zone-id"
+hostname           = "cloudappdev.site"

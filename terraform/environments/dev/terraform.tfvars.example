@@ -1,0 +1,11 @@
+# Dev Environment Configuration
+# Copy this file to terraform.tfvars and fill in actual values
+
+project_id         = "your-gcp-project-id-dev"
+region             = "europe-west1"
+zone               = "europe-west1-c"
+environment        = "dev"
+project_name       = "cloudappdev"
+db_tier            = "db-f1-micro"
+cloudflare_zone_id = "your-cloudflare-zone-id"
+hostname           = "dev.cloudappdev.site"
