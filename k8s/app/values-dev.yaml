@@ -1,0 +1,53 @@
+image:
+  repository: #TODO (Sam)
+  # This sets the pull policy for images.
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+serviceAccount:
+  create: true
+  annotations: 
+    iam.gke.io/gcp-service-account: "run-exec@oceanic-citadel-474512-c1.iam.gserviceaccount.com"
+  name: "cloudappdev-sa"
+
+service:
+  type: LoadBalancer
+  port: 80
+
+api:
+  className: "gke-l7-global-external-managed"
+  annotations: {}
+  hostname: cloudappdev.site
+
+
+httpRoute:
+  enabled: true
+  annotations: {}
+  parentRefs:
+  - name: app-gateway
+    sectionName: http
+    namespace: default
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+
+httpsRoute:
+  enabled: true
+  annotations: {}
+  hostnames:
+    - cloudappdev.site
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 75
