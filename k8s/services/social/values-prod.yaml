@@ -1,0 +1,110 @@
+image:
+  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service
+  pullPolicy: IfNotPresent
+  tag: ""
+
+container:
+  port: 8082
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+podLabels: {}
+
+env:
+  - name: NODE_ENV
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: NODE_ENV
+  - name: MONGODB_URI
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: MONGODB_URI
+  - name: ITINERARY_SERVICE_URL
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: ITINERARY_SERVICE_URL
+  - name: USER_SERVICE_URL
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: USER_SERVICE_URL
+  - name: SENDGRID_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: SENDGRID_API_KEY
+  - name: SENDGRID_FROM_EMAIL
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: SENDGRID_FROM_EMAIL
+  - name: NEWSLETTER_FROM_NAME
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: SENDGRID_FROM_NAME
+  - name: NEWSLETTER_MODE
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: NEWSLETTER_MODE
+
+serviceAccount:
+  create: true
+  annotations:
+    iam.gke.io/gcp-service-account: "run-exec@oceanic-citadel-474512-c1.iam.gserviceaccount.com"
+  name: "social-service-sa"
+
+service:
+  type: LoadBalancer
+  port: 8082
+
+startupProbe:
+  tcpSocket:
+    port: 8082
+  initialDelaySeconds: 5
+  failureThreshold: 30
+  periodSeconds: 1
+livenessProbe:
+  tcpSocket:
+    port: 8082
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+
+# Newsletter CronJob Configuration
+newsletter:
+  enabled: true
+  schedule: "0 20 * * 0"  # Sunday 8 PM UTC
+  image:
+    tag: "0.2.30"  # Can be overridden
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  env:
+    NEWSLETTER_ENABLED: "true"
+    NEWSLETTER_BATCH_SIZE: "50"
+    NEWSLETTER_RETRY_LIMIT: "3"
+    NEWSLETTER_RETRY_DELAY_MS: "5000"
+    NODE_ENV: "production"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+  tolerations:
+    - key: "batch-jobs"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"

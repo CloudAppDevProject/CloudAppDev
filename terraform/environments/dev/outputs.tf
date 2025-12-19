@@ -1,3 +1,4 @@
+# --- Databases & Buckets ---
 output "users_db_connection_name" {
   description = "Users database connection name"
   value       = module.users_db.instance_connection_name
@@ -18,9 +19,47 @@ output "social_db_name" {
   value       = module.social_db.database_name
 }
 
-output "service_account_email" {
+# --- App ---
+output "app_service_account_name" {
+  description = "Service account name"
+  value       = module.app_service_account.name
+}
+
+output "app_service_account_email" {
   description = "Service account email"
-  value       = module.app_service_account.service_account_email
+  value       = module.app_service_account.email
+}
+
+# --- Itinerary ---
+output "itinerary_service_account_name" {
+  description = "Itinerary service account name"
+  value       = module.itinerary_service_account.name
+}
+
+output "itinerary_service_account_email" {
+  description = "Itinerary service account email"
+  value       = module.itinerary_service_account.email
+}
+
+# --- User ---
+output "user_service_account_name" {
+  description = "User service account name"
+  value       = module.user_service_account.name
+}
+
+output "user_service_account_email" {
+  description = "User service account email"
+  value       = module.user_service_account.email
+}
+
+# --- Social ---
+output "social_service_account_name" {
+  description = "Social service account name"
+  value       = module.social_service_account.name
+}
+output "social_service_account_email" {
+  description = "Social service account email"
+  value       = module.social_service_account.email
 }
 
 output "gke_cluster_name" {

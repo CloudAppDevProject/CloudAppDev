@@ -1,5 +1,5 @@
 image:
-  repository: #TODO (Sam)
+  repository: <Replace with actual> #TODO (Sam)
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
@@ -8,8 +8,8 @@ image:
 serviceAccount:
   create: true
   annotations: 
-    iam.gke.io/gcp-service-account: "run-exec@oceanic-citadel-474512-c1.iam.gserviceaccount.com"
-  name: "cloudappdev-sa"
+    iam.gke.io/gcp-service-account: "app-sa@cloudappdev-dev.iam.gserviceaccount.com"
+  name: "app-sa"
 
 service:
   type: LoadBalancer
@@ -18,7 +18,7 @@ service:
 api:
   className: "gke-l7-global-external-managed"
   annotations: {}
-  hostname: cloudappdev.site
+  hostname: dev.cloudappdev.site
 
 
 httpRoute:
@@ -38,8 +38,6 @@ httpRoute:
 httpsRoute:
   enabled: true
   annotations: {}
-  hostnames:
-    - cloudappdev.site
   rules:
     - matches:
         - path:

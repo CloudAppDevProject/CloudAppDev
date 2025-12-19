@@ -109,7 +109,7 @@ module "app_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "app-service-account"
+  account_id   = "app-sa"
   display_name = "App Service Account - Dev"
 
   k8s_service_accounts = [
@@ -125,7 +125,7 @@ module "social_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "social-access"
+  account_id   = "social-service-sa"
   display_name = "Social Database access - Dev"
 
   enable_firestore = true
@@ -144,7 +144,7 @@ module "user_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "user-access"
+  account_id   = "user-service-sa"
   display_name = "User Database access - Dev"
 
   enable_cloudsql  = true
@@ -165,7 +165,7 @@ module "itinerary_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "itinerary-access"
+  account_id   = "itinerary-service-sa"
   display_name = "Itinerary Database access - Dev"
 
   enable_cloudsql  = true

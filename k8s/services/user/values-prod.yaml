@@ -1,0 +1,97 @@
+image:
+  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-user-service
+  pullPolicy: IfNotPresent
+  tag: ""
+
+container:
+  port: 8080
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+podLabels: {}
+
+initContainers:
+  - name: cloud-sql-proxy
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+    args:
+      - "--port=5432"
+      - "oceanic-citadel-474512-c1:europe-west1:cloudappdev-tf-users-db"
+    restartPolicy: Always
+    securityContext:
+      runAsNonRoot: true
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+
+env:
+  - name: NODE_ENV
+    valueFrom:
+      secretKeyRef:
+        name: user-service-secrets
+        key: NODE_ENV
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        key: DATABASE_URL
+        name: user-service-secrets
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: user-service-secrets
+        key: JWT_SECRET
+  - name: JWT_EXPIRATION
+    valueFrom:
+      secretKeyRef:
+        name: user-service-secrets
+        key: JWT_EXPIRATION
+  - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+    valueFrom:
+      secretKeyRef:
+        name: user-service-secrets
+        key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+  - name: GOOGLE_CLOUD_STORAGE_BUCKET
+    valueFrom:
+      secretKeyRef:
+        name: user-service-secrets
+        key: GOOGLE_CLOUD_STORAGE_BUCKET
+  - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
+    valueFrom:
+      secretKeyRef:
+        name: user-service-secrets
+        key: GOOGLE_CLOUD_CREDENTIALS_BASE64
+  - name: GOOGLE_CLOUD_PROJECT_ID
+    valueFrom:
+      secretKeyRef:
+        name: user-service-secrets
+        key: GOOGLE_CLOUD_PROJECT_ID
+
+serviceAccount:
+  create: true
+  annotations:
+    iam.gke.io/gcp-service-account: "run-exec@oceanic-citadel-474512-c1.iam.gserviceaccount.com"
+  name: "user-service-sa"
+
+service:
+  type: LoadBalancer
+  port: 8080
+
+startupProbe:
+  tcpSocket:
+    port: 8080
+  initialDelaySeconds: 5
+  failureThreshold: 30
+  periodSeconds: 1
+livenessProbe:
+  tcpSocket:
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75

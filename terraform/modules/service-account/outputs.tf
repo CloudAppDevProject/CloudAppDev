@@ -1,14 +1,14 @@
-output "service_account_email" {
+output "email" {
   description = "The email address of the service account"
   value       = google_service_account.sa.email
 }
 
-output "service_account_name" {
+output "name" {
   description = "The name of the service account"
-  value       = google_service_account.sa.name
+  value       = google_service_account.sa.account_id
 }
 
-output "service_account_key" {
+output "key" {
   description = "The service account key (base64 encoded)"
   value       = google_service_account_key.sa_key.private_key
   sensitive   = true
