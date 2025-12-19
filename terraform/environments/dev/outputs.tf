@@ -22,3 +22,8 @@ output "service_account_email" {
   description = "Service account email"
   value       = module.app_service_account.service_account_email
 }
+
+output "gke_cluster_name" {
+  description = "GKE Cluster Name"
+  value       = google_container_cluster.primary.name
+}
