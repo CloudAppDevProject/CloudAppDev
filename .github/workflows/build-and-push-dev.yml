@@ -36,7 +36,6 @@ on:
 
 env:
   ARTIFACT_REGISTRY_HOSTNAME: europe-west1-docker.pkg.dev
-  ENVIRONMENT: dev
 
 jobs:
   prepare:
@@ -219,13 +218,13 @@ jobs:
         with:
           registry: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}
           username: _json_key
-          password: ${{ secrets.GCP_SA_KEY_DEV }}
+          password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID_DEV }}/docker-repo/${{ steps.config.outputs.image-name }}
+          images: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/docker-repo/${{ steps.config.outputs.image-name }}
           flavor: |
             latest=auto
           tags: |
