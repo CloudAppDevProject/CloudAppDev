@@ -1,23 +1,14 @@
-name: Build and Push All Services to GCR
+name: Build and Push to Prod (Production)
 
 concurrency:
-  group: build-services-${{ github.ref }}
+  group: build-services-prod-${{ github.ref }}
   cancel-in-progress: true
 
 on:
   push:
-    branches:
-      - develop
-      - master
-    paths:
-      - 'app/**'
-      - 'lib/**'
-      - 'public/**'
-      - 'services/**'
-      - 'nginx/**'
-      - 'Dockerfile'
-      - 'package.json'
-      - '.github/workflows/build-and-push-microservices.yml'
+    tags:
+      - '*.*.*'
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       services:
@@ -34,20 +25,16 @@ on:
           - social-service
           - travel-info-service
           - api-gateway
-      tag:
-        description: 'Custom tag for Docker images (optional)'
-        required: false
-        default: ''
 
 env:
   ARTIFACT_REGISTRY_HOSTNAME: europe-west1-docker.pkg.dev
-  REPOSITORY_NAME: docker-repo
+  ENVIRONMENT: prod
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
       services: ${{ steps.set-matrix.outputs.services }}
       version: ${{ steps.version.outputs.version }}
@@ -57,7 +44,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Detect changed files
         id: changes
         uses: dorny/paths-filter@v3
@@ -83,7 +70,7 @@ jobs:
             api-gateway:
               - 'nginx/**'
             workflow:
-              - '.github/workflows/build-and-push-microservices.yml'
+              - '.github/workflows/build-and-push-prod.yml'
 
       - name: Generate version
         id: version
@@ -92,96 +79,53 @@ jobs:
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
 
-          # Try to get latest git tag, otherwise start at v0.1.0
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
-
-          # Remove 'v' prefix if present
-          VERSION=${LATEST_TAG#v}
-
-          # If on master/main, increment patch version and create git tag
-          if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
-            # Parse version components
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-            # Increment patch version
-            PATCH=$((PATCH + 1))
-            BUILD_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-
-            # Create git tag for this version
-            NEW_TAG="v${BUILD_VERSION}"
-            echo "Creating git tag: ${NEW_TAG}"
-            git tag "${NEW_TAG}" || echo "Tag already exists, skipping creation"
-          else
-            # For develop branch, add build number (no tag created)
-            BUILD_NUMBER="${{ github.run_number }}"
-            BUILD_VERSION="${VERSION}-dev.${BUILD_NUMBER}"
-          fi
-
-          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
-          echo "Generated version: ${BUILD_VERSION}"
-          echo "Short SHA: ${SHORT_SHA}"
-
-      - name: Push git tag (master/main only)
-        if: github.ref_name == 'master' || github.ref_name == 'main'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Get the latest tag we just created
+          # Production: Use git tag as version (must exist!)
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          if [ -n "$LATEST_TAG" ]; then
-            echo "Pushing tag: ${LATEST_TAG}"
-            git push origin "${LATEST_TAG}" || echo "Tag already exists on remote or push failed (non-blocking)"
+          if [ -z "$LATEST_TAG" ]; then
+            echo "❌ ERROR: No git tag found for production build!"
+            echo ""
+            echo "Production builds require a git tag to be created first."
+            echo "Please create and push a tag before pushing to master:"
+            echo ""
+            echo "  git tag v1.0.0"
+            echo "  git push origin master --tags"
+            echo ""
+            echo "Or if the tag already exists remotely:"
+            echo "  git fetch --tags"
+            exit 1
           fi
+
+          # Remove 'v' prefix if present
+          BUILD_VERSION=${LATEST_TAG#v}
+
+          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
+          echo "🚀 Using production version from tag: ${BUILD_VERSION}"
+          echo "📝 Short SHA: ${SHORT_SHA}"
 
       - name: Set service matrix
         id: set-matrix
         run: |
           SERVICES_INPUT="${{ github.event.inputs.services }}"
-          
+
+          # Tag push (production release) - ALWAYS build all services
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            echo "🚀 Production release (tag: ${{ github.ref_name }}) - building all services"
           # Manual trigger with "all" - force build everything
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
             SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
             echo "Manual trigger (all) - building all services"
           # Manual trigger with specific service
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$SERVICES_INPUT" ] && [ "$SERVICES_INPUT" != "all" ] && [ "$SERVICES_INPUT" != "changed-only" ]; then
             SERVICES="[\"$SERVICES_INPUT\"]"
             echo "Manual trigger - building: ${SERVICES}"
-          # Workflow file changed or manual "changed-only" - build everything as safety measure
-          elif [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
-            echo "⚠️ Workflow changed - building all services for safety"
           else
-            # Build only changed services
-            SERVICES="[]"
-            
-            if [ "${{ steps.changes.outputs.frontend }}" = "true" ]; then
-              SERVICES=$(echo "$SERVICES" | jq -c '. + ["frontend"]')
-            fi
-            if [ "${{ steps.changes.outputs.user-service }}" = "true" ]; then
-              SERVICES=$(echo "$SERVICES" | jq -c '. + ["user-service"]')
-            fi
-            if [ "${{ steps.changes.outputs.itinerary-service }}" = "true" ]; then
-              SERVICES=$(echo "$SERVICES" | jq -c '. + ["itinerary-service"]')
-            fi
-            if [ "${{ steps.changes.outputs.social-service }}" = "true" ]; then
-              SERVICES=$(echo "$SERVICES" | jq -c '. + ["social-service"]')
-            fi
-            if [ "${{ steps.changes.outputs.travel-info-service }}" = "true" ]; then
-              SERVICES=$(echo "$SERVICES" | jq -c '. + ["travel-info-service"]')
-            fi
-            if [ "${{ steps.changes.outputs.api-gateway }}" = "true" ]; then
-              SERVICES=$(echo "$SERVICES" | jq -c '. + ["api-gateway"]')
-            fi
-            
-            # If no services changed, build nothing
-            if [ "$SERVICES" = "[]" ]; then
-              echo "No service files changed - skipping build"
-            else
-              echo "Building changed services: ${SERVICES}"
-            fi
+            # Should not reach here in normal operation
+            echo "⚠️ Unexpected trigger - defaulting to build all services"
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
           fi
-          
+
           echo "services=${SERVICES}" >> $GITHUB_OUTPUT
 
   build-and-push:
@@ -193,15 +137,15 @@ jobs:
       matrix:
         service: ${{ fromJson(needs.prepare.outputs.services) }}
       fail-fast: false
-    
+
     permissions:
       contents: read
       packages: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set service configuration
         id: config
         run: |
@@ -247,69 +191,68 @@ jobs:
               exit 1
               ;;
           esac
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Google Artifact Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}
           username: _json_key
-          password: ${{ secrets.GCP_SA_KEY }}
-      
+          password: ${{ secrets.GCP_SA_KEY_PROD }}
+
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ steps.config.outputs.image-name }}
+          images: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID_PROD }}/docker-repo/${{ steps.config.outputs.image-name }}
           flavor: |
             latest=auto
           tags: |
-            # Tag with 'latest' on master branch
-            type=raw,value=latest,enable={{is_default_branch}}
-            # Tag with semantic version (e.g., 0.1.2 or 0.1.0-dev.42)
+            # Tag with 'latest' for prod
+            type=raw,value=latest
+            # Tag with semantic version from git tag (e.g., 1.0.0)
             type=raw,value=${{ needs.prepare.outputs.version }}
-            # Tag with major.minor (e.g., 0.1)
-            type=raw,value=${{ needs.prepare.outputs.version }},suffix=,enable=${{ !contains(needs.prepare.outputs.version, 'dev') }},pattern={{major}}.{{minor}}
+            # Tag with major.minor (e.g., 1.0)
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.prepare.outputs.version }}
             # Tag with short SHA for reference (e.g., sha-abc1234)
             type=raw,value=sha-${{ needs.prepare.outputs.short-sha }}
-            # Tag with manual input if workflow_dispatch
-            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
           labels: |
             org.opencontainers.image.title=${{ steps.config.outputs.image-name }}
             org.opencontainers.image.description=${{ steps.config.outputs.description }}
             org.opencontainers.image.vendor=CloudAppDev
             org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
             com.cloudappdev.service=${{ matrix.service }}
+            com.cloudappdev.environment=prod
             com.cloudappdev.build.number=${{ github.run_number }}
             com.cloudappdev.git.sha=${{ github.sha }}
             com.cloudappdev.git.branch=${{ github.ref_name }}
-      
+
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5
         with:
           context: ${{ steps.config.outputs.context }}
           file: ${{ steps.config.outputs.dockerfile }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          cache-from: type=gha,scope=${{ matrix.service }}-prod
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-prod
           platforms: linux/amd64
           target: ${{ matrix.service != 'api-gateway' && 'production' || '' }}
-          # Remove build args for NEXT_PUBLIC_API_GATEWAY_URL and related variables; these will be set via Kubernetes at runtime
-      
+
       - name: Image digest
         run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
-      
+
       - name: Service summary
         run: |
-          echo "## 🐳 ${{ matrix.service }} Built Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 ${{ matrix.service }} Built Successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`${{ steps.config.outputs.image-name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`prod\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.prepare.outputs.version }}\` (from git tag)" >> $GITHUB_STEP_SUMMARY
           echo "**SHA:** \`${{ needs.prepare.outputs.short-sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
@@ -326,15 +269,16 @@ jobs:
         run: |
           SERVICES='${{ needs.prepare.outputs.services }}'
           ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
-          
-          echo "## 📦 Multi-Service Build Complete" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📦 Production Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`prod\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.prepare.outputs.version }}\` (from git tag)" >> $GITHUB_STEP_SUMMARY
           echo "**SHA:** \`${{ needs.prepare.outputs.short-sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Services that were built
           BUILT_COUNT=$(echo "$SERVICES" | jq 'length')
           if [ "$BUILT_COUNT" -gt 0 ]; then
@@ -344,7 +288,7 @@ jobs:
             done
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Services that were skipped
           SKIPPED=$(echo "$ALL_SERVICES" | jq -c --argjson built "$SERVICES" '. - $built')
           SKIPPED_COUNT=$(echo "$SKIPPED" | jq 'length')
@@ -355,15 +299,14 @@ jobs:
             done
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚀 Deployment Commands:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# Pull all images with version tag:" >> $GITHUB_STEP_SUMMARY
-          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-frontend:\${VERSION}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-user-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-itinerary-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-social-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-travel-info-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/cloudappdev-api-gateway:\${VERSION}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 📌 Production Release Notes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This production release was built from git tag \`v${{ needs.prepare.outputs.version }}\`." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Verify images in GCP Artifact Registry" >> $GITHUB_STEP_SUMMARY
+          echo "2. Update Kubernetes manifests/Helm values with version \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Deploy to production cluster" >> $GITHUB_STEP_SUMMARY
+          echo "4. Run smoke tests" >> $GITHUB_STEP_SUMMARY

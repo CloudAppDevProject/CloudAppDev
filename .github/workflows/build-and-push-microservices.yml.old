@@ -1,0 +1,402 @@
+name: Build and Push All Services to GCR
+
+concurrency:
+  group: build-services-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'public/**'
+      - 'services/**'
+      - 'nginx/**'
+      - 'Dockerfile'
+      - 'package.json'
+      - '.github/workflows/build-and-push-microservices.yml'
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to build'
+        required: false
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - changed-only
+          - frontend
+          - user-service
+          - itinerary-service
+          - social-service
+          - travel-info-service
+          - api-gateway
+      tag:
+        description: 'Custom tag for Docker images (optional)'
+        required: false
+        default: ''
+
+env:
+  ARTIFACT_REGISTRY_HOSTNAME: europe-west1-docker.pkg.dev
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      services: ${{ steps.set-matrix.outputs.services }}
+      version: ${{ steps.version.outputs.version }}
+      short-sha: ${{ steps.version.outputs.short-sha }}
+      environment: ${{ steps.set-env.outputs.environment }}
+      gcp-project-id: ${{ steps.set-env.outputs.gcp-project-id }}
+      gcp-sa-key: ${{ steps.set-env.outputs.gcp-sa-key }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set environment and GCP project
+        id: set-env
+        run: |
+          # Determine environment based on branch
+          if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
+            ENVIRONMENT="prod"
+            GCP_PROJECT_ID="${{ secrets.GCP_PROJECT_ID_PROD }}"
+            GCP_SA_KEY="${{ secrets.GCP_SA_KEY_PROD }}"
+            echo "🚀 Production environment detected"
+          elif [ "${{ github.ref_name }}" = "develop" ]; then
+            ENVIRONMENT="dev"
+            GCP_PROJECT_ID="${{ secrets.GCP_PROJECT_ID_DEV }}"
+            GCP_SA_KEY="${{ secrets.GCP_SA_KEY_DEV }}"
+            echo "🔧 Development environment detected"
+          else
+            echo "❌ Unknown branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
+          echo "gcp-project-id=${GCP_PROJECT_ID}" >> $GITHUB_OUTPUT
+          echo "gcp-sa-key=${GCP_SA_KEY}" >> $GITHUB_OUTPUT
+
+          echo "Environment: ${ENVIRONMENT}"
+          echo "GCP Project: ${GCP_PROJECT_ID}"
+      
+      - name: Detect changed files
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'app/**'
+              - 'lib/**'
+              - 'public/**'
+              - 'Dockerfile'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'next.config.ts'
+            user-service:
+              - 'services/user-service/**'
+            itinerary-service:
+              - 'services/itinerary-service/**'
+            social-service:
+              - 'services/social-service/**'
+            travel-info-service:
+              - 'services/travel-info-service/**'
+            api-gateway:
+              - 'nginx/**'
+            workflow:
+              - '.github/workflows/build-and-push-microservices.yml'
+
+      - name: Generate version
+        id: version
+        run: |
+          # Get short SHA for reference
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+          # Try to get latest git tag, otherwise start at v0.1.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+
+          # Remove 'v' prefix if present
+          VERSION=${LATEST_TAG#v}
+
+          # If on master/main, increment patch version and create git tag
+          if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
+            # Parse version components
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            BUILD_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+            # Create git tag for this version
+            NEW_TAG="v${BUILD_VERSION}"
+            echo "Creating git tag: ${NEW_TAG}"
+            git tag "${NEW_TAG}" || echo "Tag already exists, skipping creation"
+          else
+            # For develop branch, add build number (no tag created)
+            BUILD_NUMBER="${{ github.run_number }}"
+            BUILD_VERSION="${VERSION}-dev.${BUILD_NUMBER}"
+          fi
+
+          echo "version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${BUILD_VERSION}"
+          echo "Short SHA: ${SHORT_SHA}"
+
+      - name: Push git tag (master/main only)
+        if: github.ref_name == 'master' || github.ref_name == 'main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Get the latest tag we just created
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Pushing tag: ${LATEST_TAG}"
+            git push origin "${LATEST_TAG}" || echo "Tag already exists on remote or push failed (non-blocking)"
+          fi
+
+      - name: Set service matrix
+        id: set-matrix
+        run: |
+          SERVICES_INPUT="${{ github.event.inputs.services }}"
+          
+          # Manual trigger with "all" - force build everything
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            echo "Manual trigger (all) - building all services"
+          # Manual trigger with specific service
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$SERVICES_INPUT" ] && [ "$SERVICES_INPUT" != "all" ] && [ "$SERVICES_INPUT" != "changed-only" ]; then
+            SERVICES="[\"$SERVICES_INPUT\"]"
+            echo "Manual trigger - building: ${SERVICES}"
+          # Workflow file changed or manual "changed-only" - build everything as safety measure
+          elif [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            echo "⚠️ Workflow changed - building all services for safety"
+          else
+            # Build only changed services
+            SERVICES="[]"
+            
+            if [ "${{ steps.changes.outputs.frontend }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["frontend"]')
+            fi
+            if [ "${{ steps.changes.outputs.user-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["user-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.itinerary-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["itinerary-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.social-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["social-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.travel-info-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["travel-info-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.api-gateway }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["api-gateway"]')
+            fi
+            
+            # If no services changed, build nothing
+            if [ "$SERVICES" = "[]" ]; then
+              echo "No service files changed - skipping build"
+            else
+              echo "Building changed services: ${SERVICES}"
+            fi
+          fi
+          
+          echo "services=${SERVICES}" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    needs: prepare
+    # Skip job if no services to build
+    if: needs.prepare.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.prepare.outputs.services) }}
+      fail-fast: false
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set service configuration
+        id: config
+        run: |
+          case "${{ matrix.service }}" in
+            "frontend")
+              echo "image-name=cloudappdev-frontend" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "dockerfile=./Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Next.js Frontend Application" >> $GITHUB_OUTPUT
+              ;;
+            "user-service")
+              echo "image-name=cloudappdev-user-service" >> $GITHUB_OUTPUT
+              echo "context=./services/user-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/user-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev User Management Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "itinerary-service")
+              echo "image-name=cloudappdev-itinerary-service" >> $GITHUB_OUTPUT
+              echo "context=./services/itinerary-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/itinerary-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Itinerary Management Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "social-service")
+              echo "image-name=cloudappdev-social-service" >> $GITHUB_OUTPUT
+              echo "context=./services/social-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/social-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Social Features Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "travel-info-service")
+              echo "image-name=cloudappdev-travel-info-service" >> $GITHUB_OUTPUT
+              echo "context=./services/travel-info-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/travel-info-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Travel Information Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "api-gateway")
+              echo "image-name=cloudappdev-api-gateway" >> $GITHUB_OUTPUT
+              echo "context=./nginx" >> $GITHUB_OUTPUT
+              echo "dockerfile=./nginx/Dockerfile.gateway" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev NGINX API Gateway" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown service: ${{ matrix.service }}"
+              exit 1
+              ;;
+          esac
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Google Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}
+          username: _json_key
+          password: ${{ needs.prepare.outputs.gcp-sa-key }}
+      
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/${{ needs.prepare.outputs.gcp-project-id }}/docker-repo/${{ steps.config.outputs.image-name }}
+          flavor: |
+            latest=auto
+          tags: |
+            # Tag with 'latest' on master branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Tag with semantic version (e.g., 0.1.2 or 0.1.0-dev.42)
+            type=raw,value=${{ needs.prepare.outputs.version }}
+            # Tag with major.minor (e.g., 0.1)
+            type=raw,value=${{ needs.prepare.outputs.version }},suffix=,enable=${{ !contains(needs.prepare.outputs.version, 'dev') }},pattern={{major}}.{{minor}}
+            # Tag with short SHA for reference (e.g., sha-abc1234)
+            type=raw,value=sha-${{ needs.prepare.outputs.short-sha }}
+            # Tag with manual input if workflow_dispatch
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+          labels: |
+            org.opencontainers.image.title=${{ steps.config.outputs.image-name }}
+            org.opencontainers.image.description=${{ steps.config.outputs.description }}
+            org.opencontainers.image.vendor=CloudAppDev
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            com.cloudappdev.service=${{ matrix.service }}
+            com.cloudappdev.environment=${{ needs.prepare.outputs.environment }}
+            com.cloudappdev.build.number=${{ github.run_number }}
+            com.cloudappdev.git.sha=${{ github.sha }}
+            com.cloudappdev.git.branch=${{ github.ref_name }}
+      
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.config.outputs.context }}
+          file: ${{ steps.config.outputs.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          platforms: linux/amd64
+          target: ${{ matrix.service != 'api-gateway' && 'production' || '' }}
+          # Remove build args for NEXT_PUBLIC_API_GATEWAY_URL and related variables; these will be set via Kubernetes at runtime
+      
+      - name: Image digest
+        run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
+      
+      - name: Service summary
+        run: |
+          echo "## 🐳 ${{ matrix.service }} Built Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.config.outputs.image-name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`${{ needs.prepare.outputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**SHA:** \`${{ needs.prepare.outputs.short-sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    needs: [prepare, build-and-push]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Build summary
+        run: |
+          SERVICES='${{ needs.prepare.outputs.services }}'
+          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+
+          echo "## 📦 Multi-Service Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`${{ needs.prepare.outputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**SHA:** \`${{ needs.prepare.outputs.short-sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Services that were built
+          BUILT_COUNT=$(echo "$SERVICES" | jq 'length')
+          if [ "$BUILT_COUNT" -gt 0 ]; then
+            echo "### ✅ Services Built ($BUILT_COUNT):" >> $GITHUB_STEP_SUMMARY
+            echo "$SERVICES" | jq -r '.[]' | while read service; do
+              echo "- ✅ ${service}" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Services that were skipped
+          SKIPPED=$(echo "$ALL_SERVICES" | jq -c --argjson built "$SERVICES" '. - $built')
+          SKIPPED_COUNT=$(echo "$SKIPPED" | jq 'length')
+          if [ "$SKIPPED_COUNT" -gt 0 ]; then
+            echo "### ⏭️ Services Skipped ($SKIPPED_COUNT - no changes detected):" >> $GITHUB_STEP_SUMMARY
+            echo "$SKIPPED" | jq -r '.[]' | while read service; do
+              echo "- ⏭️ ${service}" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Deployment Commands:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull all images with version tag (${{ needs.prepare.outputs.environment }} environment):" >> $GITHUB_STEP_SUMMARY
+          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "REGISTRY=${{ env.ARTIFACT_REGISTRY_HOSTNAME }}/<PROJECT_ID>/docker-repo" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull \${REGISTRY}/cloudappdev-frontend:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull \${REGISTRY}/cloudappdev-user-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull \${REGISTRY}/cloudappdev-itinerary-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull \${REGISTRY}/cloudappdev-social-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull \${REGISTRY}/cloudappdev-travel-info-service:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull \${REGISTRY}/cloudappdev-api-gateway:\${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -24,7 +24,6 @@ on:
 
 env:
   REGISTRY: europe-west1-docker.pkg.dev
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   IMAGE_NAME: seeder
 
 jobs:
@@ -40,6 +39,32 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set environment and GCP project
+        id: set-env
+        run: |
+          # Determine environment based on branch
+          if [ "${{ github.ref_name }}" = "master" ] || [ "${{ github.ref_name }}" = "main" ]; then
+            ENVIRONMENT="prod"
+            GCP_PROJECT_ID="${{ secrets.GCP_PROJECT_ID_PROD }}"
+            GCP_SA_KEY="${{ secrets.GCP_SA_KEY_PROD }}"
+            echo "🚀 Production environment detected"
+          elif [ "${{ github.ref_name }}" = "develop" ]; then
+            ENVIRONMENT="dev"
+            GCP_PROJECT_ID="${{ secrets.GCP_PROJECT_ID_DEV }}"
+            GCP_SA_KEY="${{ secrets.GCP_SA_KEY_DEV }}"
+            echo "🔧 Development environment detected"
+          else
+            echo "❌ Unknown branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
+          echo "gcp-project-id=${GCP_PROJECT_ID}" >> $GITHUB_OUTPUT
+          echo "gcp-sa-key=${GCP_SA_KEY}" >> $GITHUB_OUTPUT
+
+          echo "Environment: ${ENVIRONMENT}"
+          echo "GCP Project: ${GCP_PROJECT_ID}"
 
       - name: Generate version
         id: version
@@ -89,7 +114,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: _json_key
-          password: ${{ secrets.GCP_SA_KEY }}
+          password: ${{ steps.set-env.outputs.gcp-sa-key }}
 
       - name: Push git tag (master/main only)
         if: github.ref_name == 'master' || github.ref_name == 'main'
@@ -109,18 +134,20 @@ jobs:
         run: |
           FULL_VERSION="${{ steps.version.outputs.version }}"
           SHORT_SHA="${{ steps.version.outputs.short-sha }}"
-          
+          ENVIRONMENT="${{ steps.set-env.outputs.environment }}"
+          PROJECT_ID="${{ steps.set-env.outputs.gcp-project-id }}"
+
           # Extract major.minor for additional tag (e.g., 0.1.5 -> 0.1)
           # For Windows/Linux compatibility, use basic shell instead of grep -P
           SHORT_VERSION=$(echo "$FULL_VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
-          
+
           docker buildx build \
             --platform linux/amd64 \
             -f services/seeder/Dockerfile \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION} \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION} \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA} \
+            -t ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:latest \
+            -t ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION} \
+            -t ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION} \
+            -t ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA} \
             --push \
             .
 
@@ -128,15 +155,19 @@ jobs:
         run: |
           FULL_VERSION="${{ steps.version.outputs.version }}"
           SHORT_SHA="${{ steps.version.outputs.short-sha }}"
+          ENVIRONMENT="${{ steps.set-env.outputs.environment }}"
+          PROJECT_ID="${{ steps.set-env.outputs.gcp-project-id }}"
           SHORT_VERSION=$(echo "$FULL_VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
-          
+
           echo "✅ Seeder image pushed successfully!"
           echo ""
+          echo "🌍 Environment: ${ENVIRONMENT}"
+          echo ""
           echo "📦 Image tags pushed:"
-          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:latest"
-          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION}"
-          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION}"
-          echo "   • ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
+          echo "   • ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:latest"
+          echo "   • ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:${FULL_VERSION}"
+          echo "   • ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:${SHORT_VERSION}"
+          echo "   • ${{ env.REGISTRY }}/${PROJECT_ID}/docker-repo/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA}"
           echo ""
           echo "🏷️  Version: ${FULL_VERSION}"
           echo "🔗 Branch: ${{ github.ref_name }}"
