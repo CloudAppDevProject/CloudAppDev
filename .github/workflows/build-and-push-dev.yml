@@ -40,6 +40,7 @@ env:
 
 jobs:
   prepare:
+    environment: ${{ env.ENVIRONMENT }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,9 +53,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Debug Secrets (to be removed)
-        run: echo ${{secrets.GCP_SA_KEY}} | sed 's/./& /g'
 
       - name: Detect changed files
         id: changes
@@ -149,6 +147,7 @@ jobs:
           echo "services=${SERVICES}" >> $GITHUB_OUTPUT
 
   build-and-push:
+    environment: ${{ env.ENVIRONMENT }}
     needs: prepare
     # Skip job if no services to build
     if: needs.prepare.outputs.services != '[]'
@@ -279,6 +278,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   summary:
+    environment: ${{ env.ENVIRONMENT }}
     needs: [prepare, build-and-push]
     runs-on: ubuntu-latest
     if: always()
