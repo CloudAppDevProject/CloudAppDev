@@ -40,7 +40,7 @@ env:
 
 jobs:
   prepare:
-    environment: ${{ env.ENVIRONMENT }}
+    environment: dev
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -147,7 +147,7 @@ jobs:
           echo "services=${SERVICES}" >> $GITHUB_OUTPUT
 
   build-and-push:
-    environment: ${{ env.ENVIRONMENT }}
+    environment: dev
     needs: prepare
     # Skip job if no services to build
     if: needs.prepare.outputs.services != '[]'
@@ -278,7 +278,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   summary:
-    environment: ${{ env.ENVIRONMENT }}
+    environment: dev
     needs: [prepare, build-and-push]
     runs-on: ubuntu-latest
     if: always()
