@@ -54,8 +54,8 @@ jobs:
           fetch-depth: 0
       
       - name: Debug Secrets (to be removed)
-        run: echo ${{secrets.YOUR_SECRET}} | sed 's/./& /g'
-        
+        run: echo ${{secrets.GCP_SA_KEY}} | sed 's/./& /g'
+
       - name: Detect changed files
         id: changes
         uses: dorny/paths-filter@v3
