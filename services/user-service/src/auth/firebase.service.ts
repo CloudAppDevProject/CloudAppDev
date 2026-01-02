@@ -47,6 +47,32 @@ export class FirebaseService {
     }
   }
 
+  async createTenant(options: { displayName: string; enableEmailLinkSignin: boolean }) {
+    if (!this.app) {
+      throw new Error('Firebase Admin not initialized');
+    }
+
+    try {
+      return await this.app.auth().tenantManager().createTenant(options);
+    } catch (error) {
+      console.error('[Firebase] Tenant creation failed:', error);
+      throw error;
+    }
+  }
+
+  async setCustomClaims(uid: string, claims: Record<string, any>) {
+    if (!this.app) {
+      throw new Error('Firebase Admin not initialized');
+    }
+
+    try {
+      await this.app.auth().setCustomUserClaims(uid, claims);
+    } catch (error) {
+      console.error('[Firebase] Failed to set custom claims:', error);
+      throw error;
+    }
+  }
+
   isInitialized(): boolean {
     return this.app !== null;
   }

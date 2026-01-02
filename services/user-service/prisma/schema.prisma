@@ -7,16 +7,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id         Int      @id @default(autoincrement())
-  name       String
-  email      String   @unique
-  password   String?
-  googleUid  String?  @unique
-  avatarUrl  String?  @db.VarChar(500)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+enum TenantTier {
+  FREE
+  STANDARD
+  ENTERPRISE
+}
 
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  CANCELLED
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Tenant {
+  id               Int          @id @default(autoincrement())
+  name             String
+  slug             String       @unique
+  firebaseTenantId String       @unique
+  tier             TenantTier   @default(FREE)
+  maxUsers         Int          @default(5)
+  status           TenantStatus @default(ACTIVE)
+  
+  // Feature flags
+  features         Json         @default("{}")
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  trialEndsAt      DateTime?
+  
+  users            User[]
+  
+  @@index([slug])
+  @@index([firebaseTenantId])
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String
+  password    String?
+  googleUid   String?  @unique
+  firebaseUid String?  @unique
+  avatarUrl   String?  @db.VarChar(500)
+  
+  // Tenant relationship
+  tenantId    Int?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role        UserRole @default(MEMBER)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([email, tenantId])
   @@index([email])
   @@index([googleUid])
+  @@index([firebaseUid])
+  @@index([tenantId])
 }

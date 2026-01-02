@@ -63,6 +63,9 @@ REQUIRED_APIS=(
   # Secrets & Configuration
   "secretmanager.googleapis.com"            # Secret Manager API (sensitive data)
 
+  # Authentication & Identity
+  "identitytoolkit.googleapis.com"          # Identity Platform API (multi-tenant auth)
+
   # Container & Kubernetes
   "container.googleapis.com"                # Google Kubernetes Engine (GKE) API
   "artifactregistry.googleapis.com"         # Artifact Registry API (Docker images)
