@@ -1,5 +1,5 @@
 image:
-  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-user-service
+  repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-user-service
   pullPolicy: IfNotPresent
   tag: ""
 
@@ -17,7 +17,7 @@ initContainers:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
     args:
       - "--port=5432"
-      - "oceanic-citadel-474512-c1:europe-west1:cloudappdev-tf-users-db"
+      - "cloudappdev-dev:europe-west1:cloudappdev-tf-users-db"
     restartPolicy: Always
     securityContext:
       runAsNonRoot: true
@@ -71,7 +71,7 @@ env:
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "run-exec@oceanic-citadel-474512-c1.iam.gserviceaccount.com"
+    iam.gke.io/gcp-service-account: "run-exec@cloudappdev-dev.iam.gserviceaccount.com"
   name: "user-service-sa"
 
 service:

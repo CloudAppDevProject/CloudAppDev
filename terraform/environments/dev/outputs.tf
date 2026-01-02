@@ -66,3 +66,14 @@ output "gke_cluster_name" {
   description = "GKE Cluster Name"
   value       = google_container_cluster.primary.name
 }
+
+# --- Image Pull Secret ---
+output "image_pull_secret_name" {
+  description = "Name of the Kubernetes image pull secret"
+  value       = module.image_pull_secret.secret_name
+}
+
+output "image_pull_secret_namespace" {
+  description = "Namespace of the image pull secret"
+  value       = module.image_pull_secret.namespace
+}

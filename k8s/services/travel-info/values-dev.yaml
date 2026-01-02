@@ -1,5 +1,5 @@
 image:
-  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-travel-info-service
+  repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-travel-info-service
   pullPolicy: IfNotPresent
   tag: ""
 

@@ -50,6 +50,14 @@ resource "google_project_iam_member" "firestore_index_admin" {
   member  = "serviceAccount:${google_service_account.sa.email}"
 }
 
+# Artifact Registry Reader Role
+resource "google_project_iam_member" "artifact_registry_reader" {
+  count   = var.enable_artifact_registry ? 1 : 0
+  project = var.project
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
 # Workload Identity Bindings for Kubernetes Service Accounts
 resource "google_service_account_iam_member" "workload_identity" {
   for_each = toset(var.k8s_service_accounts)

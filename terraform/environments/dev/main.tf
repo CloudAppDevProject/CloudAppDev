@@ -180,3 +180,17 @@ module "itinerary_service_account" {
     module.itinerary_db
   ]
 }
+
+# Image Pull Secret for Artifact Registry
+module "image_pull_secret" {
+  source = "../../modules/image-pull-secret"
+
+  service_account_email = google_service_account.default.email
+  namespace             = "default"
+  registry_url          = "${var.region}-docker.pkg.dev"
+  patch_default_sa      = true
+
+  depends_on = [
+    google_container_cluster.primary
+  ]
+}

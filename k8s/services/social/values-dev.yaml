@@ -1,5 +1,5 @@
 image:
-  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service
+  repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-social-service
   pullPolicy: IfNotPresent
   tag: ""
 
@@ -57,7 +57,7 @@ env:
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "run-exec@oceanic-citadel-474512-c1.iam.gserviceaccount.com"
+    iam.gke.io/gcp-service-account: "run-exec@cloudappdev-dev.iam.gserviceaccount.com"
   name: "social-service-sa"
 
 service:

@@ -1,5 +1,5 @@
 image:
-  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-api-gateway
+  repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-api-gateway
   pullPolicy: IfNotPresent
   tag: ""
 

@@ -37,6 +37,12 @@ variable "enable_firestore" {
   default     = false
 }
 
+variable "enable_artifact_registry" {
+  description = "Grant Artifact Registry permissions"
+  type        = bool
+  default     = false
+}
+
 variable "k8s_service_accounts" {
   description = "List of Kubernetes service account names for Workload Identity binding"
   type        = list(string)
