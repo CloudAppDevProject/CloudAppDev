@@ -24,6 +24,7 @@ on:
           - itinerary-service
           - social-service
           - travel-info-service
+          - tenant-service
           - api-gateway
 
 env:
@@ -67,6 +68,8 @@ jobs:
               - 'services/social-service/**'
             travel-info-service:
               - 'services/travel-info-service/**'
+            tenant-service:
+              - 'services/tenant-service/**'
             api-gateway:
               - 'nginx/**'
             workflow:
@@ -110,11 +113,11 @@ jobs:
 
           # Tag push (production release) - ALWAYS build all services
           if [ "${{ github.ref_type }}" = "tag" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
             echo "🚀 Production release (tag: ${{ github.ref_name }}) - building all services"
           # Manual trigger with "all" - force build everything
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
             echo "Manual trigger (all) - building all services"
           # Manual trigger with specific service
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$SERVICES_INPUT" ] && [ "$SERVICES_INPUT" != "all" ] && [ "$SERVICES_INPUT" != "changed-only" ]; then
@@ -123,7 +126,7 @@ jobs:
           else
             # Should not reach here in normal operation
             echo "⚠️ Unexpected trigger - defaulting to build all services"
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
           fi
 
           echo "services=${SERVICES}" >> $GITHUB_OUTPUT
@@ -179,6 +182,12 @@ jobs:
               echo "context=./services/travel-info-service" >> $GITHUB_OUTPUT
               echo "dockerfile=./services/travel-info-service/Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Travel Information Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "tenant-service")
+              echo "image-name=cloudappdev-tenant-service" >> $GITHUB_OUTPUT
+              echo "context=./services/tenant-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/tenant-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Tenant Management Microservice" >> $GITHUB_OUTPUT
               ;;
             "api-gateway")
               echo "image-name=cloudappdev-api-gateway" >> $GITHUB_OUTPUT
@@ -268,7 +277,7 @@ jobs:
       - name: Build summary
         run: |
           SERVICES='${{ needs.prepare.outputs.services }}'
-          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","api-gateway"]'
+          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
 
           echo "## 📦 Production Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

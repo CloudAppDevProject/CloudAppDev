@@ -100,3 +100,5 @@ settings.local.json
 k8s/**/*secrets*
 k8s/**/*secrets*/
 terraform/environments/dev/github-actions-key.json
+
+nul
