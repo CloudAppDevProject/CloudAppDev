@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateItineraryDto } from './dto/create-itinerary.dto';
 import { UpdateItineraryDto } from './dto/update-itinerary.dto';
@@ -9,16 +9,17 @@ export class ItinerariesService {
 
   constructor(private prisma: PrismaService) {}
 
-  async create(createItineraryDto: CreateItineraryDto) {
-    const { userId, locations, ...itineraryData } = createItineraryDto;
+  async create(tenantId: number, userId: number, createItineraryDto: CreateItineraryDto) {
+    const { userId: dtoUserId, locations, ...itineraryData } = createItineraryDto;
 
     this.logger.log(
-      `Creating itinerary for user ${userId} with ${locations?.length || 0} locations`
+      `Creating itinerary for user ${userId} in tenant ${tenantId} with ${locations?.length || 0} locations`
     );
 
-    // Create itinerary with locations using Prisma transaction
+    // Create itinerary with tenantId and locations using Prisma transaction
     const createPromise = this.prisma.itinerary.create({
       data: {
+        tenantId,
         user_id: userId,
         ...itineraryData,
         locations: locations && Array.isArray(locations)
@@ -31,6 +32,7 @@ export class ItinerariesService {
                 images: loc.images || [],
                 latitude: loc.latitude,
                 longitude: loc.longitude,
+                tenantId, // Add tenantId to location
               }))
             }
           : undefined,
@@ -56,7 +58,7 @@ export class ItinerariesService {
     }
   }
 
-  async findAll(options?: {
+  async findAll(tenantId: number, options?: {
     userId?: number;
     search?: string;
     page?: number;
@@ -66,11 +68,11 @@ export class ItinerariesService {
     const skip = (page - 1) * limit;
 
     this.logger.log(
-      `Finding itineraries - userId: ${userId}, search: ${search}, page: ${page}, limit: ${limit}`
+      `Finding itineraries for tenant ${tenantId} - userId: ${userId}, search: ${search}, page: ${page}, limit: ${limit}`
     );
 
-    // Build where clause
-    const where: any = {};
+    // Build where clause - ALWAYS filter by tenant
+    const where: any = { tenantId };
     if (userId) {
       where.user_id = userId;
     }
@@ -113,18 +115,21 @@ export class ItinerariesService {
     }
   }
 
-  async findOne(id: number, includeLocations = true) {
-    this.logger.log(`Finding itinerary with ID: ${id}`);
+  async findOne(id: number, tenantId: number, includeLocations = true) {
+    this.logger.log(`Finding itinerary with ID: ${id} for tenant ${tenantId}`);
     try {
-      const itinerary = await this.prisma.itinerary.findUnique({
-        where: { id },
+      // Ensure itinerary belongs to tenant
+      const itinerary = await this.prisma.itinerary.findFirst({
+        where: { id, tenantId },
         include: { locations: includeLocations },
       });
-      if (itinerary) {
-        this.logger.debug(`Itinerary found with ID: ${id}`);
-      } else {
-        this.logger.warn(`Itinerary not found with ID: ${id}`);
+
+      if (!itinerary) {
+        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantId}`);
+        throw new NotFoundException('Itinerary not found');
       }
+
+      this.logger.debug(`Itinerary found with ID: ${id}`);
       return itinerary;
     } catch (error) {
       this.logger.error(`Error finding itinerary with ID ${id}: ${error.message}`, error.stack);
@@ -132,12 +137,22 @@ export class ItinerariesService {
     }
   }
 
-  async update(id: number, updateItineraryDto: UpdateItineraryDto) {
+  async update(id: number, tenantId: number, updateItineraryDto: UpdateItineraryDto) {
     const { userId, locations, ...updateData } = updateItineraryDto;
 
-    this.logger.log(`Updating itinerary with ID: ${id}, ${locations ? 'with' : 'without'} locations`);
+    this.logger.log(`Updating itinerary with ID: ${id} for tenant ${tenantId}, ${locations ? 'with' : 'without'} locations`);
 
     try {
+      // Verify itinerary belongs to tenant
+      const existing = await this.prisma.itinerary.findFirst({
+        where: { id, tenantId },
+      });
+
+      if (!existing) {
+        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantId}`);
+        throw new NotFoundException('Itinerary not found');
+      }
+
       // If locations are provided, replace all locations
       if (locations) {
         const result = await this.prisma.itinerary.update({
@@ -155,6 +170,7 @@ export class ItinerariesService {
                 images: loc.images || [],
                 latitude: loc.latitude,
                 longitude: loc.longitude,
+                tenantId, // Add tenantId to location
               })),
             },
           },
@@ -178,9 +194,19 @@ export class ItinerariesService {
     }
   }
 
-  async remove(id: number) {
-    this.logger.log(`Deleting itinerary with ID: ${id}`);
+  async remove(id: number, tenantId: number) {
+    this.logger.log(`Deleting itinerary with ID: ${id} for tenant ${tenantId}`);
     try {
+      // Verify itinerary belongs to tenant
+      const existing = await this.prisma.itinerary.findFirst({
+        where: { id, tenantId },
+      });
+
+      if (!existing) {
+        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantId}`);
+        throw new NotFoundException('Itinerary not found');
+      }
+
       // Cascade delete will automatically remove locations
       await this.prisma.itinerary.delete({
         where: { id },

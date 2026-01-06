@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
 import ItineraryTable from "../components/itineraryTable";
+import { apiFetch, apiRequest } from "@/app/lib/api";
 
 export default function AllItinerariesPage() {
   const router = useRouter();
@@ -28,6 +29,9 @@ export default function AllItinerariesPage() {
     }
 
     const fetchItineraries = async () => {
+      console.log("=== FETCH ITINERARIES START ===");
+      console.log("AllItinerariesPage: fetching itineraries for user:", user);
+      console.log("apiFetch function:", typeof apiFetch);
       setLoading(true);
       try {
         const page = lazyState.page;
@@ -35,7 +39,9 @@ export default function AllItinerariesPage() {
         let url = `/api/itineraries?page=${page}&limit=${limit}`;
         if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
 
-        const res = await fetch(url);
+        console.log("About to call apiFetch with URL:", url);
+        const res = await apiFetch(url);
+        console.log("apiFetch returned, status:", res.status);
         if (!res.ok) throw new Error(`Failed to fetch itineraries: ${res.status}`);
 
         const response = await res.json();
@@ -46,9 +52,8 @@ export default function AllItinerariesPage() {
         if (itinerariesData.length > 0) {
           try {
             const itineraryIds = itinerariesData.map((it) => it.id);
-            const batchRes = await fetch('/api/likes/batch', {
+            const batchRes = await apiFetch('/api/likes/batch', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 itineraryIds,
                 userId: user.id,

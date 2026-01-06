@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(255)
+  tier      String    @default("free") // free, standard, enterprise
+  status    String    @default("active") // active, suspended, deleted
+  maxUsers  Int       @default(10)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  userRoles UserRole[]
+
+  @@index([status])
+  @@index([tier])
+  @@map("tenants")
+}
+
+model Role {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(50) // user, admin
+  permissions Json      // ["itinerary:create", "user:invite"]
+  createdAt   DateTime  @default(now())
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // User from User Service (cross-service reference)
+  roleId    Int
+  tenantId  Int
+  createdAt DateTime @default(now())
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId]) // One user can only have ONE role per tenant
+  @@index([userId])
+  @@index([tenantId])
+  @@index([roleId])
+  @@map("user_roles")
+}

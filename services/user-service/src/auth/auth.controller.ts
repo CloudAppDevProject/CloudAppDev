@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Request,
+  HttpCode,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, FirebaseAuthDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -18,7 +28,7 @@ export class AuthController {
       this.logger.debug(`Login endpoint successful`);
       return result;
     } catch (error) {
-      this.logger.error(`Login endpoint error: ${(error as any).message}`);
+      this.logger.error(`Login endpoint error: ${error.message}`);
       throw error;
     }
   }
@@ -32,7 +42,7 @@ export class AuthController {
       this.logger.debug(`Register endpoint successful`);
       return result;
     } catch (error) {
-      this.logger.error(`Register endpoint error: ${(error as any).message}`);
+      this.logger.error(`Register endpoint error: ${error.message}`);
       throw error;
     }
   }
@@ -46,7 +56,7 @@ export class AuthController {
       this.logger.debug(`Firebase login endpoint successful`);
       return result;
     } catch (error) {
-      this.logger.error(`Firebase login endpoint error: ${(error as any).message}`);
+      this.logger.error(`Firebase login endpoint error: ${error.message}`);
       throw error;
     }
   }
@@ -60,7 +70,7 @@ export class AuthController {
       this.logger.debug(`Get profile endpoint successful`);
       return result;
     } catch (error) {
-      this.logger.error(`Get profile endpoint error: ${(error as any).message}`);
+      this.logger.error(`Get profile endpoint error: ${error.message}`);
       throw error;
     }
   }
@@ -73,5 +83,20 @@ export class AuthController {
     // JWT tokens are stateless, so logout is handled client-side
     // by removing the token from storage
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('refresh-token')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(@Body() body: { userId: number; tenantId: number; role: string }) {
+    this.logger.log(`POST /auth/refresh-token - User ID: ${body.userId}, Tenant ID: ${body.tenantId}`);
+    try {
+      const result = await this.authService.generateToken(body.userId, body.tenantId, body.role);
+      this.logger.debug(`Refresh token endpoint successful`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Refresh token endpoint error: ${error.message}`);
+      throw error;
+    }
   }
 }

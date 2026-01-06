@@ -10,15 +10,17 @@ export class StorageService {
 
   constructor() {
     const credentialsBase64 = process.env.GOOGLE_CLOUD_CREDENTIALS_BASE64;
-    
+
     if (!credentialsBase64) {
-      this.logger.warn('GOOGLE_CLOUD_CREDENTIALS_BASE64 not set - storage uploads will fail');
+      this.logger.warn(
+        'GOOGLE_CLOUD_CREDENTIALS_BASE64 not set - storage uploads will fail',
+      );
       return;
     }
 
     try {
       const credentials = JSON.parse(
-        Buffer.from(credentialsBase64, 'base64').toString('utf-8')
+        Buffer.from(credentialsBase64, 'base64').toString('utf-8'),
       );
 
       this.storage = new Storage({
@@ -48,7 +50,9 @@ export class StorageService {
     mimeType: string,
   ): Promise<string> {
     if (!this.storage || !this.bucketName) {
-      throw new Error('Storage not initialized - check GOOGLE_CLOUD_CREDENTIALS_BASE64');
+      throw new Error(
+        'Storage not initialized - check GOOGLE_CLOUD_CREDENTIALS_BASE64',
+      );
     }
 
     try {

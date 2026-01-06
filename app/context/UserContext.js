@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
-const Ctx = createContext({
+export const UserContext = createContext({
   user: null,
   loading: true,
   refresh: async () => {},
@@ -63,9 +63,9 @@ export function UserProvider({ children }) {
     setUser(null);
   }, []);
 
-  return <Ctx.Provider value={{ user, loading, refresh, logout }}>{children}</Ctx.Provider>;
+  return <UserContext.Provider value={{ user, loading, refresh, logout }}>{children}</UserContext.Provider>;
 }
 
 export function useUser() {
-  return useContext(Ctx);
+  return useContext(UserContext);
 }

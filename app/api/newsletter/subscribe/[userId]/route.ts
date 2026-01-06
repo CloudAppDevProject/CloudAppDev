@@ -7,8 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * DELETE - Unsubscribe user from newsletter
  */
 
-const SOCIAL_SERVICE_URL =
-  `${process.env.API_GATEWAY_URL}/api/v1/social` || "http://localhost:8082";
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
+const SOCIAL_SERVICE_URL = `${API_GATEWAY_URL}/api/v1/social`;
 
 export async function DELETE(
   request: NextRequest,
