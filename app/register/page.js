@@ -4,13 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Password } from "primereact/password";
 import { InputText } from "primereact/inputtext";
+import { useUser } from "../context/UserContext";
 
 // Force dynamic rendering - don't prerender this page at build time
 export const dynamic = 'force-dynamic';
 
 export default function Register() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const { refresh } = useUser();
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: ""
+  });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,8 +47,17 @@ export default function Register() {
       const { access_token, user } = await res.json();
       console.log("[Register] User registered:", user);
 
+      // Clear any old cached data before storing new token
+      localStorage.clear();
+      
       // Store JWT token in localStorage
       localStorage.setItem('access_token', access_token);
+
+      // Refresh UserContext to load the new user
+      await refresh();
+
+      // Small delay to ensure context is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Redirect to home page (user is now logged in)
       setForm({ name: "", email: "", password: "" });
@@ -95,8 +110,8 @@ export default function Register() {
           />
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className="bg-blue-600 text-white px-4 py-2 rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
           disabled={isLoading}
         >
@@ -110,6 +125,13 @@ export default function Register() {
           <span className="block sm:inline">{error}</span>
         </div>
       )}
+
+      <p className="mt-4 text-center text-sm">
+        Already have an account?{' '}
+        <a href="/login" className="text-blue-600 hover:underline font-medium">
+          Login here
+        </a>
+      </p>
     </div>
   );
 }

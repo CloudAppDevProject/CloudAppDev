@@ -1,4 +1,11 @@
-import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -8,7 +15,10 @@ import * as bcrypt from 'bcrypt';
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private httpService: HttpService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
     this.logger.log(`Creating user with email: ${createUserDto.email}`);
@@ -19,7 +29,9 @@ export class UsersService {
       });
 
       if (existing) {
-        this.logger.warn(`User creation failed: Email ${createUserDto.email} already exists`);
+        this.logger.warn(
+          `User creation failed: Email ${createUserDto.email} already exists`,
+        );
         throw new ConflictException('User with this email already exists');
       }
 
@@ -36,6 +48,7 @@ export class UsersService {
           password: hashedPassword,
           googleUid: createUserDto.googleUid,
           avatarUrl: createUserDto.avatarUrl,
+          tenantId: createUserDto.tenantId || 1, // Default tenant if not provided
         },
       });
 
@@ -44,7 +57,10 @@ export class UsersService {
       this.logger.debug(`User created successfully with ID: ${user.id}`);
       return userWithoutPassword;
     } catch (error) {
-      this.logger.error(`Error creating user with email ${createUserDto.email}: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error creating user with email ${createUserDto.email}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -65,7 +81,57 @@ export class UsersService {
       this.logger.debug(`Found ${users.length} users`);
       return users;
     } catch (error) {
-      this.logger.error(`Error finding all users: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error finding all users: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async findByTenant(tenantId: number) {
+    this.logger.log(`Finding users for tenant: ${tenantId}`);
+    try {
+      const users = await this.prisma.user.findMany({
+        where: { tenantId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatarUrl: true,
+          createdAt: true,
+          tenantId: true,
+          // NEVER select password!
+        },
+      });
+
+      this.logger.debug(`Found ${users.length} users for tenant ${tenantId}`);
+
+      // Enrich with roles from Tenant Service
+      const usersWithRoles = await Promise.all(
+        users.map(async (user) => {
+          try {
+            const roleResponse = await firstValueFrom(
+              this.httpService.get(
+                `${process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084'}/api/v1/user-roles/user/${user.id}`,
+              ),
+            );
+            return { ...user, roles: roleResponse.data };
+          } catch (error) {
+            this.logger.warn(
+              `Failed to fetch roles for user ${user.id}: ${error.message}`,
+            );
+            return { ...user, roles: [] };
+          }
+        }),
+      );
+
+      return usersWithRoles;
+    } catch (error) {
+      this.logger.error(
+        `Error finding users for tenant ${tenantId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -80,6 +146,7 @@ export class UsersService {
           name: true,
           email: true,
           avatarUrl: true,
+          tenantId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -93,7 +160,10 @@ export class UsersService {
       this.logger.debug(`User found with ID: ${id}`);
       return user;
     } catch (error) {
-      this.logger.error(`Error finding user with ID ${id}: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error finding user with ID ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -111,7 +181,10 @@ export class UsersService {
       }
       return user;
     } catch (error) {
-      this.logger.error(`Error finding user by email ${email}: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error finding user by email ${email}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -129,7 +202,10 @@ export class UsersService {
       }
       return user;
     } catch (error) {
-      this.logger.error(`Error finding user by Google UID ${googleUid}: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error finding user by Google UID ${googleUid}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -157,21 +233,36 @@ export class UsersService {
       this.logger.debug(`User updated successfully with ID: ${id}`);
       return user;
     } catch (error) {
-      this.logger.error(`Error updating user with ID ${id}: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error updating user with ID ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-  async remove(id: number) {
-    this.logger.log(`Deleting user with ID: ${id}`);
+  async remove(id: number, tenantId: number) {
+    this.logger.log(`Deleting user with ID: ${id} for tenant: ${tenantId}`);
     try {
+      // Verify user belongs to tenant before deletion
+      const user = await this.prisma.user.findFirst({
+        where: { id, tenantId },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found or does not belong to your organization');
+      }
+
       await this.prisma.user.delete({
         where: { id },
       });
       this.logger.debug(`User deleted successfully with ID: ${id}`);
       return { success: true, message: 'User deleted successfully' };
     } catch (error) {
-      this.logger.error(`Error deleting user with ID ${id}: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error deleting user with ID ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -181,13 +272,17 @@ export class UsersService {
     try {
       const user = await this.findByEmail(email);
       if (!user || !user.password) {
-        this.logger.warn(`Password validation failed: User not found or no password for email ${email}`);
+        this.logger.warn(
+          `Password validation failed: User not found or no password for email ${email}`,
+        );
         return null;
       }
 
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
-        this.logger.warn(`Password validation failed: Invalid password for email ${email}`);
+        this.logger.warn(
+          `Password validation failed: Invalid password for email ${email}`,
+        );
         return null;
       }
 
@@ -195,7 +290,10 @@ export class UsersService {
       this.logger.debug(`Password validated successfully for email: ${email}`);
       return userWithoutPassword;
     } catch (error) {
-      this.logger.error(`Error validating password for email ${email}: ${(error as any).message}`, (error as any).stack);
+      this.logger.error(
+        `Error validating password for email ${email}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

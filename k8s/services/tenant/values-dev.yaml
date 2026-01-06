@@ -1,0 +1,69 @@
+image:
+  repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-tenant-service
+  pullPolicy: IfNotPresent
+  tag: ""
+
+container:
+  port: 8084
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+podLabels: {}
+
+initContainers:
+  - name: cloud-sql-proxy
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+    args:
+      - "--port=5432"
+      - "oceanic-citadel-474512-c1:europe-west1:cloudappdev-tf-tenant-db"
+    restartPolicy: Always
+    securityContext:
+      runAsNonRoot: true
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+
+env:
+  - name: NODE_ENV
+    valueFrom:
+      secretKeyRef:
+        name: tenant-service-secrets
+        key: NODE_ENV
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        key: DATABASE_URL
+        name: tenant-service-secrets
+  - name: FREE_TENANT_NAME
+    value: "Free Community"
+
+serviceAccount:
+  create: true
+  annotations:
+    iam.gke.io/gcp-service-account: "run-exec@oceanic-citadel-474512-c1.iam.gserviceaccount.com"
+  name: "tenant-service-sa"
+
+service:
+  type: LoadBalancer
+  port: 8084
+
+startupProbe:
+  tcpSocket:
+    port: 8084
+  initialDelaySeconds: 10
+  failureThreshold: 30
+  periodSeconds: 2
+livenessProbe:
+  tcpSocket:
+    port: 8084
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75

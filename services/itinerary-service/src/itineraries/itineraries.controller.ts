@@ -7,9 +7,12 @@ import {
   Param,
   Delete,
   Query,
+  Request,
+  ParseIntPipe,
   HttpException,
   HttpStatus,
   UseInterceptors,
+  UseGuards,
   UploadedFile,
   ParseFilePipe,
   MaxFileSizeValidator,
@@ -21,8 +24,11 @@ import { ItinerariesService } from './itineraries.service';
 import { CreateItineraryDto } from './dto/create-itinerary.dto';
 import { UpdateItineraryDto } from './dto/update-itinerary.dto';
 import { StorageService } from '../storage/storage.service';
+import { TenantAuthGuard } from '../guards/tenant-auth.guard';
+import { AdminGuard } from '../guards/admin.guard';
 
 @Controller()
+@UseGuards(TenantAuthGuard)
 export class ItinerariesController {
   private readonly logger = new Logger(ItinerariesController.name);
 
@@ -32,10 +38,14 @@ export class ItinerariesController {
   ) {}
 
   @Post()
-  async create(@Body() createItineraryDto: CreateItineraryDto) {
-    this.logger.log(`Creating itinerary for user: ${createItineraryDto.userId}`);
+  async create(@Request() req, @Body() createItineraryDto: CreateItineraryDto) {
+    this.logger.log(`Creating itinerary for user: ${req.user.userId} in tenant ${req.tenantId}`);
     try {
-      const result = await this.itinerariesService.create(createItineraryDto);
+      const result = await this.itinerariesService.create(
+        req.tenantId,
+        req.user.userId,
+        createItineraryDto,
+      );
       this.logger.debug(`Itinerary created successfully with ID: ${(result as any).id}`);
       return result;
     } catch (error) {
@@ -49,14 +59,15 @@ export class ItinerariesController {
 
   @Get()
   async findAll(
+    @Request() req,
     @Query('userId') userId?: string,
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    this.logger.log(`Fetching itineraries - userId: ${userId}, search: ${search}, page: ${page}, limit: ${limit}`);
+    this.logger.log(`Fetching itineraries for tenant ${req.tenantId} - userId: ${userId}, search: ${search}, page: ${page}, limit: ${limit}`);
     try {
-      const result = await this.itinerariesService.findAll({
+      const result = await this.itinerariesService.findAll(req.tenantId, {
         userId: userId ? parseInt(userId) : undefined,
         search,
         page: page ? parseInt(page) : 1,
@@ -141,14 +152,10 @@ export class ItinerariesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    this.logger.log(`Fetching itinerary with ID: ${id}`);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    this.logger.log(`Fetching itinerary with ID: ${id} for tenant ${req.tenantId}`);
     try {
-      const itinerary = await this.itinerariesService.findOne(+id);
-      if (!itinerary) {
-        this.logger.warn(`Itinerary not found with ID: ${id}`);
-        throw new HttpException('Itinerary not found', HttpStatus.NOT_FOUND);
-      }
+      const itinerary = await this.itinerariesService.findOne(id, req.tenantId);
       this.logger.debug(`Itinerary fetched successfully with ID: ${id}`);
       return itinerary;
     } catch (error) {
@@ -158,10 +165,14 @@ export class ItinerariesController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateItineraryDto: UpdateItineraryDto) {
-    this.logger.log(`Updating itinerary with ID: ${id}`);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+    @Body() updateItineraryDto: UpdateItineraryDto,
+  ) {
+    this.logger.log(`Updating itinerary with ID: ${id} for tenant ${req.tenantId}`);
     try {
-      const result = await this.itinerariesService.update(+id, updateItineraryDto);
+      const result = await this.itinerariesService.update(id, req.tenantId, updateItineraryDto);
       this.logger.debug(`Itinerary updated successfully with ID: ${id}`);
       return result;
     } catch (error) {
@@ -174,10 +185,11 @@ export class ItinerariesController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    this.logger.log(`Deleting itinerary with ID: ${id}`);
+  @UseGuards(AdminGuard)
+  async remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    this.logger.log(`Deleting itinerary with ID: ${id} for tenant ${req.tenantId}`);
     try {
-      await this.itinerariesService.remove(+id);
+      await this.itinerariesService.remove(id, req.tenantId);
       this.logger.debug(`Itinerary deleted successfully with ID: ${id}`);
       return { success: true, message: 'Itinerary deleted successfully' };
     } catch (error) {

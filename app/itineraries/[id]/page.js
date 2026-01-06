@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { apiFetch } from "@/app/lib/api";
 import { useUser } from "@context/UserContext";
 import { Button } from "primereact/button";
 import CommentSection from "@/app/components/CommentSection";
@@ -239,7 +240,7 @@ export default function ItineraryDetail() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/itineraries?id=${params.id}&currentUserId=${user.id}`);
+        const res = await apiFetch(`/api/itineraries?id=${params.id}&currentUserId=${user.id}`);
         if (res.status === 404) {
           router.push("/");
           return;
@@ -249,11 +250,11 @@ export default function ItineraryDetail() {
         const data = await res.json();
 
         try {
-          const likesRes = await fetch(`/api/likes?itineraryId=${data.id}`);
+          const likesRes = await apiFetch(`/api/likes?itineraryId=${data.id}`);
           const likesData = await likesRes.json();
           data.likeCount = likesData.total || 0;
 
-          const userLikedRes = await fetch(`/api/likes?userId=${user.id}&itineraryId=${data.id}`);
+          const userLikedRes = await apiFetch(`/api/likes?userId=${user.id}&itineraryId=${data.id}`);
           const userLikedData = await userLikedRes.json();
           data.userHasLiked = userLikedData.hasLiked || false;
         } catch (err) {

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 
-const SOCIAL_SERVICE_URL =
-  `${process.env.API_GATEWAY_URL}/api/v1/social` ||
-  "http://localhost:8000/api/v1/social";
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
+const SOCIAL_SERVICE_URL = `${API_GATEWAY_URL}/api/v1/social`;
 
 /**
  * POST /api/likes/batch - Get like counts and user status for multiple itineraries

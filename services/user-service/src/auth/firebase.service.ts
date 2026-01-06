@@ -9,13 +9,21 @@ export class FirebaseService {
     try {
       const base64Key = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
 
-      if (!base64Key || base64Key.includes('dummy') || base64Key.includes('build')) {
-        console.warn('[Firebase] ⚠️  Firebase credentials not available - skipping initialization');
+      if (
+        !base64Key ||
+        base64Key.includes('dummy') ||
+        base64Key.includes('build')
+      ) {
+        console.warn(
+          '[Firebase] ⚠️  Firebase credentials not available - skipping initialization',
+        );
         return;
       }
 
       // Decode Base64 service account key
-      const credentials = JSON.parse(Buffer.from(base64Key, 'base64').toString());
+      const credentials = JSON.parse(
+        Buffer.from(base64Key, 'base64').toString(),
+      );
 
       this.app = admin.initializeApp({
         credential: admin.credential.cert(credentials),

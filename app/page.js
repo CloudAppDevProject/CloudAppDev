@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useUser } from "@context/UserContext";
 import { useRouter } from "next/navigation";
 import ItineraryTable from "@/app/components/itineraryTable";
+import { apiFetch } from "@/app/lib/api";
 
 export default function MyItinerariesPage() {
   const router = useRouter();
@@ -43,10 +44,10 @@ export default function MyItinerariesPage() {
       try {
         const page = lazyState.page;
         const limit = lazyState.rows;
-        let url = `/api/itineraries?userId=${user.id}&page=${page}&limit=${limit}`;
+        let url = `/api/itineraries?page=${page}&limit=${limit}&userId=${user.id}`;
         if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
 
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         if (!res.ok) throw new Error(`Failed to fetch itineraries: ${res.status}`);
 
         const response = await res.json();
@@ -57,9 +58,8 @@ export default function MyItinerariesPage() {
         if (itinerariesData.length > 0) {
           try {
             const itineraryIds = itinerariesData.map((it) => it.id);
-            const batchRes = await fetch('/api/likes/batch', {
+            const batchRes = await apiFetch('/api/likes/batch', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 itineraryIds,
                 userId: user.id,

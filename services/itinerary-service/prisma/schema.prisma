@@ -10,6 +10,7 @@ datasource db {
 model Itinerary {
   id          Int        @id @default(autoincrement())
   user_id     Int
+  tenantId    Int?       // Reference to Tenant in Tenant Service (nullable for migration)
   title       String
   destination String
   start_date  String
@@ -22,11 +23,13 @@ model Itinerary {
   @@index([user_id])
   @@index([destination])
   @@index([created_at])
+  @@index([tenantId])
 }
 
 model Location {
   id           Int       @id @default(autoincrement())
   itinerary_id Int
+  tenantId     Int?      // Reference to Tenant in Tenant Service (nullable for migration)
   name         String
   start_date   String
   end_date     String
@@ -38,4 +41,5 @@ model Location {
   itinerary    Itinerary @relation(fields: [itinerary_id], references: [id], onDelete: Cascade)
 
   @@index([itinerary_id])
+  @@index([tenantId])
 }

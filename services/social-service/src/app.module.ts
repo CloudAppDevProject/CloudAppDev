@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LikesModule } from './likes/likes.module';
@@ -15,6 +16,15 @@ import { NewsletterModule } from './newsletter/newsletter.module';
     MongooseModule.forRoot(
       process.env.MONGODB_URI || 'mongodb://localhost:27017/social_db',
     ),
+    PrometheusModule.register({
+      defaultMetrics: {
+        enabled: true,
+      },
+      path: '/metrics',
+      defaultLabels: {
+        service: 'social-service',
+      },
+    }),
     LikesModule,
     CommentsModule,
     NewsletterModule,

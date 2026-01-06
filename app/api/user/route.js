@@ -15,7 +15,7 @@ export async function GET(req) {
     }
 
     // Forward request to User Service through API Gateway
-    const res = await fetch(`${API_GATEWAY_URL}/api/v1/users/auth/me`, {
+    const res = await fetch(`${API_GATEWAY_URL}/api/v1/auth/me`, {
       headers: {
         'Authorization': authHeader,
       },

@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import ImageUploader from "@/app/components/imageUpload";
 import { useRouter } from "next/navigation";
 import { useUser } from "@context/UserContext";
+import { apiFetch } from "@/app/lib/api";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
@@ -191,9 +192,9 @@ export default function NewItinerary() {
       const payload = sanitizeForSubmit(form, user.id); // <- signed_url removed
 
       console.log("Submitting itinerary:", payload);
-      const res = await fetch("/api/itineraries", {
+
+      const res = await apiFetch("/api/itineraries", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 

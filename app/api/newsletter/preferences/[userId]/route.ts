@@ -8,8 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * PATCH - Update user's newsletter preferences
  */
 
-const SOCIAL_SERVICE_URL =
-  `${process.env.API_GATEWAY_URL}/api/v1/social` || "http://localhost:8082";
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
+const SOCIAL_SERVICE_URL = `${API_GATEWAY_URL}/api/v1/social`;
 
 export async function GET(
   request: NextRequest,

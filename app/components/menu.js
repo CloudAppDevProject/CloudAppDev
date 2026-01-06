@@ -45,6 +45,25 @@ export default function Menu() {
   const items = [
     { label: "My Itineraries", command: () => router.push("/") },
     { label: "All Itineraries", command: () => router.push("/itineraries") },
+    ...(user && user.tenantId === 1
+      ? [{
+          label: "Create Organization",
+          icon: "pi pi-star",
+          command: () => router.push("/upgrade"),
+          className: "text-blue-600 font-semibold"
+        }]
+      : []),
+    ...(user && user.role === 'admin'
+      ? [
+          { label: "Admin Panel", command: () => router.push("/admin/tenant") },
+          {
+            label: "Monitoring",
+            icon: "pi pi-chart-line",
+            command: () => router.push("/admin/monitoring"),
+            className: "text-purple-600 font-semibold"
+          }
+        ]
+      : []),
   ];
 
   return (

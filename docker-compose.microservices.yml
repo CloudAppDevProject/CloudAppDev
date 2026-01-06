@@ -64,6 +64,30 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-tenants:
+    image: postgres:16-alpine
+    container_name: cloudappdev_postgres_tenants
+    restart: unless-stopped
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=500"
+      - "-c"
+      - "shared_buffers=128MB"
+    environment:
+      POSTGRES_DB: tenant_db
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: devpass123
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-tenants-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d tenant_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # ==================== MICROSERVICES ====================
   user-service:
     build:
@@ -79,6 +103,7 @@ services:
       - DATABASE_URL=postgresql://appuser:devpass123@postgres-users:5432/users_db?schema=public
       - JWT_SECRET=dev-jwt-secret-change-in-production
       - JWT_EXPIRATION=7d
+      - TENANT_SERVICE_URL=http://tenant-service:8084
     env_file:
       - ./services/user-service/.env
     volumes:
@@ -87,7 +112,9 @@ services:
     depends_on:
       postgres-users:
         condition: service_healthy
-    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+      tenant-service:
+        condition: service_started
+    command: sh -c "npm install --legacy-peer-deps && npx prisma migrate deploy && npm run start:dev"
 
   itinerary-service:
     build:
@@ -113,7 +140,7 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
-    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+    command: sh -c "npm install --legacy-peer-deps && npx prisma migrate deploy && npm run start:dev"
 
   social-service:
     build:
@@ -149,7 +176,7 @@ services:
         condition: service_started
       itinerary-service:
         condition: service_started
-    command: npm run start:dev
+    command: sh -c "npm install --legacy-peer-deps && npm run start:dev"
 
   travel-info-service:
     build:
@@ -164,6 +191,31 @@ services:
     depends_on:
       user-service:
         condition: service_started
+
+  tenant-service:
+    build:
+      context: ./services/tenant-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudappdev_tenant_service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      - NODE_ENV=development
+      - PORT=8084
+      - DATABASE_URL=postgresql://appuser:devpass123@postgres-tenants:5432/tenant_db?schema=public
+      - USER_SERVICE_URL=http://user-service:8080
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+      - FREE_TENANT_NAME=Free Community
+    env_file:
+      - ./services/tenant-service/.env
+    volumes:
+      - ./services/tenant-service:/app
+      - /app/node_modules
+    depends_on:
+      postgres-tenants:
+        condition: service_healthy
+    command: sh -c "npm install --legacy-peer-deps && npx prisma migrate deploy && npm run seed && npm run start:dev"
 
   # ==================== API GATEWAY ====================
   api-gateway:
@@ -183,13 +235,23 @@ services:
       - user-service
       - itinerary-service
       - social-service
+      - tenant-service
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 3s
       retries: 3
 
+  # ==================== MONITORING ====================
+  # Prometheus container REMOVED - Using GCP Cloud Monitoring directly
+  #
+  # Local Dev: Services still expose /metrics endpoints on ports 8080-8084
+  # Production (GKE): Use "gcloud container clusters update --enable-managed-prometheus"
+  #
+  # See: docs/TELEMETRY_SIMPLE_SOLUTION.md for details
+
 volumes:
   postgres-users-data:
   postgres-itineraries-data:
   mongodb-social-data:
+  postgres-tenants-data:

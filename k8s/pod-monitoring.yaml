@@ -1,0 +1,80 @@
+# PodMonitoring Resource for GKE Managed Service for Prometheus
+#
+# This tells GKE to automatically scrape /metrics endpoints from all microservices
+# and send them to GCP Cloud Monitoring (no Prometheus container needed!)
+#
+# Prerequisites:
+# - GKE cluster with managed Prometheus enabled:
+#   gcloud container clusters update main-cluster \
+#     --enable-managed-prometheus \
+#     --region=europe-west1
+#
+# Apply:
+#   kubectl apply -f k8s/pod-monitoring.yaml
+#
+# Verify:
+#   kubectl get podmonitoring
+#   kubectl describe podmonitoring microservices-metrics
+#
+# Check metrics in GCP Console:
+#   https://console.cloud.google.com/monitoring/metrics-explorer
+
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: microservices-metrics
+  namespace: default
+  labels:
+    app: cloudappdev
+    component: monitoring
+spec:
+  # Target pods with these labels
+  selector:
+    matchLabels:
+      app: cloudappdev
+
+  # Define metrics endpoints - scrapes all pods with app=cloudappdev label
+  # The collector will try all ports, so we define common ones
+  endpoints:
+    - port: 8080  # User Service
+      path: /metrics
+      interval: 30s
+    - port: 8081  # Itinerary Service
+      path: /metrics
+      interval: 30s
+    - port: 8082  # Social Service
+      path: /metrics
+      interval: 30s
+    - port: 8084  # Tenant Service (if deployed)
+      path: /metrics
+      interval: 30s
+
+---
+# ClusterPodMonitoring for tenant-specific clusters
+# Use this in tenant clusters (e.g., tenant-2-cluster, tenant-3-cluster)
+# Uncomment and deploy in tenant clusters
+#
+# apiVersion: monitoring.googleapis.com/v1
+# kind: ClusterPodMonitoring
+# metadata:
+#   name: tenant-cluster-metrics
+#   labels:
+#     tenant_id: "2"  # Change this for each tenant
+#     cluster_name: "tenant-2-cluster"  # Change this for each tenant
+# spec:
+#   selector:
+#     matchLabels:
+#       app: cloudappdev
+#   endpoints:
+#     - port: 8080
+#       path: /metrics
+#       interval: 30s
+#     - port: 8081
+#       path: /metrics
+#       interval: 30s
+#     - port: 8082
+#       path: /metrics
+#       interval: 30s
+#     - port: 8084
+#       path: /metrics
+#       interval: 30s

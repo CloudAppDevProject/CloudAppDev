@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server';
 
-const ITINERARY_SERVICE_URL =
-  `${process.env.API_GATEWAY_URL}/api/v1/itineraries` ||
-  "http://localhost:8000/api/v1/itineraries";
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
+const ITINERARY_SERVICE_URL = `${API_GATEWAY_URL}/api/v1/itineraries`;
 
 export async function POST(req) {
   try {
+    const token = req.headers.get('Authorization');
     const body = await req.json();
-    
+
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = token;
+    }
+
     const response = await fetch(`${ITINERARY_SERVICE_URL}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -26,6 +32,7 @@ export async function POST(req) {
 
 export async function GET(req) {
   try {
+    const token = req.headers.get('Authorization');
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const userId = searchParams.get('userId');
@@ -33,8 +40,12 @@ export async function GET(req) {
     const page = searchParams.get('page');
     const limit = searchParams.get('limit');
 
+    console.log('[API /api/itineraries GET] Request received');
+    console.log('[API /api/itineraries GET] Token:', token ? 'Present' : 'Missing');
+    console.log('[API /api/itineraries GET] Params:', { id, userId, search, page, limit });
+
     let url = `${ITINERARY_SERVICE_URL}`;
-    
+
     if (id) {
       url = `${ITINERARY_SERVICE_URL}/${id}`;
     } else {
@@ -43,16 +54,26 @@ export async function GET(req) {
       if (search) params.append('search', search);
       if (page) params.append('page', page);
       if (limit) params.append('limit', limit);
-      
+
       const queryString = params.toString();
       if (queryString) url += `?${queryString}`;
     }
 
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    console.log('[API /api/itineraries GET] Forwarding to:', url);
+
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = token;
+    }
+
+    console.log('[API /api/itineraries GET] Headers:', headers);
+
+    const response = await fetch(url, { headers });
+
+    console.log('[API /api/itineraries GET] Backend response status:', response.status);
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
