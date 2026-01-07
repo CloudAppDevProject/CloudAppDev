@@ -67,13 +67,32 @@ output "gke_cluster_name" {
   value       = google_container_cluster.primary.name
 }
 
-# --- Image Pull Secret ---
-output "image_pull_secret_name" {
-  description = "Name of the Kubernetes image pull secret"
-  value       = module.image_pull_secret.secret_name
+# --- Certificate ---
+output "dns_authorization_record" {
+  description = "DNS authorization CNAME record (auto-created in Cloudflare)"
+  value = {
+    name = google_certificate_manager_dns_authorization.default.dns_resource_record[0].name
+    type = google_certificate_manager_dns_authorization.default.dns_resource_record[0].type
+    data = google_certificate_manager_dns_authorization.default.dns_resource_record[0].data
+  }
 }
 
-output "image_pull_secret_namespace" {
-  description = "Namespace of the image pull secret"
-  value       = module.image_pull_secret.namespace
+output "certificate_name" {
+  description = "Google-managed SSL certificate name"
+  value       = google_certificate_manager_certificate.default.name
+}
+
+output "certificate_id" {
+  description = "Google-managed SSL certificate ID"
+  value       = google_certificate_manager_certificate.default.id
+}
+
+output "certificate_map_name" {
+  description = "Certificate map name"
+  value       = google_certificate_manager_certificate_map.default.name
+}
+
+output "certificate_map_id" {
+  description = "Certificate map ID (use this in Gateway annotations)"
+  value       = google_certificate_manager_certificate_map.default.id
 }

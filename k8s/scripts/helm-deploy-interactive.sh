@@ -341,14 +341,7 @@ select_environment() {
     show_config_summary
 
     echo -e "  ${BOLD}1) dev${NC} - Development"
-    echo "     • 1 replica"
-    echo "     • 512Mi memory limit"
-    echo "     • No autoscaling"
-    echo ""
     echo -e "  ${BOLD}2) prod${NC} - Production"
-    echo "     • 3 replicas"
-    echo "     • 2Gi memory limit"
-    echo "     • Autoscaling enabled (3-10 pods)"
     echo ""
 
     while true; do
@@ -438,7 +431,7 @@ configure_chart_path() {
 
     show_config_summary
 
-    local default="./k8s/helm/cloudappdev"
+    local default="../app"
     echo "Path to the Helm chart directory."
     echo "Default: ${BOLD}$default${NC}"
     echo ""
@@ -573,21 +566,6 @@ review_and_confirm() {
     [[ -n "$VALUES_FILE" ]] && echo -e "  Values File:  $VALUES_FILE"
     echo ""
 
-    echo -e "${BOLD}Resource Configuration:${NC}"
-    case "$ENVIRONMENT" in
-        dev)
-            echo "  • Replicas: 1"
-            echo "  • Memory: 512Mi"
-            echo "  • Autoscaling: Disabled"
-            ;;
-        prod)
-            echo "  • Replicas: 3"
-            echo "  • Memory: 2Gi"
-            echo "  • Autoscaling: Enabled (3-10 pods)"
-            ;;
-    esac
-    echo ""
-
     if [[ "$DRY_RUN" == true ]]; then
         log_warn "DRY-RUN MODE ENABLED"
         echo ""
@@ -653,22 +631,6 @@ execute_deployment() {
 
     [[ -n "$VALUES_FILE" ]] && helm_cmd="$helm_cmd --values $VALUES_FILE"
     helm_cmd="$helm_cmd --set global.environment=$ENVIRONMENT"
-
-    # Environment-specific settings
-    case "$ENVIRONMENT" in
-        dev)
-            helm_cmd="$helm_cmd --set replicaCount=1"
-            helm_cmd="$helm_cmd --set resources.limits.memory=512Mi"
-            helm_cmd="$helm_cmd --set autoscaling.enabled=false"
-            ;;
-        prod)
-            helm_cmd="$helm_cmd --set replicaCount=3"
-            helm_cmd="$helm_cmd --set resources.limits.memory=2Gi"
-            helm_cmd="$helm_cmd --set autoscaling.enabled=true"
-            helm_cmd="$helm_cmd --set autoscaling.minReplicas=3"
-            helm_cmd="$helm_cmd --set autoscaling.maxReplicas=10"
-            ;;
-    esac
 
     [[ "$DRY_RUN" == true ]] && helm_cmd="$helm_cmd --dry-run --debug"
 

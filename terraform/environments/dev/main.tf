@@ -7,6 +7,14 @@ resource "google_service_account" "default" {
   display_name = "Service Account"
 }
 
+# Grant Artifact Registry read access to node pool service account
+# This allows GKE nodes to pull images from Artifact Registry natively
+resource "google_project_iam_member" "node_artifact_registry" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.default.email}"
+}
+
 resource "google_container_cluster" "primary" {
   name     = "${var.project_id}-cluster"
   location = var.zone
@@ -20,6 +28,11 @@ resource "google_container_cluster" "primary" {
   # Enable Workload Identity for Kubernetes service accounts to impersonate GCP service accounts
   workload_identity_config {
     workload_pool = "${var.project_id}.svc.id.goog"
+  }
+
+  # Enable Gateway API for Kubernetes Gateway, HTTPRoute, and GKE HealthCheckPolicy resources
+  gateway_api_config {
+    channel = "CHANNEL_STANDARD"
   }
 }
 
@@ -181,16 +194,53 @@ module "itinerary_service_account" {
   ]
 }
 
-# Image Pull Secret for Artifact Registry
-module "image_pull_secret" {
-  source = "../../modules/image-pull-secret"
+# DNS Authorization for Certificate Manager
+resource "google_certificate_manager_dns_authorization" "default" {
+  name        = "${var.project_name}-${var.environment}-dns-auth"
+  description = "DNS authorization for ${var.hostname}"
+  domain      = var.hostname
 
-  service_account_email = google_service_account.default.email
-  namespace             = "default"
-  registry_url          = "${var.region}-docker.pkg.dev"
-  patch_default_sa      = true
-
-  depends_on = [
-    google_container_cluster.primary
-  ]
+  labels = local.common_labels
 }
+
+# Create the DNS validation record in Cloudflare
+resource "cloudflare_dns_record" "cert_validation" {
+  zone_id = var.cloudflare_zone_id
+  # Strip trailing dot from FQDN for Cloudflare
+  name    = trimsuffix(google_certificate_manager_dns_authorization.default.dns_resource_record[0].name, ".")
+  content = trimsuffix(google_certificate_manager_dns_authorization.default.dns_resource_record[0].data, ".")
+  type    = google_certificate_manager_dns_authorization.default.dns_resource_record[0].type
+  ttl     = 300
+  proxied = false  # Must be false for DNS validation
+}
+
+# Google-managed SSL Certificate for HTTPS (with DNS authorization)
+resource "google_certificate_manager_certificate" "default" {
+  name        = "${var.project_name}-${var.environment}-cert"
+  description = "Google-managed SSL certificate for ${var.hostname}"
+
+  managed {
+    domains            = [var.hostname]
+    dns_authorizations = [google_certificate_manager_dns_authorization.default.id]
+  }
+
+  labels = local.common_labels
+}
+
+# Certificate Map for Gateway API
+resource "google_certificate_manager_certificate_map" "default" {
+  name        = "${var.project_name}-${var.environment}-cert-map"
+  description = "Certificate map for ${var.hostname}"
+
+  labels = local.common_labels
+}
+
+# Certificate Map Entry - links the certificate to the map
+resource "google_certificate_manager_certificate_map_entry" "default" {
+  name         = "${var.project_name}-${var.environment}-cert-map-entry"
+  description  = "Certificate map entry for ${var.hostname}"
+  map          = google_certificate_manager_certificate_map.default.name
+  certificates = [google_certificate_manager_certificate.default.id]
+  hostname     = var.hostname
+}
+

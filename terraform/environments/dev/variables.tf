@@ -49,7 +49,7 @@ variable "hostname" {
 variable "gke_num_nodes" {
   description = "Number of GKE nodes per zone"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "gke_machine_type" {

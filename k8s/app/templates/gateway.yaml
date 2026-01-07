@@ -4,7 +4,7 @@ metadata:
   name: {{ include "app.fullname" . }}-gateway
   namespace: default
   annotations:
-    networking.gke.io/certmap: cloudappdev-map
+    networking.gke.io/certmap: cloudappdev-dev-cert-map # TODO Make configurable
 spec:
   gatewayClassName: {{ .Values.api.className | quote }}
   listeners:

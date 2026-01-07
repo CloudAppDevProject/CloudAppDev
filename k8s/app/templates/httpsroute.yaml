@@ -17,7 +17,7 @@ spec:
     - name: {{ $fullName }}-gateway
       sectionName: https
   hostnames:
-    {{- toYaml .Values.api.hostname | nindent 4 }}
+    - {{ .Values.api.hostname | quote }}
   rules:
     {{- range .Values.httpsRoute.rules }}
     {{- with .matches }}

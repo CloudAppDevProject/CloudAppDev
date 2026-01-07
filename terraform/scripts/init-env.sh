@@ -77,6 +77,9 @@ REQUIRED_APIS=(
   # Networking Services
   "servicenetworking.googleapis.com"        # Service Networking API (VPC peering)
   "dns.googleapis.com"                      # Cloud DNS API
+
+  # Certificate Management
+  "certificatemanager.googleapis.com"       # Certificate Manager API (SSL certificates)
 )
 
 echo -e "${YELLOW}Checking and enabling ${#REQUIRED_APIS[@]} required APIs...${NC}"
