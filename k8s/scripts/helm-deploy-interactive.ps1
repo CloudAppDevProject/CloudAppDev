@@ -152,7 +152,8 @@ function Show-ClusterInfo {
     Write-ColorOutput "You are connected to cluster: $currentContext" -Type "Warn"
 
     Write-Host ""
-    if (-not (Confirm-Action "Is this the correct cluster?")) {
+    $choice = Read-Host "Press Enter to continue with current context, or 'c' to change"
+    if ($choice -eq "c" -or $choice -eq "C") {
         Switch-ClusterContext
     }
 
@@ -387,7 +388,7 @@ function Set-Namespace {
     Write-Separator
     Write-ColorOutput "STEP 6: Configure Namespace" -Type "Header"
 
-    $default = "cloudappdev-$($script:Environment)"
+    $default = "default"
     Write-Host "Kubernetes namespace for deployment."
     Write-Host "Default: $default"
     Write-Host ""
@@ -425,22 +426,14 @@ function Set-ChartPath {
 
     if (Test-Path $default) {
         Write-ColorOutput "Default chart found: $default" -Type "Info"
-        Write-Host ""
-        if (Confirm-Action "Use default chart path?" -DefaultYes $true) {
-            $script:ChartPath = $default
-            Write-ColorOutput "Using: $($script:ChartPath)" -Type "Info"
-            Write-Host ""
-            Read-Host "Press Enter to continue"
-            return
-        }
     } else {
         Write-ColorOutput "Default chart path not found: $default" -Type "Warn"
     }
 
     while ($true) {
         Write-Host ""
-        $input = Read-Host "Enter chart path"
-        $script:ChartPath = if ($input) { $input } else { $default }
+        $userInput = Read-Host "Enter chart path [press Enter for default]"
+        $script:ChartPath = if ($userInput) { $userInput } else { $default }
 
         if (Test-Path $script:ChartPath) {
             Write-ColorOutput "Chart found: $($script:ChartPath)" -Type "Info"
@@ -515,6 +508,9 @@ function Set-DryRun {
 
     Write-Host "Dry-run mode shows what would happen without making actual changes."
     Write-Host "Useful for testing and validation."
+    Write-Host "Default: " -NoNewline
+    Write-Host "No" -ForegroundColor White -NoNewline
+    Write-Host " (actual deployment)"
     Write-Host ""
 
     if (Confirm-Action "Enable dry-run mode?") {
@@ -597,12 +593,8 @@ function Invoke-Deployment {
             Write-ColorOutput "Deployment cancelled" -Type "Info"
             exit 0
         }
-    } else {
-        if (-not (Confirm-Action "Proceed with deployment?" -DefaultYes $true)) {
-            Write-ColorOutput "Deployment cancelled" -Type "Info"
-            exit 0
-        }
     }
+    # For non-prod with dry-run disabled, proceed directly without confirmation
 
     # Execute deployment
     Clear-Host

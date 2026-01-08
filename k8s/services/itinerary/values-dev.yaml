@@ -17,7 +17,7 @@ initContainers:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
     args:
       - "--port=5432"
-      - "cloudappdev-dev:europe-west1:cloudappdev-tf-itinerary-db"
+      - "cloudappdev-dev:europe-west1:cloudappdev-dev-itinerary-db"
     restartPolicy: Always
     securityContext:
       runAsNonRoot: true
@@ -63,7 +63,7 @@ env:
 serviceAccount:
   create: true
   annotations: 
-    iam.gke.io/gcp-service-account: "run-exec@cloudappdev-dev.iam.gserviceaccount.com"
+    iam.gke.io/gcp-service-account: "itinerary-service-sa@cloudappdev-dev.iam.gserviceaccount.com"
   name: "itinerary-service-sa"
 
 service:

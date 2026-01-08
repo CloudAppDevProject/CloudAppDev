@@ -2,5 +2,5 @@ apiVersion: v2
 name: travel-info
 description: A Helm chart for Travel Info Service
 type: application
-version: 1.0.3
-appVersion: "0.2.36"
+version: 1.0.2
+appVersion: "0.0.9"

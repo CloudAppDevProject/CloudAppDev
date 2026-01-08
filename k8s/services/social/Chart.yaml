@@ -3,4 +3,4 @@ name: social
 description: A Helm chart for Social Service
 type: application
 version: 1.0.1
-appVersion: "0.2.31"
+appVersion: "0.0.9"

@@ -9,6 +9,11 @@ output "itinerary_db_connection_name" {
   value       = module.itinerary_db.instance_connection_name
 }
 
+output "tenant_db_connection_name" {
+  description = "Tenant database connection name"
+  value       = module.tenant_db.instance_connection_name
+}
+
 output "images_bucket_name" {
   description = "Images bucket name"
   value       = module.images_bucket.bucket_name
@@ -60,6 +65,16 @@ output "social_service_account_name" {
 output "social_service_account_email" {
   description = "Social service account email"
   value       = module.social_service_account.email
+}
+
+# --- Tenant ---
+output "tenant_service_account_name" {
+  description = "Tenant service account name"
+  value       = module.tenant_service_account.name
+}
+output "tenant_service_account_email" {
+  description = "Tenant service account email"
+  value       = module.tenant_service_account.email
 }
 
 output "gke_cluster_name" {

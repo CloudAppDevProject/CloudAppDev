@@ -17,7 +17,7 @@ initContainers:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
     args:
       - "--port=5432"
-      - "cloudappdev-dev:europe-west1:cloudappdev-tf-users-db"
+      - "cloudappdev-dev:europe-west1:cloudappdev-dev-users-db"
     restartPolicy: Always
     securityContext:
       runAsNonRoot: true
@@ -71,7 +71,7 @@ env:
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "run-exec@cloudappdev-dev.iam.gserviceaccount.com"
+    iam.gke.io/gcp-service-account: "user-service-sa@cloudappdev-dev.iam.gserviceaccount.com"
   name: "user-service-sa"
 
 service:

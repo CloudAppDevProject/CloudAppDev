@@ -2,30 +2,15 @@ resource "google_iam_workload_identity_pool" "dev_pool" {
   workload_identity_pool_id = var.project_id
 }
 
-resource "google_service_account" "default" {
-  account_id   = "service-account-id"
-  display_name = "Service Account"
-}
-
-# Grant Artifact Registry read access to node pool service account
-# This allows GKE nodes to pull images from Artifact Registry natively
-resource "google_project_iam_member" "node_artifact_registry" {
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${google_service_account.default.email}"
-}
-
+# GKE Autopilot Cluster - fully managed node provisioning
 resource "google_container_cluster" "primary" {
   name     = "${var.project_id}-cluster"
-  location = var.zone
+  location = var.region  # Autopilot requires regional cluster
 
-  # We can't create a cluster with no node pool defined, but we want to only use
-  # separately managed node pools. So we create the smallest possible default
-  # node pool and immediately delete it.
-  remove_default_node_pool = true
-  initial_node_count       = 1
-
-  # Enable Workload Identity for Kubernetes service accounts to impersonate GCP service accounts
+  # Enable Autopilot mode - GCP manages nodes automatically
+  enable_autopilot = true
+  
+  # Workload Identity is automatically enabled in Autopilot
   workload_identity_config {
     workload_pool = "${var.project_id}.svc.id.goog"
   }
@@ -34,32 +19,9 @@ resource "google_container_cluster" "primary" {
   gateway_api_config {
     channel = "CHANNEL_STANDARD"
   }
-}
 
-# Separately managed node pool with Workload Identity enabled
-resource "google_container_node_pool" "primary_nodes" {
-  name       = "${var.project_id}-node-pool"
-  location   = var.zone
-  cluster    = google_container_cluster.primary.name
-  node_count = var.gke_num_nodes
-
-  node_config {
-    preemptible  = var.gke_preemptible
-    machine_type = var.gke_machine_type
-
-    # Enable Workload Identity on the node pool
-    workload_metadata_config {
-      mode = "GKE_METADATA"
-    }
-
-    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
-    service_account = google_service_account.default.email
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-
-    labels = local.common_labels
-  }
+  # Autopilot clusters don't need deletion_protection for dev
+  deletion_protection = false
 }
 
 # Users Database
@@ -83,6 +45,22 @@ module "itinerary_db" {
   source = "../../modules/cloudsql"
 
   instance_name       = "${var.project_name}-${var.environment}-itinerary-db"
+  database_version    = "POSTGRES_17"
+  region              = var.region
+  tier                = var.db_tier
+  edition             = "ENTERPRISE"
+  database_name       = local.POSTGRES_NAME
+  database_user       = local.POSTGRES_USER
+  database_password   = local.POSTGRES_PASSWORD
+  deletion_protection = false
+  backup_enabled      = true
+}
+
+# Tenant Database
+module "tenant_db" {
+  source = "../../modules/cloudsql"
+
+  instance_name       = "${var.project_name}-${var.environment}-tenant-db"
   database_version    = "POSTGRES_17"
   region              = var.region
   tier                = var.db_tier
@@ -191,6 +169,26 @@ module "itinerary_service_account" {
   depends_on = [
     google_container_cluster.primary,
     module.itinerary_db
+  ]
+}
+
+# Tenant database access
+module "tenant_service_account" {
+  source = "../../modules/service-account"
+
+  project      = var.project_id
+  account_id   = "tenant-service-sa"
+  display_name = "Tenant Database access - Dev"
+
+  enable_cloudsql = true
+
+  k8s_service_accounts = [
+    "tenant-service-sa",
+  ]
+
+  depends_on = [
+    google_container_cluster.primary,
+    module.tenant_db
   ]
 }
 

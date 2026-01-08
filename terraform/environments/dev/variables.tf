@@ -44,22 +44,3 @@ variable "hostname" {
   type        = string
   default     = "dev.cloudappdev.site"
 }
-
-# GKE Configuration
-variable "gke_num_nodes" {
-  description = "Number of GKE nodes per zone"
-  type        = number
-  default     = 2
-}
-
-variable "gke_machine_type" {
-  description = "GKE node machine type"
-  type        = string
-  default     = "e2-medium"
-}
-
-variable "gke_preemptible" {
-  description = "Use preemptible nodes for cost savings"
-  type        = bool
-  default     = true
-}

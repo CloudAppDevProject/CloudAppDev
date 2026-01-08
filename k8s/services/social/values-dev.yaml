@@ -57,7 +57,7 @@ env:
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "run-exec@cloudappdev-dev.iam.gserviceaccount.com"
+    iam.gke.io/gcp-service-account: "social-service-sa@cloudappdev-dev.iam.gserviceaccount.com"
   name: "social-service-sa"
 
 service:

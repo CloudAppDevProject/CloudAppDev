@@ -178,7 +178,8 @@ show_cluster_info() {
     log_warn "You are connected to cluster: ${BOLD}$current_context${NC}"
 
     echo ""
-    if ! confirm_action "Is this the correct cluster?"; then
+    read -p "$(echo -e "${YELLOW}Press Enter to continue with current context, or 'c' to change: ${NC}")" choice
+    if [[ "$choice" == "c" || "$choice" == "C" ]]; then
         switch_cluster_context
     fi
 }
@@ -397,7 +398,7 @@ configure_namespace() {
 
     show_config_summary
 
-    local default="cloudappdev-${ENVIRONMENT}"
+    local default="default"
     echo "Kubernetes namespace for deployment."
     echo "Default: ${BOLD}$default${NC}"
     echo ""
@@ -439,19 +440,13 @@ configure_chart_path() {
     # Check if default exists
     if [[ -d "$default" ]]; then
         log_info "Default chart found: $default"
-        echo ""
-        if confirm_action "Use default chart path?" "y"; then
-            CHART_PATH="$default"
-            log_info "Using: ${BOLD}$CHART_PATH${NC}"
-            return
-        fi
     else
         log_warn "Default chart path not found: $default"
     fi
 
     while true; do
         echo ""
-        read -p "$(echo -e "${YELLOW}Enter chart path: ${NC}")" input
+        read -p "$(echo -e "${YELLOW}Enter chart path [press Enter for default]: ${NC}")" input
         CHART_PATH="${input:-$default}"
 
         if [[ -d "$CHART_PATH" ]]; then
@@ -531,6 +526,7 @@ configure_dry_run() {
 
     echo "Dry-run mode shows what would happen without making actual changes."
     echo "Useful for testing and validation."
+    echo "Default: ${BOLD}No${NC} (actual deployment)"
     echo ""
 
     if confirm_action "Enable dry-run mode?"; then
@@ -591,12 +587,8 @@ review_and_confirm() {
             log_info "Deployment cancelled"
             exit 0
         fi
-    else
-        if ! confirm_action "Proceed with deployment?" "y"; then
-            log_info "Deployment cancelled"
-            exit 0
-        fi
     fi
+    # For non-prod with dry-run disabled, proceed directly without confirmation
 }
 
 ################################################################################
