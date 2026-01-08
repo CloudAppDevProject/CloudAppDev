@@ -288,9 +288,117 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-  summary:
+  deploy:
     environment: dev
     needs: [prepare, build-and-push]
+    # Only deploy if services were built successfully
+    if: needs.prepare.outputs.services != '[]' && needs.build-and-push.result == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.prepare.outputs.services) }}
+      fail-fast: false
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ secrets.GKE_CLUSTER_LOCATION }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Set Helm chart path
+        id: chart
+        run: |
+          case "${{ matrix.service }}" in
+            "frontend")
+              echo "path=./k8s/app" >> $GITHUB_OUTPUT
+              echo "release=cloudappdev" >> $GITHUB_OUTPUT
+              ;;
+            "user-service")
+              echo "path=./k8s/services/user" >> $GITHUB_OUTPUT
+              echo "release=user-service" >> $GITHUB_OUTPUT
+              ;;
+            "itinerary-service")
+              echo "path=./k8s/services/itinerary" >> $GITHUB_OUTPUT
+              echo "release=itinerary-service" >> $GITHUB_OUTPUT
+              ;;
+            "social-service")
+              echo "path=./k8s/services/social" >> $GITHUB_OUTPUT
+              echo "release=social-service" >> $GITHUB_OUTPUT
+              ;;
+            "travel-info-service")
+              echo "path=./k8s/services/travel-info" >> $GITHUB_OUTPUT
+              echo "release=travel-info-service" >> $GITHUB_OUTPUT
+              ;;
+            "tenant-service")
+              echo "path=./k8s/services/tenant" >> $GITHUB_OUTPUT
+              echo "release=tenant-service" >> $GITHUB_OUTPUT
+              ;;
+            "api-gateway")
+              echo "path=./k8s/gateway" >> $GITHUB_OUTPUT
+              echo "release=api-gateway" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown service: ${{ matrix.service }}"
+              exit 1
+              ;;
+          esac
+
+      - name: Deploy with Helm
+        run: |
+          NAMESPACE="cloudappdev-dev"
+          VERSION="${{ needs.prepare.outputs.version }}"
+
+          echo "🚀 Deploying ${{ matrix.service }} with version ${VERSION}"
+
+          helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
+            --namespace ${NAMESPACE} \
+            --create-namespace \
+            --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
+            --set image.tag=${VERSION} \
+            --wait \
+            --timeout 5m
+
+      - name: Verify deployment
+        run: |
+          NAMESPACE="cloudappdev-dev"
+          echo "📋 Verifying deployment for ${{ matrix.service }}..."
+
+          kubectl rollout status deployment/${{ steps.chart.outputs.release }} -n ${NAMESPACE} --timeout=3m || true
+
+          echo ""
+          echo "📊 Pod status:"
+          kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/instance=${{ steps.chart.outputs.release }} --no-headers
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 ${{ matrix.service }} Deployed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** \`${{ steps.chart.outputs.release }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespace:** \`cloudappdev-dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    environment: dev
+    needs: [prepare, build-and-push, deploy]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -299,7 +407,7 @@ jobs:
           SERVICES='${{ needs.prepare.outputs.services }}'
           ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
 
-          echo "## 📦 Development Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Development Build & Deploy Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Environment:** \`dev\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ needs.prepare.outputs.version }}\` (auto-incremented)" >> $GITHUB_STEP_SUMMARY
@@ -308,10 +416,18 @@ jobs:
           echo "**Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Build status
+          BUILD_STATUS="${{ needs.build-and-push.result }}"
+          DEPLOY_STATUS="${{ needs.deploy.result }}"
+
+          echo "### 🔨 Build Status: \`${BUILD_STATUS}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Deploy Status: \`${DEPLOY_STATUS}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           # Services that were built
           BUILT_COUNT=$(echo "$SERVICES" | jq 'length')
           if [ "$BUILT_COUNT" -gt 0 ]; then
-            echo "### ✅ Services Built ($BUILT_COUNT):" >> $GITHUB_STEP_SUMMARY
+            echo "### ✅ Services Built & Deployed ($BUILT_COUNT):" >> $GITHUB_STEP_SUMMARY
             echo "$SERVICES" | jq -r '.[]' | while read service; do
               echo "- ✅ ${service}" >> $GITHUB_STEP_SUMMARY
             done
