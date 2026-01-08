@@ -364,14 +364,13 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          NAMESPACE="cloudappdev-dev"
+          NAMESPACE="default"
           VERSION="${{ needs.prepare.outputs.version }}"
 
           echo "🚀 Deploying ${{ matrix.service }} with version ${VERSION}"
 
           helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
             --namespace ${NAMESPACE} \
-            --create-namespace \
             --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
             --set image.tag=${VERSION} \
             --wait \
@@ -379,7 +378,7 @@ jobs:
 
       - name: Verify deployment
         run: |
-          NAMESPACE="cloudappdev-dev"
+          NAMESPACE="default"
           echo "📋 Verifying deployment for ${{ matrix.service }}..."
 
           kubectl rollout status deployment/${{ steps.chart.outputs.release }} -n ${NAMESPACE} --timeout=3m || true
@@ -393,7 +392,7 @@ jobs:
           echo "## 🚀 ${{ matrix.service }} Deployed!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release:** \`${{ steps.chart.outputs.release }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Namespace:** \`cloudappdev-dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespace:** \`default\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
 
   summary:
