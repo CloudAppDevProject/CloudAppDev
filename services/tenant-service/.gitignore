@@ -44,4 +44,3 @@ lerna-debug.log*
 # Prisma
 node_modules
 .env
-migrations
