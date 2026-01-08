@@ -34,17 +34,19 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Active menu item styles */
+/* Disable PrimeReact's default focus highlight on menu items */
+.p-megamenu .p-menuitem.p-focus > .p-menuitem-content {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Route-based active menu item styles */
 .p-megamenu .p-menuitem.p-menuitem-active > .p-menuitem-content {
   background-color: var(--primary-color, #3b82f6) !important;
-  color: white !important;
   border-radius: 6px;
 }
 
-.p-megamenu .p-menuitem.p-menuitem-active > .p-menuitem-content .p-menuitem-link {
-  color: white !important;
-}
-
+.p-megamenu .p-menuitem.p-menuitem-active > .p-menuitem-content .p-menuitem-link,
 .p-megamenu .p-menuitem.p-menuitem-active > .p-menuitem-content .p-menuitem-text {
   color: white !important;
 }
