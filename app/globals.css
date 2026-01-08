@@ -33,3 +33,18 @@ button {
 button:disabled {
   cursor: not-allowed;
 }
+
+/* Active menu item styles */
+.p-megamenu .p-menuitem.p-menuitem-active > .p-menuitem-content {
+  background-color: var(--primary-color, #3b82f6) !important;
+  color: white !important;
+  border-radius: 6px;
+}
+
+.p-megamenu .p-menuitem.p-menuitem-active > .p-menuitem-content .p-menuitem-link {
+  color: white !important;
+}
+
+.p-megamenu .p-menuitem.p-menuitem-active > .p-menuitem-content .p-menuitem-text {
+  color: white !important;
+}

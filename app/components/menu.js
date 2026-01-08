@@ -42,25 +42,45 @@ export default function Menu() {
     );
   }
 
+  // Helper to check if a path is active
+  const isActive = (path) => {
+    if (path === "/") {
+      return pathname === "/";
+    }
+    return pathname.startsWith(path);
+  };
+
   const items = [
-    { label: "My Itineraries", command: () => router.push("/") },
-    { label: "All Itineraries", command: () => router.push("/itineraries") },
+    {
+      label: "My Itineraries",
+      command: () => router.push("/"),
+      className: isActive("/") && pathname === "/" ? "p-menuitem-active" : ""
+    },
+    {
+      label: "All Itineraries",
+      command: () => router.push("/itineraries"),
+      className: isActive("/itineraries") ? "p-menuitem-active" : ""
+    },
     ...(user && user.tenantId === 1
       ? [{
           label: "Create Organization",
           icon: "pi pi-star",
           command: () => router.push("/upgrade"),
-          className: "text-blue-600 font-semibold"
+          className: `text-blue-600 font-semibold${isActive("/upgrade") ? " p-menuitem-active" : ""}`
         }]
       : []),
     ...(user && user.role === 'admin'
       ? [
-          { label: "Admin Panel", command: () => router.push("/admin/tenant") },
+          {
+            label: "Admin Panel",
+            command: () => router.push("/admin/tenant"),
+            className: isActive("/admin/tenant") ? "p-menuitem-active" : ""
+          },
           {
             label: "Monitoring",
             icon: "pi pi-chart-line",
             command: () => router.push("/admin/monitoring"),
-            className: "text-purple-600 font-semibold"
+            className: `text-purple-600 font-semibold${isActive("/admin/monitoring") ? " p-menuitem-active" : ""}`
           }
         ]
       : []),
