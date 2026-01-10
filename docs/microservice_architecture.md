@@ -1,5 +1,5 @@
 # Microservices
-This documents how the pods and namespaces communicate with each other and 
+This documents how the pods and namespaces communicate with each other 
 
 ## Glossary
 
