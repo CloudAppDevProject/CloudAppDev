@@ -2,6 +2,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
+  namespace: {{ .Values.namespace }}
   name: {{ include "social.fullname" . }}-newsletter
   labels:
     {{- include "social.labels" . | nindent 4 }}

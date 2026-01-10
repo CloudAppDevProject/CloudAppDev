@@ -1,3 +1,9 @@
+# Namespace where this chart will be deployed
+namespace: default
+
+# Gateway namespace (if gateway is in a different namespace)
+gatewayNamespace: default
+
 image:
   repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-frontend
   # This sets the pull policy for images.

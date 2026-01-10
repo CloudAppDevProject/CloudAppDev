@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  namespace: {{ .Values.namespace }}
   name: {{ include "tenant.fullname" . }}
   labels:
     {{- include "tenant.labels" . | nindent 4 }}

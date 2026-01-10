@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  namespace: {{ .Values.namespace }}
   name: {{ include "itinerary.fullname" . }}
   labels:
     {{- include "itinerary.labels" . | nindent 4 }}

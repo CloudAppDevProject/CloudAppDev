@@ -1,3 +1,17 @@
+# Namespace where this chart will be deployed
+namespace: default
+
+
+# Service namespaces for cross-namespace routing
+# NOTE: If microservices are deployed in different namespaces,
+# the nginx config must use FQDN: service-name.namespace.svc.cluster.local
+serviceNamespaces:
+  user: default
+  itinerary: default
+  social: default
+  travelInfo: default
+  tenant: default
+
 image:
   repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-api-gateway
   pullPolicy: IfNotPresent
