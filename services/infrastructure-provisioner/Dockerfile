@@ -31,6 +31,9 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
+# Copy package.json (required for ES modules)
+COPY services/infrastructure-provisioner/package*.json ./
+
 # Copy dependencies from dependencies stage
 COPY --from=dependencies /app/node_modules ./node_modules
 
