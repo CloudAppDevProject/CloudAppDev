@@ -1,0 +1,46 @@
+replicaCount: 1
+
+image:
+  repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/infrastructure-provisioner
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+environment: dev
+
+# Service account with permissions to manage GKE resources
+serviceAccount:
+  create: true
+  name: infrastructure-provisioner-sa
+  annotations:
+    iam.gke.io/gcp-service-account: infrastructure-provisioner-sa@cloudappdev-dev.iam.gserviceaccount.com
+
+# Terraform state backend
+terraform:
+  stateBackend: gcs
+  stateBucket: cloudappdev-dev-terraform-state
+  statePrefix: environments/dev
+
+# GCP configuration
+gcp:
+  project: cloudappdev-dev
+  region: europe-west1
+
+# Cloudflare configuration (from secrets)
+cloudflare:
+  zoneId: ddbd47810ae075fc0bc55a4ef05a91ec

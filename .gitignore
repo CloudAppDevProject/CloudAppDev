@@ -79,6 +79,7 @@ CloudAppDev/*
 **/.terraform.lock.hcl
 **/terraform.tfstate
 **/terraform.tfstate.backup
+terraform/environments/*/tenants.tfvars
 **/tfplan
 **/*.tfvars
 !**/*.tfvars.example
