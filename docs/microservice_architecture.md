@@ -4,10 +4,10 @@ This documents how the pods and namespaces communicate with each other
 ## Glossary
 
 ### Client 
-A business client that registers and rents the software.\
+A business client that registers and rents the software.
 
 ### User
-An individual wanting to plan their trip or vacation.\
+An individual wanting to plan their trip or vacation.
 
 ### Full Stack Deployment
 A complete and functioning stack of services and pods to provide the 
