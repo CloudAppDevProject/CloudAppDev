@@ -219,7 +219,7 @@ jobs:
               ;;
             "infrastructure-provisioner")
               echo "image-name=infrastructure-provisioner" >> $GITHUB_OUTPUT
-              echo "context=./services/infrastructure-provisioner" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
               echo "dockerfile=./services/infrastructure-provisioner/Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Infrastructure Provisioning Service" >> $GITHUB_OUTPUT
               ;;

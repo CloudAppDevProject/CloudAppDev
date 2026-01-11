@@ -13,7 +13,7 @@ RUN apk add --no-cache \
 
 # Install Node.js dependencies
 WORKDIR /app
-COPY package*.json ./
+COPY services/infrastructure-provisioner/package*.json ./
 RUN npm ci --only=production
 
 # ===================================
@@ -35,7 +35,7 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 
 # Copy application code
-COPY . .
+COPY services/infrastructure-provisioner/server.js ./server.js
 
 # Copy Terraform configurations
 COPY terraform /terraform
