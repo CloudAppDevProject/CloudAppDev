@@ -13,8 +13,8 @@ export default function Menu() {
   // 💡 KORRIGIERT: avatarUrl zum Destrukturieren hinzugefügt
   const { user, avatarUrl } = useUser();
 
-  // Menü ausblenden auf Login/Register-Seiten
-  if (pathname === "/login" || pathname === "/register") return null;
+  // Menü ausblenden auf Login- und allen Register-Seiten
+  if (pathname === "/login" || pathname.startsWith("/register")) return null;
 
   let menuEndContent;
 
@@ -61,15 +61,8 @@ export default function Menu() {
       command: () => router.push("/itineraries"),
       className: isActive("/itineraries") ? "p-menuitem-active" : ""
     },
-    ...(user && user.tenantId === 1
-      ? [{
-          label: "Create Organization",
-          icon: "pi pi-star",
-          command: () => router.push("/upgrade"),
-          className: `text-blue-600 font-semibold${isActive("/upgrade") ? " p-menuitem-active" : ""}`
-        }]
-      : []),
-    ...(user && user.role === 'admin'
+
+    ...(user && user.loginType === 'tenant_admin'
       ? [
           {
             label: "Admin Panel",

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { Logger } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 const logger = new Logger('TenantServiceSeeder');
@@ -7,75 +8,43 @@ const logger = new Logger('TenantServiceSeeder');
 /**
  * Automatic Database Seeding for Tenant Service
  * Runs on every deployment to ensure:
- * 1. Default roles exist (user, admin)
- * 2. Default tenant exists (Free Community)
+ * 1. Default tenant exists (Free Community)
  */
 async function seed() {
   logger.log('🌱 Starting automatic database seeding...');
 
   try {
-    // 1. Seed Roles
-    logger.log('📋 Seeding roles...');
-
-    const roles = [
-      { 
-        id: 1, 
-        name: 'user', 
-        permissions: ['itinerary:create', 'itinerary:read', 'itinerary:update', 'itinerary:delete']
-      },
-      { 
-        id: 2, 
-        name: 'admin', 
-        permissions: ['*'] // Admin has all permissions
-      },
-    ];
-
-    for (const roleData of roles) {
-      const existingRole = await prisma.role.findUnique({
-        where: { id: roleData.id },
-      });
-
-      if (existingRole) {
-        logger.log(`  ✓ Role '${roleData.name}' already exists (ID: ${roleData.id})`);
-      } else {
-        const role = await prisma.role.create({ data: roleData });
-        logger.log(`  ✓ Created role '${role.name}' (ID: ${role.id})`);
-      }
-    }
-
-    // 2. Seed Default Tenant (Free Community)
+    // Seed Default Tenant (Free Community)
     logger.log('🏢 Seeding default tenant...');
 
     const freeTenantName = process.env.FREE_TENANT_NAME || 'Free Community';
+    const tenantEmail = process.env.FREE_TENANT_EMAIL || 'free@example.local';
+    const tenantPassword = process.env.FREE_TENANT_PASSWORD || 'changeme';
+    const tenantNamespace = process.env.FREE_TENANT_NAMESPACE || 'free-community';
 
-    const defaultTenantData = {
-      id: 1,
-      name: freeTenantName,
-      tier: 'free',
-      maxUsers: 999999, // Unlimited users for free community
-    };
-
-    const existingTenant = await prisma.tenant.findUnique({
-      where: { id: defaultTenantData.id },
+    // Check if tenant already exists
+    const existingTenant = await prisma.tenant.findFirst({
+      where: { name: freeTenantName },
     });
 
     if (existingTenant) {
-      logger.log(`  ✓ Default tenant already exists: ${existingTenant.name} (ID: ${existingTenant.id})`);
+      logger.log(`  ✓ Default tenant already exists: ${existingTenant.name} (UUID: ${existingTenant.uuid})`);
     } else {
-      const tenant = await prisma.tenant.create({ data: defaultTenantData });
-      logger.log(`  ✓ Created default tenant: ${tenant.name} (ID: ${tenant.id})`);
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(tenantPassword, 10);
+
+      const tenant = await prisma.tenant.create({
+        data: {
+          name: freeTenantName,
+          email: tenantEmail,
+          password: hashedPassword,
+          namespace: tenantNamespace,
+          tier: 'free',
+        },
+      });
+
+      logger.log(`  ✓ Created default tenant: ${tenant.name} (UUID: ${tenant.uuid})`);
     }
-
-    // 3. Fix PostgreSQL sequences after seeding with explicit IDs
-    logger.log('🔧 Resetting PostgreSQL sequences...');
-
-    // Reset tenant sequence to highest ID + 1
-    await prisma.$executeRaw`SELECT setval(pg_get_serial_sequence('tenants', 'id'), COALESCE((SELECT MAX(id) FROM tenants), 1), true)`;
-    logger.log('  ✓ Tenant sequence reset');
-
-    // Reset role sequence to highest ID + 1
-    await prisma.$executeRaw`SELECT setval(pg_get_serial_sequence('roles', 'id'), COALESCE((SELECT MAX(id) FROM roles), 1), true)`;
-    logger.log('  ✓ Role sequence reset');
 
     logger.log('✅ Automatic database seeding completed successfully!');
   } catch (error) {

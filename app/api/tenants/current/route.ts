@@ -12,12 +12,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify JWT and extract tenantId
+    // Verify JWT and extract tenantUuid
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    const tenantId = payload.tenantId as number;
+    const tenantUuid = payload.tenantUuid as string | undefined;
 
-    // Fetch tenant from Tenant Service
-    const response = await fetch(`${API_GATEWAY_URL}/api/v1/tenants/${tenantId}`, {
+    if (!tenantUuid) {
+      return NextResponse.json({ message: 'No tenant assigned' }, { status: 400 });
+    }
+
+    // Fetch tenant from Tenant Service by UUID
+    const response = await fetch(`${API_GATEWAY_URL}/api/v1/tenants/${tenantUuid}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 

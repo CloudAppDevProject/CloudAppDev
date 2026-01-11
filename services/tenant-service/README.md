@@ -1,13 +1,12 @@
 # Tenant Service
 
-Tenant and Role Management Service for CloudAppDev multi-tenancy implementation.
+Tenant Management Service for CloudAppDev multi-tenancy implementation (roles removed).
 
 ## Overview
 
 This service manages:
 - **Tenants**: Organizations/companies using the platform
-- **Roles**: User roles (user, admin)
-- **UserRoles**: Assignment of roles to users within tenants
+- **Tenant ownership**: Tenant records can include an owner email to recognize tenant administrators
 
 ## Tech Stack
 
@@ -43,9 +42,6 @@ npm run prisma:generate
 # Run migrations
 npx prisma migrate dev
 
-# Seed roles
-npm run seed:roles
-
 # Start dev server
 npm run start:dev
 ```
@@ -58,14 +54,6 @@ npm run start:dev
 - `PATCH /api/v1/tenants/:id` - Update tenant
 - `GET /api/v1/tenants/:id/users` - Get users in tenant (Admin only)
 
-### Roles
-- `GET /api/v1/roles` - List all roles
-- `GET /api/v1/roles/:id` - Get role by ID
-
-### User Roles
-- `GET /api/v1/user-roles/:userId` - Get user's roles
-- `POST /api/v1/user-roles` - Assign role to user (Admin only)
-- `DELETE /api/v1/user-roles/:id` - Remove role assignment (Admin only)
 
 ## Integration
 

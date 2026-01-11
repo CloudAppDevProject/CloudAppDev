@@ -3,6 +3,8 @@ import { HttpModule } from '@nestjs/axios';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { TenantAuthModule } from '../auth/tenant-auth.module';
+import { AdminGuard } from '../guards/admin.guard';
 
 @Module({
   imports: [
@@ -11,9 +13,10 @@ import { PrismaModule } from '../prisma/prisma.module';
       maxRedirects: 5,
     }),
     PrismaModule,
+    TenantAuthModule,
   ],
   controllers: [TenantsController],
-  providers: [TenantsService],
-  exports: [TenantsService],
+  providers: [TenantsService, AdminGuard],
+  exports: [TenantsService, AdminGuard],
 })
 export class TenantsModule {}

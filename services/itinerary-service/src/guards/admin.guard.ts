@@ -1,11 +1,25 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
+import { TenantService } from '../tenant/tenant.service';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
+  private readonly logger = new Logger(AdminGuard.name);
 
-    // Check if user exists and has admin role
-    return request.user?.role === 'admin';
+  constructor(private readonly tenantService: TenantService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const email = request.user?.email;
+
+    if (!email) {
+      this.logger.warn('Admin check failed: no email in request');
+      return false;
+    }
+
+    // Check if email is a tenant admin by querying tenant-service
+    const { isAdmin } = await this.tenantService.isEmailTenantAdmin(email);
+    this.logger.debug(`Admin check for ${email}: isAdmin=${isAdmin}`);
+
+    return isAdmin;
   }
 }

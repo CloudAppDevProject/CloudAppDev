@@ -42,7 +42,7 @@ export default function MonitoringDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (userRole === 'admin') {
+    if (userRole === 'tenant_admin') {
       fetchMetrics();
       // Auto-refresh every 30 seconds
       const interval = setInterval(fetchMetrics, 30000);
@@ -63,21 +63,21 @@ export default function MonitoringDashboardPage() {
         return;
       }
 
-      // Decode JWT to check role
+      // Decode JWT to check loginType (preferred)
       const parts = token.split('.');
       console.log('[Monitoring] Token parts count:', parts.length);
 
       const payload = JSON.parse(atob(parts[1]));
       console.log('[Monitoring] Decoded JWT payload:', payload);
-      console.log('[Monitoring] User role from token:', payload.role);
+      console.log('[Monitoring] User loginType from token:', payload.loginType);
       console.log('[Monitoring] User ID from token:', payload.sub || payload.userId);
       console.log('[Monitoring] User email from token:', payload.email);
 
-      setUserRole(payload.role);
+      setUserRole(payload.loginType);
 
-      if (payload.role !== 'admin') {
-        console.error('[Monitoring] Access denied - user role is:', payload.role, '(expected: admin)');
-        setError('Access denied. Admin privileges required.');
+      if (payload.loginType !== 'tenant_admin') {
+        console.error('[Monitoring] Access denied - user loginType is:', payload.loginType, "(expected: tenant_admin)");
+        setError('Access denied. Tenant admin privileges required.');
         setLoading(false);
         return;
       }
@@ -185,13 +185,13 @@ export default function MonitoringDashboardPage() {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <Message severity="error" text={error} className="mb-4" />
-        {userRole !== 'admin' && (
+        {userRole !== 'tenant_admin' && (
           <Message
             severity="warn"
-            text="Only administrators can access the monitoring dashboard."
+            text="Only tenant administrators can access the monitoring dashboard."
             className="mb-4"
           />
-        )}
+        )} 
         <Button
           label="Back to Home"
           icon="pi pi-home"

@@ -39,12 +39,22 @@ export default function Register() {
         }),
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ message: "Registration failed" }));
-        throw new Error(errData.message || "Registration failed");
+      // Read raw body once to avoid 'Body has already been read' errors and support
+      // non-JSON error responses from the proxy (e.g., HTML error pages)
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (e) {
+        data = null;
       }
 
-      const { access_token, user } = await res.json();
+      if (!res.ok) {
+        const message = data && data.message ? data.message : `Registration failed (status ${res.status})`;
+        throw new Error(message);
+      }
+
+      const { access_token, user } = data || {};
       console.log("[Register] User registered:", user);
 
       // Clear any old cached data before storing new token

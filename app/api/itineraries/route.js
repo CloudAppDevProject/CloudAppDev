@@ -85,6 +85,7 @@ export async function GET(req) {
 
 export async function PATCH(req) {
   try {
+    const token = req.headers.get('Authorization');
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const body = await req.json();
@@ -93,11 +94,17 @@ export async function PATCH(req) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = token;
+    }
+
     const response = await fetch(`${ITINERARY_SERVICE_URL}/${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -111,6 +118,7 @@ export async function PATCH(req) {
 
 export async function DELETE(req) {
   try {
+    const token = req.headers.get('Authorization');
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -118,11 +126,17 @@ export async function DELETE(req) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = token;
+    }
+
     const response = await fetch(`${ITINERARY_SERVICE_URL}/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     const data = await response.json();

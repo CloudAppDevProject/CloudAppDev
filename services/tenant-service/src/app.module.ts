@@ -7,8 +7,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { TenantsModule } from './tenants/tenants.module';
-import { RolesModule } from './roles/roles.module';
-import { UserRolesModule } from './user-roles/user-roles.module';
 
 @Module({
   imports: [
@@ -39,8 +37,6 @@ import { UserRolesModule } from './user-roles/user-roles.module';
     }),
     PrismaModule,
     TenantsModule,
-    RolesModule,
-    UserRolesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsInt } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsInt, IsEmail } from 'class-validator';
 
 enum TenantTier {
   FREE = 'free',
@@ -27,4 +27,9 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsInt()
   maxUsers?: number;
+
+  // Optional owner email (used when migrating/upgrading users to tenant owners)
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 }

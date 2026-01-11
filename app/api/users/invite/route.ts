@@ -13,20 +13,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify JWT and extract tenantId
+    // Verify JWT and extract tenantUuid and loginType
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    const tenantId = payload.tenantId as number;
-    const userRole = payload.role as string;
+    const tenantUuid = payload.tenantUuid as string | undefined;
+    const loginType = payload.loginType as string;
 
-    // Only admins can invite users
-    if (userRole !== 'admin') {
+    // Only tenant admins can invite users
+    if (loginType !== 'tenant_admin') {
       return NextResponse.json(
-        { message: 'Only admins can invite users' },
+        { message: 'Only tenant admins can invite users' },
         { status: 403 }
       );
     }
 
-    // Create user in User Service
+    // Create user in User Service (pass tenantUuid)
     const response = await fetch(`${API_GATEWAY_URL}/api/v1/users`, {
       method: 'POST',
       headers: {
@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         name: body.name,
         email: body.email,
-        tenantId: tenantId,
-        // Generate temporary password or send invitation email
+        tenantUuid: tenantUuid,
+        // Generate temporary password
         password: Math.random().toString(36).slice(-8) + 'Aa1!'
       })
     });
@@ -48,42 +48,6 @@ export async function POST(request: NextRequest) {
     }
 
     const userData = await response.json();
-
-    // Assign role to user in Tenant Service
-    if (body.role) {
-      // Fetch roles to get the correct roleId dynamically
-      const rolesResponse = await fetch(`${API_GATEWAY_URL}/api/v1/roles`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (!rolesResponse.ok) {
-        throw new Error('Failed to fetch roles');
-      }
-
-      const roles = await rolesResponse.json();
-      const role = roles.find((r: any) => r.name.toLowerCase() === body.role.toLowerCase());
-
-      if (!role) {
-        throw new Error(`Role '${body.role}' not found`);
-      }
-
-      await fetch(`${API_GATEWAY_URL}/api/v1/user-roles`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          userId: userData.id,
-          roleId: role.id,
-          tenantId: tenantId
-        })
-      });
-    }
 
     return NextResponse.json({
       message: 'User invited successfully',

@@ -21,10 +21,23 @@ export async function POST(request: NextRequest) {
     // Verify JWT and extract user info
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const userId = payload.userId as number;
-    const currentTenantId = payload.tenantId as number;
+    const currentTenantUuid = payload.tenantUuid as string | undefined;
 
-    // Only allow users from Free Community (tenant ID 1) to upgrade
-    if (currentTenantId !== 1) {
+    // Determine the default free tenant UUID
+    const defaultFreeNamespace = process.env.DEFAULT_TENANT_NAMESPACE || 'free';
+    let defaultFreeTenantUuid: string | null = null;
+    try {
+      const defaultTenantResponse = await fetch(`${API_GATEWAY_URL}/api/v1/tenants/namespace/${defaultFreeNamespace}`);
+      if (defaultTenantResponse.ok) {
+        const dt = await defaultTenantResponse.json();
+        defaultFreeTenantUuid = dt.uuid;
+      }
+    } catch (err) {
+      console.warn('Could not resolve default free tenant UUID:', err.message);
+    }
+
+    // Only allow users from Free Community to upgrade
+    if (!currentTenantUuid || currentTenantUuid !== defaultFreeTenantUuid) {
       return NextResponse.json(
         { message: 'You already have your own organization' },
         { status: 400 }
@@ -58,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     const tenant = await tenantResponse.json();
 
-    // 2. Update user's tenantId to new organization
+    // 2. Update user's tenant to new organization (use tenant UUID)
     const userUpdateResponse = await fetch(`${API_GATEWAY_URL}/api/v1/users/${userId}`, {
       method: 'PATCH',
       headers: {
@@ -66,7 +79,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
-        tenantId: tenant.id
+        tenantUuid: tenant.uuid
       })
     });
 
@@ -74,44 +87,24 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to update user tenant');
     }
 
-    // 3. Get admin role
-    const rolesResponse = await fetch(`${API_GATEWAY_URL}/api/v1/roles`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      }
-    });
-
-    if (!rolesResponse.ok) {
-      throw new Error('Failed to fetch roles');
+    // NOTE: roles/user-roles are no longer used. Instead:
+    // 3. Set tenant owner email to the upgrading user's email so tenant-service recognizes them as admin
+    try {
+      await fetch(`${API_GATEWAY_URL}/api/v1/tenants/${tenant.uuid}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: payload.email
+        })
+      });
+    } catch (err) {
+      console.warn('Failed to set tenant owner email:', err.message);
     }
 
-    const roles = await rolesResponse.json();
-    const adminRole = roles.find((r: any) => r.name === 'admin');
-
-    if (!adminRole) {
-      throw new Error('Admin role not found');
-    }
-
-    // 4. Assign admin role to user in new organization
-    await fetch(`${API_GATEWAY_URL}/api/v1/user-roles`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        userId: userId,
-        roleId: adminRole.id,
-        tenantId: tenant.id
-      })
-    });
-
-    // 5. Remove user's old role from Free Community
-    // (Optional - could keep for historical purposes)
-
-    // 6. Generate new JWT token with updated tenantId and role
+    // 4. Generate new JWT token with updated tenantUuid and loginType (tenant_admin)
     const newTokenResponse = await fetch(`${API_GATEWAY_URL}/api/v1/auth/refresh-token`, {
       method: 'POST',
       headers: {
@@ -120,8 +113,8 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         userId: userId,
-        tenantId: tenant.id,
-        role: 'admin'
+        tenantUuid: tenant.uuid,
+        loginType: 'tenant_admin'
       })
     });
 

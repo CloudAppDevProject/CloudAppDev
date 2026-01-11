@@ -5,15 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Card } from 'primereact/card';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
-import { Dropdown } from 'primereact/dropdown';
 import { Message } from 'primereact/message';
 
 export default function InviteUserPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: '',
-    name: '',
-    role: 'user'
+    name: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,7 +45,7 @@ export default function InviteUserPage() {
       }
 
       setSuccess(true);
-      setFormData({ email: '', name: '', role: 'user' });
+      setFormData({ email: '', name: '' });
 
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
@@ -61,11 +59,6 @@ export default function InviteUserPage() {
     }
   };
 
-  const roleOptions = [
-    { label: 'User', value: 'user' },
-    { label: 'Admin', value: 'admin' }
-  ];
-
   return (
     <div className="max-w-4xl mx-auto p-6 font-sans">
       <div className="flex items-center mb-6">
@@ -78,7 +71,7 @@ export default function InviteUserPage() {
         />
         <h1 className="text-3xl font-bold">
           <i className="pi pi-user-plus mr-2 text-blue-600"></i>
-          Create User
+          Invite User
         </h1>
       </div>
 
@@ -87,10 +80,10 @@ export default function InviteUserPage() {
       )}
 
       {success && (
-        <Message 
-          severity="success" 
-          text="User created successfully! Redirecting..." 
-          className="mb-4" 
+        <Message
+          severity="success"
+          text="User invited successfully! Redirecting..."
+          className="mb-4"
         />
       )}
 
@@ -126,24 +119,6 @@ export default function InviteUserPage() {
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="role" className="block text-sm font-medium mb-2">
-              Role
-            </label>
-            <Dropdown
-              id="role"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.value })}
-              options={roleOptions}
-              className="w-full"
-              placeholder="Select a role"
-            />
-            <small className="text-gray-600 block mt-2">
-              <i className="pi pi-info-circle mr-1"></i>
-              Admins can manage users and organization settings
-            </small>
-          </div>
-
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
@@ -155,7 +130,7 @@ export default function InviteUserPage() {
             />
             <Button
               type="submit"
-              label={loading ? 'Creating...' : 'Create User'}
+              label={loading ? 'Inviting...' : 'Invite User'}
               icon={loading ? 'pi pi-spinner pi-spin' : 'pi pi-check'}
               disabled={loading}
               className="bg-blue-600 hover:bg-blue-700"

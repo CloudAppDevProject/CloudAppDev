@@ -3,7 +3,7 @@ import {
   IsString,
   IsOptional,
   MinLength,
-  IsInt,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateUserDto {
@@ -27,6 +27,6 @@ export class CreateUserDto {
   avatarUrl?: string;
 
   @IsOptional()
-  @IsInt()
-  tenantId?: number;
+  @IsUUID()
+  tenantUuid?: string;
 }

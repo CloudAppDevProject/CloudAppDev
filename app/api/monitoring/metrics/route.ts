@@ -36,7 +36,7 @@ interface MetricsRequest {
   };
 }
 
-async function verifyAdminToken(request: NextRequest): Promise<{ valid: boolean; userId?: number; role?: string }> {
+async function verifyAdminToken(request: NextRequest): Promise<{ valid: boolean; userId?: number; loginType?: string }> {
   try {
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -47,14 +47,15 @@ async function verifyAdminToken(request: NextRequest): Promise<{ valid: boolean;
     const secret = new TextEncoder().encode(JWT_SECRET);
     const { payload } = await jwtVerify(token, secret);
 
-    if (payload.role !== 'admin') {
+    // Require loginType === 'tenant_admin'
+    if (payload.loginType !== 'tenant_admin') {
       return { valid: false };
     }
 
     return {
       valid: true,
       userId: payload.userId as number,
-      role: payload.role as string,
+      loginType: payload.loginType as string,
     };
   } catch (error) {
     console.error('[Monitoring API] Token verification failed:', error);

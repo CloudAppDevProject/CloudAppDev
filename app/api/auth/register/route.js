@@ -38,7 +38,17 @@ export async function POST(request) {
       }),
     });
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (err) {
+      const raw = await response.text();
+      console.error('[API /auth/register] Upstream returned non-JSON response:', raw);
+      return NextResponse.json(
+        { message: `Upstream returned non-JSON (status ${response.status})`, body: raw },
+        { status: 502 }
+      );
+    }
 
     if (!response.ok) {
       return NextResponse.json(

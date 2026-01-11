@@ -1,25 +1,46 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantUsersService } from '../tenant-users/tenant-users.service';
 import { CreateItineraryDto } from './dto/create-itinerary.dto';
 import { UpdateItineraryDto } from './dto/update-itinerary.dto';
 
 @Injectable()
-export class ItinerariesService {
+export class ItinerariesService implements OnModuleInit {
   private readonly logger = new Logger(ItinerariesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tenantUsersService: TenantUsersService,
+  ) {}
 
-  async create(tenantId: number, userId: number, createItineraryDto: CreateItineraryDto) {
+  async onModuleInit() {
+    try {
+      // Check for legacy tenantId column that should have been removed by migration
+      const cols: Array<{ column_name: string }> = await this.prisma.$queryRaw`
+        SELECT column_name FROM information_schema.columns WHERE table_name='Itinerary'
+      `;
+      const colNames = cols.map(c => c.column_name);
+      if (colNames.includes('tenantId')) {
+        this.logger.error('Startup schema check: found legacy column `tenantId` on Itinerary table.');
+        this.logger.error('Please run migrations and regenerate Prisma client: `npx prisma migrate deploy && npx prisma generate`, then rebuild the service image.');
+      } else {
+        this.logger.log('Startup schema check: Itinerary table is up-to-date (no tenantId column detected).');
+      }
+    } catch (err) {
+      this.logger.warn(`Startup schema check failed: ${(err as Error).message}`);
+    }
+  }
+
+  async create(userId: number, createItineraryDto: CreateItineraryDto) {
     const { userId: dtoUserId, locations, ...itineraryData } = createItineraryDto;
 
     this.logger.log(
-      `Creating itinerary for user ${userId} in tenant ${tenantId} with ${locations?.length || 0} locations`
+      `Creating itinerary for user ${userId} with ${locations?.length || 0} locations`
     );
 
-    // Create itinerary with tenantId and locations using Prisma transaction
+    // Create itinerary with locations using Prisma transaction
     const createPromise = this.prisma.itinerary.create({
       data: {
-        tenantId,
         user_id: userId,
         ...itineraryData,
         locations: locations && Array.isArray(locations)
@@ -32,7 +53,6 @@ export class ItinerariesService {
                 images: loc.images || [],
                 latitude: loc.latitude,
                 longitude: loc.longitude,
-                tenantId, // Add tenantId to location
               }))
             }
           : undefined,
@@ -58,7 +78,7 @@ export class ItinerariesService {
     }
   }
 
-  async findAll(tenantId: number, options?: {
+  async findAll(tenantUuid: string, options?: {
     userId?: number;
     search?: string;
     page?: number;
@@ -68,35 +88,58 @@ export class ItinerariesService {
     const skip = (page - 1) * limit;
 
     this.logger.log(
-      `Finding itineraries for tenant ${tenantId} - userId: ${userId}, search: ${search}, page: ${page}, limit: ${limit}`
+      `Finding itineraries for tenant ${tenantUuid} - userId: ${userId}, search: ${search}, page: ${page}, limit: ${limit}`
     );
 
-    // Build where clause - ALWAYS filter by tenant
-    const where: any = { tenantId };
+    // Get all user IDs belonging to the same tenant
+    const tenantUserIds = await this.tenantUsersService.getUserIdsByTenant(tenantUuid);
+
+    if (tenantUserIds.length === 0) {
+      this.logger.warn(`No users found for tenant ${tenantUuid}, returning empty result`);
+      return {
+        data: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      };
+    }
+
+    // Build where clause - filter by users in the same tenant
+    const where: any = { user_id: { in: tenantUserIds } };
     if (userId) {
+      // If specific userId requested, verify they belong to the tenant
+      if (!tenantUserIds.includes(userId)) {
+        this.logger.warn(`User ${userId} does not belong to tenant ${tenantUuid}`);
+        return {
+          data: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        };
+      }
       where.user_id = userId;
     }
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { destination: { contains: search, mode: 'insensitive' } },
-        { short_desc: { contains: search, mode: 'insensitive' } },
-        { detail_desc: { contains: search, mode: 'insensitive' } },
+      where.AND = [
+        { user_id: userId ? userId : { in: tenantUserIds } },
+        {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { destination: { contains: search, mode: 'insensitive' } },
+            { short_desc: { contains: search, mode: 'insensitive' } },
+            { detail_desc: { contains: search, mode: 'insensitive' } },
+          ],
+        },
       ];
+      delete where.user_id;
     }
 
     try {
       // Execute queries in parallel
       const [itineraries, totalCount] = await Promise.all([
         this.prisma.itinerary.findMany({
-          where: Object.keys(where).length > 0 ? where : undefined,
+          where,
           orderBy: { id: 'desc' },
           skip,
           take: limit,
         }),
-        this.prisma.itinerary.count({
-          where: Object.keys(where).length > 0 ? where : undefined,
-        }),
+        this.prisma.itinerary.count({ where }),
       ]);
 
       this.logger.debug(`Found ${itineraries.length} itineraries out of ${totalCount} total`);
@@ -110,22 +153,34 @@ export class ItinerariesService {
         },
       };
     } catch (error) {
+      // Improve diagnostics for schema mismatches (e.g., stale Prisma client / missing column)
+      if (error && error.code === 'P2022' && error.meta && error.meta.column) {
+        const col = error.meta.column;
+        this.logger.error(`Schema mismatch detected: missing column ${col}.`);
+        this.logger.error('Possible causes: migrations not deployed, or Prisma client is stale. Run `npx prisma migrate deploy` and rebuild images.');
+        // Re-throw with clearer message for operators
+        throw new Error(`Database schema mismatch: missing column ${col}. Ensure migrations have been applied and Prisma client regenerated.`);
+      }
+
       this.logger.error(`Error finding itineraries: ${error.message}`, error.stack);
       throw error;
     }
   }
 
-  async findOne(id: number, tenantId: number, includeLocations = true) {
-    this.logger.log(`Finding itinerary with ID: ${id} for tenant ${tenantId}`);
+  async findOne(id: number, tenantUuid: string, includeLocations = true) {
+    this.logger.log(`Finding itinerary with ID: ${id} for tenant ${tenantUuid}`);
     try {
-      // Ensure itinerary belongs to tenant
+      // Get user IDs for the tenant to verify ownership
+      const tenantUserIds = await this.tenantUsersService.getUserIdsByTenant(tenantUuid);
+
+      // Find itinerary and verify it belongs to a user in the tenant
       const itinerary = await this.prisma.itinerary.findFirst({
-        where: { id, tenantId },
+        where: { id, user_id: { in: tenantUserIds } },
         include: { locations: includeLocations },
       });
 
       if (!itinerary) {
-        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantId}`);
+        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantUuid}`);
         throw new NotFoundException('Itinerary not found');
       }
 
@@ -137,19 +192,22 @@ export class ItinerariesService {
     }
   }
 
-  async update(id: number, tenantId: number, updateItineraryDto: UpdateItineraryDto) {
+  async update(id: number, tenantUuid: string, updateItineraryDto: UpdateItineraryDto) {
     const { userId, locations, ...updateData } = updateItineraryDto;
 
-    this.logger.log(`Updating itinerary with ID: ${id} for tenant ${tenantId}, ${locations ? 'with' : 'without'} locations`);
+    this.logger.log(`Updating itinerary with ID: ${id} for tenant ${tenantUuid}, ${locations ? 'with' : 'without'} locations`);
 
     try {
-      // Verify itinerary belongs to tenant
+      // Get user IDs for the tenant to verify ownership
+      const tenantUserIds = await this.tenantUsersService.getUserIdsByTenant(tenantUuid);
+
+      // Verify itinerary belongs to a user in the tenant
       const existing = await this.prisma.itinerary.findFirst({
-        where: { id, tenantId },
+        where: { id, user_id: { in: tenantUserIds } },
       });
 
       if (!existing) {
-        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantId}`);
+        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantUuid}`);
         throw new NotFoundException('Itinerary not found');
       }
 
@@ -170,7 +228,6 @@ export class ItinerariesService {
                 images: loc.images || [],
                 latitude: loc.latitude,
                 longitude: loc.longitude,
-                tenantId, // Add tenantId to location
               })),
             },
           },
@@ -194,16 +251,19 @@ export class ItinerariesService {
     }
   }
 
-  async remove(id: number, tenantId: number) {
-    this.logger.log(`Deleting itinerary with ID: ${id} for tenant ${tenantId}`);
+  async remove(id: number, tenantUuid: string) {
+    this.logger.log(`Deleting itinerary with ID: ${id} for tenant ${tenantUuid}`);
     try {
-      // Verify itinerary belongs to tenant
+      // Get user IDs for the tenant to verify ownership
+      const tenantUserIds = await this.tenantUsersService.getUserIdsByTenant(tenantUuid);
+
+      // Verify itinerary belongs to a user in the tenant
       const existing = await this.prisma.itinerary.findFirst({
-        where: { id, tenantId },
+        where: { id, user_id: { in: tenantUserIds } },
       });
 
       if (!existing) {
-        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantId}`);
+        this.logger.warn(`Itinerary not found with ID: ${id} for tenant ${tenantUuid}`);
         throw new NotFoundException('Itinerary not found');
       }
 

@@ -35,10 +35,13 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() registerDto: RegisterDto) {
+  async register(@Body() registerDto: RegisterDto, @Request() req) {
     this.logger.log(`POST /auth/register - Email: ${registerDto.email}`);
     try {
-      const result = await this.authService.register(registerDto);
+      // Pass host header and optional tenant namespace override header to the service
+      const hostHeader = req.headers['host'] || req.headers['x-forwarded-host'] || '';
+      const headerNamespace = req.headers['x-tenant-namespace'] || req.headers['x-tenant'] || undefined;
+      const result = await this.authService.register(registerDto, hostHeader, headerNamespace);
       this.logger.debug(`Register endpoint successful`);
       return result;
     } catch (error) {
@@ -88,10 +91,10 @@ export class AuthController {
   @Post('refresh-token')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async refreshToken(@Body() body: { userId: number; tenantId: number; role: string }) {
-    this.logger.log(`POST /auth/refresh-token - User ID: ${body.userId}, Tenant ID: ${body.tenantId}`);
+  async refreshToken(@Body() body: { userId: number; tenantUuid?: string | null; loginType?: string }) {
+    this.logger.log(`POST /auth/refresh-token - User ID: ${body.userId}, Tenant UUID: ${body.tenantUuid}`);
     try {
-      const result = await this.authService.generateToken(body.userId, body.tenantId, body.role);
+      const result = await this.authService.generateToken(body.userId, body.tenantUuid || null, body.loginType);
       this.logger.debug(`Refresh token endpoint successful`);
       return result;
     } catch (error) {

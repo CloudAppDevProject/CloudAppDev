@@ -29,7 +29,7 @@ export async function POST(request) {
       try {
         const payload = JSON.parse(atob(data.access_token.split('.')[1]));
         console.log('[API /auth/login] JWT payload:', payload);
-        console.log('[API /auth/login] User role in token:', payload.role);
+        console.log('[API /auth/login] User loginType in token:', payload.loginType);
         console.log('[API /auth/login] User ID in token:', payload.sub || payload.userId);
       } catch (decodeErr) {
         console.error('[API /auth/login] Failed to decode JWT:', decodeErr);
