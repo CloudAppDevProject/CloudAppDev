@@ -95,3 +95,34 @@ output "certificate_map_id" {
   description = "Certificate map ID (use this in Gateway annotations)"
   value       = google_certificate_manager_certificate_map.main.id
 }
+
+# --- Gateway ---
+output "gateway_ip" {
+  description = "Gateway static IP address (for DNS A record)"
+  value       = module.main_domain.gateway_ip
+}
+
+output "gateway_static_ip_name" {
+  description = "Gateway static IP resource name in GCP"
+  value       = module.main_domain.gateway_static_ip_name
+}
+
+output "gateway_name" {
+  description = "Kubernetes Gateway resource name"
+  value       = module.main_domain.gateway_name
+}
+
+output "gateway_dns_record" {
+  description = "Gateway DNS A record details in Cloudflare"
+  value       = module.main_domain.gateway_dns_record
+}
+
+output "gateway_url_http" {
+  description = "HTTP URL to access the gateway"
+  value       = module.main_domain.gateway_url_http
+}
+
+output "gateway_url_https" {
+  description = "HTTPS URL to access the gateway"
+  value       = module.main_domain.gateway_url_https
+}

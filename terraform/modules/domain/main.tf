@@ -112,10 +112,15 @@ resource "kubernetes_manifest" "gateway" {
         managed_by = "terraform"
       }
 
-      # Annotation to assign the pre-allocated static IP
-      annotations = var.create_static_ip ? {
-        "networking.gke.io/global-static-ip-name" = google_compute_global_address.gateway_ip[0].name
-      } : {}
+      # Annotations for static IP and certificate map
+      annotations = merge(
+        var.create_static_ip ? {
+          "networking.gke.io/global-static-ip-name" = google_compute_global_address.gateway_ip[0].name
+        } : {},
+        {
+          "networking.gke.io/certmap" = var.certificate_map_id
+        }
+      )
     }
 
     spec = {
@@ -131,15 +136,6 @@ resource "kubernetes_manifest" "gateway" {
           name     = "https"
           protocol = "HTTPS"
           port     = 443
-          tls = {
-            mode = "Terminate"
-            certificateRefs = [
-              {
-                kind = "Gateway"
-                name = var.certificate_map_id
-              }
-            ]
-          }
         }
       ]
     }
