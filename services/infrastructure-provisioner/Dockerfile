@@ -40,8 +40,9 @@ COPY --from=dependencies /app/node_modules ./node_modules
 # Copy application code
 COPY services/infrastructure-provisioner/server.js ./server.js
 
-# Copy Terraform configurations
-COPY terraform /terraform
+# Copy Terraform configurations to source directory
+# (init container will copy to /terraform volume mount)
+COPY terraform /terraform-source
 
 # Expose API port
 EXPOSE 8080

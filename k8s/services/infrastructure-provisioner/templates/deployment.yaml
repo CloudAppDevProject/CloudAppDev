@@ -17,6 +17,13 @@ spec:
         tier: infrastructure
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
+      initContainers:
+      - name: terraform-init
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        command: ['sh', '-c', 'cp -r /terraform-source/* /terraform/']
+        volumeMounts:
+        - name: terraform-workspace
+          mountPath: /terraform
       containers:
       - name: provisioner
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
