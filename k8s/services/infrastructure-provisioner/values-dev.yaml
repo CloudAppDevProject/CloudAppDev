@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/infrastructure-provisioner
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: ""
 
 service:
   type: ClusterIP

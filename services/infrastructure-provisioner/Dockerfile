@@ -43,5 +43,8 @@ COPY terraform /terraform
 # Expose API port
 EXPOSE 8080
 
+# Override the Terraform ENTRYPOINT from base image
+ENTRYPOINT []
+
 # Start the provisioning API
 CMD ["node", "server.js"]
