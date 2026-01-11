@@ -180,8 +180,21 @@ async function addTenantToTfvars(tenantName, tier, environment) {
   try {
     content = await fs.readFile(tfvarsPath, 'utf-8');
   } catch (err) {
-    // File doesn't exist, create it
-    content = 'tenants = []\n';
+    // File doesn't exist, create it with initial empty array
+    console.log(`[Terraform] Creating ${tfvarsPath} with empty tenant list`);
+    content = `# Tenant Infrastructure Configuration
+# Managed by infrastructure-provisioner service
+
+tenants = []
+`;
+    // Write the initial file immediately
+    try {
+      await fs.writeFile(tfvarsPath, content, 'utf-8');
+      console.log(`[Terraform] Successfully created ${tfvarsPath}`);
+    } catch (writeErr) {
+      console.error(`[Terraform] Failed to create ${tfvarsPath}:`, writeErr.message);
+      throw writeErr;
+    }
   }
 
   // Parse existing tenants
