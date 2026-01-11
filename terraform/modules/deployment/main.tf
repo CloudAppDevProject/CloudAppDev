@@ -1,0 +1,117 @@
+module "databases" {
+  source = "../../modules/cloudsql"
+
+  instance_name       = "${var.project_name}-${var.namespace}"
+  region              = var.region
+  tier                = var.db_tier
+  namespace           = var.namespace
+  database_names       = [
+    "itinerary",
+    "users"
+  ]
+  deletion_protection = false
+  backup_enabled      = false
+}
+
+module "images_bucket" {
+  source = "../storage"
+    bucket_name   = "${var.project_name}-${var.namespace}-images"
+    region        = var.region
+}
+
+# Firestore Database
+module "social_db" {
+  source = "../../modules/firestore"
+
+  project          = var.project_id
+  database_name    = "${var.project_name}-${var.namespace}-social"
+  region           = var.region
+  database_edition = "ENTERPRISE"
+  deletion_policy  = "DELETE"
+}
+
+# ========================================
+# Service Accounts for this Deployment
+# ========================================
+
+# Social Service Account - for Firestore access
+module "social_service_account" {
+  source = "../service-account"
+
+  project      = var.project_id
+  account_id   = "social-service-${var.namespace}-sa"
+  display_name = "Social Database access - ${var.namespace}"
+
+  enable_firestore = true
+
+  k8s_service_accounts = [
+    "social-service-${var.namespace}-sa"
+  ]
+
+  depends_on = [
+    var.gke_cluster_id,
+    module.social_db,
+  ]
+}
+
+# User Service Account - for PostgreSQL and Storage access
+module "user_service_account" {
+  source = "../service-account"
+
+  project      = var.project_id
+  account_id   = "user-service-${var.namespace}-sa"
+  display_name = "User Database access - ${var.namespace}"
+
+  enable_cloudsql = true
+  enable_storage  = true
+
+  k8s_service_accounts = [
+    "user-service-${var.namespace}-sa",
+  ]
+
+  depends_on = [
+    var.gke_cluster_id,
+    module.databases,
+  ]
+}
+
+# Itinerary Service Account - for PostgreSQL and Storage access
+module "itinerary_service_account" {
+  source = "../service-account"
+
+  project      = var.project_id
+  account_id   = "itinerary-service-${var.namespace}-sa"
+  display_name = "Itinerary Database access - ${var.namespace}"
+
+  enable_cloudsql = true
+  enable_storage  = true
+
+  k8s_service_accounts = [
+    "itinerary-service-${var.namespace}-sa",
+  ]
+
+  depends_on = [
+    var.gke_cluster_id,
+    module.databases,
+  ]
+}
+
+# Tenant Service Account - for PostgreSQL access
+module "tenant_service_account" {
+  source = "../service-account"
+
+  project      = var.project_id
+  account_id   = "tenant-service-${var.namespace}-sa"
+  display_name = "Tenant Database access - ${var.namespace}"
+
+  enable_cloudsql = true
+
+  k8s_service_accounts = [
+    "tenant-service-${var.namespace}-sa",
+  ]
+
+  depends_on = [
+    var.gke_cluster_id,
+    module.databases,
+  ]
+}

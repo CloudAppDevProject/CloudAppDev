@@ -24,78 +24,51 @@ resource "google_container_cluster" "primary" {
   deletion_protection = false
 }
 
-# Users Database
-module "users_db" {
+# Free Namespace deployment (databases + storage + service accounts)
+module "free" {
+  source = "../../modules/deployment"
+
+  project_name   = var.project_name
+  project_id     = var.project_id
+  region         = var.region
+  namespace      = "free"
+  gke_cluster_id = google_container_cluster.primary.id
+
+  depends_on = [
+    google_container_cluster.primary
+  ]
+}
+
+# Standard Namespace deployment (databases + storage + service accounts)
+module "standard" {
+  source = "../../modules/deployment"
+
+  project_name   = var.project_name
+  project_id     = var.project_id
+  region         = var.region
+  namespace      = "standard"
+  gke_cluster_id = google_container_cluster.primary.id
+
+  depends_on = [
+    google_container_cluster.primary,
+  ]
+}
+
+# Default Namespace databases
+module "default_databases" {
   source = "../../modules/cloudsql"
 
-  instance_name       = "${var.project_name}-${var.environment}-users-db"
-  database_version    = "POSTGRES_17"
+  instance_name       = "${var.project_name}-default"
   region              = var.region
   tier                = var.db_tier
-  edition             = "ENTERPRISE"
-  database_name       = local.POSTGRES_NAME
-  database_user       = local.POSTGRES_USER
-  database_password   = local.POSTGRES_PASSWORD
+  namespace           = "default"
+  database_names      = [
+    "tenant"
+  ]
   deletion_protection = false
-  backup_enabled      = true
+  backup_enabled      = false
 }
 
-# Itinerary Database
-module "itinerary_db" {
-  source = "../../modules/cloudsql"
-
-  instance_name       = "${var.project_name}-${var.environment}-itinerary-db"
-  database_version    = "POSTGRES_17"
-  region              = var.region
-  tier                = var.db_tier
-  edition             = "ENTERPRISE"
-  database_name       = local.POSTGRES_NAME
-  database_user       = local.POSTGRES_USER
-  database_password   = local.POSTGRES_PASSWORD
-  deletion_protection = false
-  backup_enabled      = true
-}
-
-# Tenant Database
-module "tenant_db" {
-  source = "../../modules/cloudsql"
-
-  instance_name       = "${var.project_name}-${var.environment}-tenant-db"
-  database_version    = "POSTGRES_17"
-  region              = var.region
-  tier                = var.db_tier
-  edition             = "ENTERPRISE"
-  database_name       = local.POSTGRES_NAME
-  database_user       = local.POSTGRES_USER
-  database_password   = local.POSTGRES_PASSWORD
-  deletion_protection = false
-  backup_enabled      = true
-}
-
-# Storage Bucket
-module "images_bucket" {
-  source = "../../modules/storage"
-
-  bucket_name   = "${var.project_name}-${var.environment}-images"
-  region        = var.region
-  force_destroy = true
-
-  labels = local.common_labels
-}
-
-# Firestore Database
-module "social_db" {
-  source = "../../modules/firestore"
-
-  project          = var.project_id
-  database_name    = "${var.project_name}-${var.environment}-social-db"
-  region           = var.region
-  database_edition = "ENTERPRISE"
-  deletion_policy  = "DELETE"
-}
-
-# Service Accounts
-# Note: All service accounts depend on GKE cluster creation because they use Workload Identity
 module "app_service_account" {
   source = "../../modules/service-account"
 
@@ -112,133 +85,72 @@ module "app_service_account" {
   ]
 }
 
-module "social_service_account" {
-  source = "../../modules/service-account"
-
-  project      = var.project_id
-  account_id   = "social-service-sa"
-  display_name = "Social Database access - Dev"
-
-  enable_firestore = true
-
-  k8s_service_accounts = [
-    "social-service-sa"
-  ]
-  depends_on = [
-    google_container_cluster.primary,
-    module.social_db,
-  ]
-}
-
-# User Database access
-module "user_service_account" {
-  source = "../../modules/service-account"
-
-  project      = var.project_id
-  account_id   = "user-service-sa"
-  display_name = "User Database access - Dev"
-
-  enable_cloudsql  = true
-  enable_storage   = true
-
-  k8s_service_accounts = [
-    "user-service-sa",
-  ]
-
-  depends_on = [
-    google_container_cluster.primary,
-    module.users_db,
-  ]
-}
-
-# Itinerary database access
-module "itinerary_service_account" {
-  source = "../../modules/service-account"
-
-  project      = var.project_id
-  account_id   = "itinerary-service-sa"
-  display_name = "Itinerary Database access - Dev"
-
-  enable_cloudsql  = true
-  enable_storage   = true
-
-  k8s_service_accounts = [
-    "itinerary-service-sa",
-  ]
-
-  depends_on = [
-    google_container_cluster.primary,
-    module.itinerary_db
-  ]
-}
-
-# Tenant database access
 module "tenant_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "tenant-service-sa"
-  display_name = "Tenant Database access - Dev"
+  account_id   = "tenant-service-default-sa"
+  display_name = "Tenant Database access - default"
 
   enable_cloudsql = true
 
   k8s_service_accounts = [
-    "tenant-service-sa",
+    "tenant-service-default-sa"
   ]
 
   depends_on = [
     google_container_cluster.primary,
-    module.tenant_db
+    module.default_databases
   ]
 }
 
-# DNS Authorization for Certificate Manager
-resource "google_certificate_manager_dns_authorization" "default" {
-  name        = "${var.project_name}-${var.environment}-dns-auth"
-  description = "DNS authorization for ${var.hostname}"
-  domain      = var.hostname
+# ========================================
+# Certificate Management
+# ========================================
 
-  labels = local.common_labels
-}
-
-# Create the DNS validation record in Cloudflare
-resource "cloudflare_dns_record" "cert_validation" {
-  zone_id = var.cloudflare_zone_id
-  # Strip trailing dot from FQDN for Cloudflare
-  name    = trimsuffix(google_certificate_manager_dns_authorization.default.dns_resource_record[0].name, ".")
-  content = trimsuffix(google_certificate_manager_dns_authorization.default.dns_resource_record[0].data, ".")
-  type    = google_certificate_manager_dns_authorization.default.dns_resource_record[0].type
-  ttl     = 300
-  proxied = false  # Must be false for DNS validation
-}
-
-# Google-managed SSL Certificate for HTTPS (with DNS authorization)
-resource "google_certificate_manager_certificate" "default" {
-  name        = "${var.project_name}-${var.environment}-cert"
-  description = "Google-managed SSL certificate for ${var.hostname}"
-
-  managed {
-    domains            = [var.hostname]
-    dns_authorizations = [google_certificate_manager_dns_authorization.default.id]
-  }
-
-  labels = local.common_labels
-}
-
-# Certificate Map for Gateway API
-resource "google_certificate_manager_certificate_map" "default" {
+# Shared Certificate Map for all domains in this environment
+resource "google_certificate_manager_certificate_map" "main" {
   name        = "${var.project_name}-${var.environment}-cert-map"
-  description = "Certificate map for ${var.hostname}"
+  description = "Certificate map for all ${var.environment} domains"
 
   labels = local.common_labels
 }
 
-# Certificate Map Entry - links the certificate to the map
-resource "google_certificate_manager_certificate_map_entry" "default" {
-  name         = "${var.project_name}-${var.environment}-cert-map-entry"
-  description  = "Certificate map entry for ${var.hostname}"
-  map          = google_certificate_manager_certificate_map.default.name
-  certificates = [google_certificate_manager_certificate.default.id]
-  hostname     = var.hostname
+# Main domain certificate (e.g., dev.cloudappdev.site)
+# tenant_name is empty, so it registers just var.hostname
+module "main_domain" {
+  source = "../../modules/domain"
+
+  project_id         = var.project_id
+  hostname           = var.hostname
+  certificate_map_id = google_certificate_manager_certificate_map.main.name
+  cloudflare_zone_id = var.cloudflare_zone_id
+  labels = local.common_labels
+  create_gateway = true
+  create_static_ip = true
+  
+  depends_on = [ 
+    google_container_cluster.primary
+  ]
 }
+
+# Example: Free tenant domain (free.dev.cloudappdev.site)
+# Uncomment when ready to add tenant domains:
+# module "free_domain" {
+#   source = "../../modules/domain"
+#
+#   project_id         = var.project_id
+#   hostname           = var.hostname
+#   certificate_map_id = google_certificate_manager_certificate_map.main.name
+#   cloudflare_zone_id = var.cloudflare_zone_id
+#   environment        = var.environment
+#   tenant_name        = "free"  # Will register as "free.dev.cloudappdev.site"
+#
+#   labels = merge(
+#     local.common_labels,
+#     {
+#       tenant = "free"
+#     }
+#   )
+# }
 

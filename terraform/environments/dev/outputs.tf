@@ -1,27 +1,40 @@
 # --- Databases & Buckets ---
-output "users_db_connection_name" {
-  description = "Users database connection name"
-  value       = module.users_db.instance_connection_name
+# Free Tier
+output "free_db_connection_name" {
+  description = "Free tier database connection name"
+  value       = module.free.database_connection_name
 }
 
-output "itinerary_db_connection_name" {
-  description = "Itinerary database connection name"
-  value       = module.itinerary_db.instance_connection_name
+output "free_images_bucket_name" {
+  description = "Free tier images bucket name"
+  value       = module.free.images_bucket_name
 }
 
+output "free_social_db_name" {
+  description = "Free tier social database name"
+  value       = module.free.social_db_name
+}
+
+# Standard Tier
+output "standard_db_connection_name" {
+  description = "Standard tier database connection name"
+  value       = module.standard.database_connection_name
+}
+
+output "standard_images_bucket_name" {
+  description = "Standard tier images bucket name"
+  value       = module.standard.images_bucket_name
+}
+
+output "standard_social_db_name" {
+  description = "Standard tier social database name"
+  value       = module.standard.social_db_name
+}
+
+# Default (Tenant DB only)
 output "tenant_db_connection_name" {
   description = "Tenant database connection name"
-  value       = module.tenant_db.instance_connection_name
-}
-
-output "images_bucket_name" {
-  description = "Images bucket name"
-  value       = module.images_bucket.bucket_name
-}
-
-output "social_db_name" {
-  description = "Social database name"
-  value       = module.social_db.database_name
+  value       = module.default_databases.instance_connection_name
 }
 
 # --- App ---
@@ -35,36 +48,16 @@ output "app_service_account_email" {
   value       = module.app_service_account.email
 }
 
-# --- Itinerary ---
-output "itinerary_service_account_name" {
-  description = "Itinerary service account name"
-  value       = module.itinerary_service_account.name
+# --- Service Accounts (Free Tier) ---
+output "free_service_accounts" {
+  description = "Free tier service account emails"
+  value       = module.free.all_service_accounts
 }
 
-output "itinerary_service_account_email" {
-  description = "Itinerary service account email"
-  value       = module.itinerary_service_account.email
-}
-
-# --- User ---
-output "user_service_account_name" {
-  description = "User service account name"
-  value       = module.user_service_account.name
-}
-
-output "user_service_account_email" {
-  description = "User service account email"
-  value       = module.user_service_account.email
-}
-
-# --- Social ---
-output "social_service_account_name" {
-  description = "Social service account name"
-  value       = module.social_service_account.name
-}
-output "social_service_account_email" {
-  description = "Social service account email"
-  value       = module.social_service_account.email
+# --- Service Accounts (Standard Tier) ---
+output "standard_service_accounts" {
+  description = "Standard tier service account emails"
+  value       = module.standard.all_service_accounts
 }
 
 # --- Tenant ---
@@ -84,30 +77,21 @@ output "gke_cluster_name" {
 
 # --- Certificate ---
 output "dns_authorization_record" {
-  description = "DNS authorization CNAME record (auto-created in Cloudflare)"
-  value = {
-    name = google_certificate_manager_dns_authorization.default.dns_resource_record[0].name
-    type = google_certificate_manager_dns_authorization.default.dns_resource_record[0].type
-    data = google_certificate_manager_dns_authorization.default.dns_resource_record[0].data
-  }
-}
-
-output "certificate_name" {
-  description = "Google-managed SSL certificate name"
-  value       = google_certificate_manager_certificate.default.name
+  description = "Main domain DNS authorization CNAME record (auto-created in Cloudflare)"
+  value       = module.main_domain.dns_validation_record
 }
 
 output "certificate_id" {
-  description = "Google-managed SSL certificate ID"
-  value       = google_certificate_manager_certificate.default.id
+  description = "Main domain SSL certificate ID"
+  value       = module.main_domain.certificate_id
 }
 
 output "certificate_map_name" {
-  description = "Certificate map name"
-  value       = google_certificate_manager_certificate_map.default.name
+  description = "Certificate map name (shared across all domains)"
+  value       = google_certificate_manager_certificate_map.main.name
 }
 
 output "certificate_map_id" {
   description = "Certificate map ID (use this in Gateway annotations)"
-  value       = google_certificate_manager_certificate_map.default.id
+  value       = google_certificate_manager_certificate_map.main.id
 }

@@ -34,7 +34,9 @@ resources:
     cpu: "50m"
     
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+# NOTE: Service disabled because Terraform manages the LoadBalancer Service
 service:
+  create: false  # Terraform creates the LoadBalancer Service
   type: LoadBalancer
   port: 80
 

@@ -1,0 +1,18 @@
+# Example tenants configuration
+# This file is managed automatically by the infrastructure-provisioner service
+# Copy to tenants.tfvars to use locally
+
+tenants = [
+  {
+    name = "acme-corp"
+    tier = "enterprise"
+  },
+  {
+    name = "startup-inc"
+    tier = "standard"
+  },
+  {
+    name = "hobby-user"
+    tier = "free"
+  }
+]
