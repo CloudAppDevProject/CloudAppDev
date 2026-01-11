@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - develop
+      - feature/multi-tenancy
     paths:
       - 'app/**'
       - 'lib/**'
@@ -33,6 +34,7 @@ on:
           - social-service
           - travel-info-service
           - tenant-service
+          - infrastructure-provisioner
           - api-gateway
 
 env:
@@ -78,6 +80,8 @@ jobs:
               - 'services/travel-info-service/**'
             tenant-service:
               - 'services/tenant-service/**'
+            infrastructure-provisioner:
+              - 'services/infrastructure-provisioner/**'
             api-gateway:
               - 'nginx/**'
             workflow:
@@ -105,7 +109,7 @@ jobs:
 
           # Manual trigger with "all" - force build everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","infrastructure-provisioner","api-gateway"]'
             echo "Manual trigger (all) - building all services"
           # Manual trigger with specific service
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$SERVICES_INPUT" ] && [ "$SERVICES_INPUT" != "all" ] && [ "$SERVICES_INPUT" != "changed-only" ]; then
@@ -113,7 +117,7 @@ jobs:
             echo "Manual trigger - building: ${SERVICES}"
           # Workflow file changed or manual "changed-only" - build everything as safety measure
           elif [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","infrastructure-provisioner","api-gateway"]'
             echo "⚠️ Workflow changed - building all services for safety"
           else
             # Build only changed services
@@ -136,6 +140,9 @@ jobs:
             fi
             if [ "${{ steps.changes.outputs.tenant-service }}" = "true" ]; then
               SERVICES=$(echo "$SERVICES" | jq -c '. + ["tenant-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.infrastructure-provisioner }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["infrastructure-provisioner"]')
             fi
             if [ "${{ steps.changes.outputs.api-gateway }}" = "true" ]; then
               SERVICES=$(echo "$SERVICES" | jq -c '. + ["api-gateway"]')
@@ -209,6 +216,12 @@ jobs:
               echo "context=./services/tenant-service" >> $GITHUB_OUTPUT
               echo "dockerfile=./services/tenant-service/Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Tenant Management Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "infrastructure-provisioner")
+              echo "image-name=infrastructure-provisioner" >> $GITHUB_OUTPUT
+              echo "context=./services/infrastructure-provisioner" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/infrastructure-provisioner/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Infrastructure Provisioning Service" >> $GITHUB_OUTPUT
               ;;
             "api-gateway")
               echo "image-name=cloudappdev-api-gateway" >> $GITHUB_OUTPUT
@@ -352,6 +365,10 @@ jobs:
               echo "path=./k8s/services/tenant" >> $GITHUB_OUTPUT
               echo "release=tenant-service" >> $GITHUB_OUTPUT
               ;;
+            "infrastructure-provisioner")
+              echo "path=./k8s/services/infrastructure-provisioner" >> $GITHUB_OUTPUT
+              echo "release=infrastructure-provisioner" >> $GITHUB_OUTPUT
+              ;;
             "api-gateway")
               echo "path=./k8s/gateway" >> $GITHUB_OUTPUT
               echo "release=api-gateway" >> $GITHUB_OUTPUT
@@ -404,7 +421,7 @@ jobs:
       - name: Build summary
         run: |
           SERVICES='${{ needs.prepare.outputs.services }}'
-          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
+          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","infrastructure-provisioner","api-gateway"]'
 
           echo "## 📦 Development Build & Deploy Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
