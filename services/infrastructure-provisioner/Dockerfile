@@ -40,9 +40,9 @@ COPY --from=dependencies /app/node_modules ./node_modules
 # Copy application code
 COPY services/infrastructure-provisioner/server.js ./server.js
 
-# Copy Terraform configurations (templates and modules only)
-# The tenants.tfvars will be created dynamically by the server
-COPY terraform /terraform
+# Copy Terraform configurations to /terraform-src
+# Init container will copy these to /terraform volume at startup
+COPY terraform /terraform-src
 
 # Expose API port
 EXPOSE 8080

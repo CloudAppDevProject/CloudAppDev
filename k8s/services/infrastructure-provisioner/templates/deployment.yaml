@@ -17,6 +17,19 @@ spec:
         tier: infrastructure
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
+      initContainers:
+      - name: init-terraform
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "[Init] Copying Terraform configs to volume..."
+          cp -r /terraform-src/* /terraform/
+          ls -la /terraform/environments/{{ .Values.environment }}/
+        volumeMounts:
+        - name: terraform-volume
+          mountPath: /terraform
       containers:
       - name: provisioner
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -62,13 +75,13 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
         volumeMounts:
-        - name: terraform-workspace
+        - name: terraform-volume
           mountPath: /terraform
         - name: kubeconfig
           mountPath: /root/.kube
           readOnly: true
       volumes:
-      - name: terraform-workspace
+      - name: terraform-volume
         emptyDir: {}
       - name: kubeconfig
         secret:
