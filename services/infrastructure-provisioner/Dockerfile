@@ -1,4 +1,7 @@
-FROM hashicorp/terraform:1.9
+# ===================================
+# Stage 1: Dependencies
+# ===================================
+FROM hashicorp/terraform:1.9 AS dependencies
 
 # Install dependencies for API server
 RUN apk add --no-cache \
@@ -12,6 +15,24 @@ RUN apk add --no-cache \
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
+
+# ===================================
+# Stage 2: Production
+# ===================================
+FROM hashicorp/terraform:1.9 AS production
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    nodejs \
+    npm \
+    git \
+    curl \
+    bash
+
+WORKDIR /app
+
+# Copy dependencies from dependencies stage
+COPY --from=dependencies /app/node_modules ./node_modules
 
 # Copy application code
 COPY . .
