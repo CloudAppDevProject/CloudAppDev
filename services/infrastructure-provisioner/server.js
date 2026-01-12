@@ -339,67 +339,344 @@ async function runTerraformApply(environment) {
  * Deploys Kubernetes resources for enterprise namespace
  * Includes: gateway, frontend (app), user-service, itinerary-service, social-service
  * Note: tenant-service and travel-info-service remain in default namespace (shared)
+ *
+ * Uses Terraform outputs to inject tenant-specific infrastructure values into Helm charts
  */
 async function deployEnterpriseNamespace(tenantName, environment) {
   const namespace = tenantName;
 
   console.log(`[K8s] Deploying resources to namespace: ${namespace}`);
 
-  // Create namespace if not exists
-  try {
-    await execAsync(`kubectl create namespace ${namespace}`);
-  } catch (err) {
-    // Namespace might already exist
-    console.log(`[K8s] Namespace ${namespace} already exists or creation failed`);
+  // Step 1: Extract Terraform outputs for this tenant
+  console.log(`[K8s] Extracting Terraform outputs for tenant ${tenantName}`);
+  const terraformOutputs = await getTerraformOutputsForTenant(tenantName, environment);
+
+  if (!terraformOutputs) {
+    throw new Error(`No Terraform outputs found for tenant ${tenantName}. Infrastructure may not be provisioned yet.`);
   }
 
-  // Deploy services for enterprise tenant (Helm charts)
+  console.log(`[K8s] Terraform outputs retrieved:`, JSON.stringify(terraformOutputs, null, 2));
+
+  // Step 2: Create namespace if not exists
+  try {
+    await execAsync(`kubectl create namespace ${namespace}`);
+    console.log(`[K8s] Created namespace ${namespace}`);
+  } catch (err) {
+    // Namespace might already exist
+    console.log(`[K8s] Namespace ${namespace} already exists`);
+  }
+
+  // Step 3: Create Kubernetes secrets from Terraform outputs
+  await createKubernetesSecrets(namespace, tenantName, terraformOutputs, environment);
+
+  // Step 4: Deploy services using Helm with Terraform output values
   // Service names must be: <service>-service for API Gateway routing
-  // Paths: /k8s/gateway, /k8s/app, /k8s/services/{user,itinerary,social}
   const services = [
-    { name: 'gateway', path: '/k8s/gateway', helmRelease: 'gateway' },
-    { name: 'app', path: '/k8s/app', helmRelease: 'app' },
     { name: 'user-service', path: '/k8s/services/user', helmRelease: 'user-service' },
     { name: 'itinerary-service', path: '/k8s/services/itinerary', helmRelease: 'itinerary-service' },
-    { name: 'social-service', path: '/k8s/services/social', helmRelease: 'social-service' }
+    { name: 'social-service', path: '/k8s/services/social', helmRelease: 'social-service' },
+    { name: 'app', path: '/k8s/app', helmRelease: 'app' },
+    { name: 'gateway', path: '/k8s/gateway', helmRelease: 'gateway' }
   ];
 
   const deployResults = [];
 
   for (const service of services) {
     try {
-      const valuesFile = `${service.path}/values-${environment}.yaml`;
+      const helmValues = generateHelmValues(service.name, tenantName, terraformOutputs, environment);
+
+      console.log(`[K8s] Deploying ${service.name} with values:`, JSON.stringify(helmValues, null, 2));
+
+      // Create temporary values file
+      const valuesFilePath = `/tmp/helm-values-${tenantName}-${service.name}.yaml`;
+      await fs.writeFile(valuesFilePath, helmValues, 'utf-8');
 
       const { stdout } = await execAsync(
-        `helm upgrade --install ${service.helmRelease}-${tenantName} ${service.path} ` +
-        `-f ${valuesFile} ` +
+        `helm upgrade --install ${service.helmRelease} ${service.path} ` +
+        `-f ${service.path}/values-${environment}.yaml ` +
+        `-f ${valuesFilePath} ` +
         `--namespace ${namespace} ` +
-        `--set namespace=${namespace} ` +
-        `--set tenant=${tenantName} ` +
-        `--set fullnameOverride=${service.name}`
+        `--wait --timeout 10m`
       );
+
+      // Clean up temp file
+      await fs.unlink(valuesFilePath).catch(() => {});
 
       deployResults.push({
         service: service.name,
         success: true,
-        output: stdout
+        output: stdout.substring(0, 500) // Truncate for response size
       });
 
-      console.log(`[K8s] Deployed ${service.name} to ${namespace}`);
+      console.log(`[K8s] Successfully deployed ${service.name} to ${namespace}`);
     } catch (err) {
       deployResults.push({
         service: service.name,
         success: false,
         error: err.message
       });
-      console.error(`[K8s] Failed to deploy ${service.name}: ${err.message}`);
+      console.error(`[K8s] Failed to deploy ${service.name}:`, err.message);
     }
   }
 
   return {
     namespace,
+    infrastructure: terraformOutputs,
     deployments: deployResults
   };
+}
+
+/**
+ * Gets Terraform outputs for a specific tenant
+ */
+async function getTerraformOutputsForTenant(tenantName, environment) {
+  const workDir = `/terraform/environments/${environment}-tenants`;
+
+  try {
+    const { stdout } = await execAsync('terraform output -json', { cwd: workDir });
+    const outputs = JSON.parse(stdout);
+
+    // Extract enterprise deployment details for this tenant
+    const deployments = outputs.enterprise_deployments?.value || {};
+    return deployments[tenantName] || null;
+  } catch (err) {
+    console.error(`[Terraform] Failed to get outputs for ${tenantName}:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Creates Kubernetes secrets for tenant services
+ * Secrets include database URLs, service account emails, bucket names
+ */
+async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, environment) {
+  console.log(`[K8s] Creating secrets in namespace ${namespace}`);
+
+  // Get secrets from environment variables (shared secrets like Firebase, JWT)
+  const sharedSecrets = {
+    FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || '',
+    JWT_SECRET: process.env.JWT_SECRET || 'dev-jwt-secret-change-in-production',
+    JWT_EXPIRATION: process.env.JWT_EXPIRATION || '7d',
+    NODE_ENV: environment === 'prod' ? 'production' : 'development',
+    GOOGLE_CLOUD_PROJECT_ID: process.env.GCP_PROJECT || 'cloudappdev-dev'
+  };
+
+  // User Service Secrets
+  const userSecrets = {
+    ...sharedSecrets,
+    DATABASE_URL: generateDatabaseUrl(terraformOutputs.database_connection_name, 'users'),
+    GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
+    GOOGLE_CLOUD_CREDENTIALS_BASE64: '' // Workload Identity handles this
+  };
+
+  // Itinerary Service Secrets
+  const itinerarySecrets = {
+    ...sharedSecrets,
+    DATABASE_URL: generateDatabaseUrl(terraformOutputs.database_connection_name, 'itineraries'),
+    GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
+    GOOGLE_CLOUD_CREDENTIALS_BASE64: ''
+  };
+
+  // Social Service Secrets
+  const socialSecrets = {
+    ...sharedSecrets,
+    FIRESTORE_DATABASE_ID: terraformOutputs.social_db_name,
+    GOOGLE_CLOUD_PROJECT_ID: process.env.GCP_PROJECT || 'cloudappdev-dev'
+  };
+
+  // Create secret YAML manifests and apply
+  const secrets = [
+    { name: 'user-service-secrets', data: userSecrets },
+    { name: 'itinerary-service-secrets', data: itinerarySecrets },
+    { name: 'social-service-secrets', data: socialSecrets }
+  ];
+
+  for (const secret of secrets) {
+    try {
+      // Delete existing secret if it exists (to update)
+      await execAsync(`kubectl delete secret ${secret.name} -n ${namespace} --ignore-not-found=true`);
+
+      // Create secret from literal key-value pairs
+      const secretArgs = Object.entries(secret.data)
+        .map(([key, value]) => `--from-literal=${key}="${value}"`)
+        .join(' ');
+
+      await execAsync(
+        `kubectl create secret generic ${secret.name} -n ${namespace} ${secretArgs}`
+      );
+
+      console.log(`[K8s] Created secret ${secret.name} in ${namespace}`);
+    } catch (err) {
+      console.error(`[K8s] Failed to create secret ${secret.name}:`, err.message);
+      throw err;
+    }
+  }
+}
+
+/**
+ * Generates a PostgreSQL DATABASE_URL from Cloud SQL connection name
+ */
+function generateDatabaseUrl(connectionName, databaseName) {
+  // Format: postgresql://user:password@localhost:5432/dbname
+  // Cloud SQL Proxy handles the connection, so we use localhost
+  const user = process.env.DB_USER || 'postgres';
+  const password = process.env.DB_PASSWORD || 'postgres';
+  return `postgresql://${user}:${password}@localhost:5432/${databaseName}`;
+}
+
+/**
+ * Generates Helm values YAML for a service with tenant-specific configuration
+ */
+function generateHelmValues(serviceName, tenantName, terraformOutputs, environment) {
+  const projectId = process.env.GCP_PROJECT || 'cloudappdev-dev';
+
+  // Base values common to all services
+  const baseValues = {
+    namespace: tenantName,
+    image: {
+      tag: 'latest' // Use latest for now, can be parameterized
+    }
+  };
+
+  // Service-specific values
+  let serviceValues = {};
+
+  if (serviceName === 'user-service') {
+    serviceValues = {
+      initContainers: [
+        {
+          name: 'cloud-sql-proxy',
+          image: 'gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1',
+          args: [
+            '--port=5432',
+            terraformOutputs.database_connection_name
+          ],
+          restartPolicy: 'Always',
+          securityContext: {
+            runAsNonRoot: true
+          },
+          resources: {
+            requests: {
+              cpu: '250m',
+              memory: '512Mi'
+            }
+          }
+        }
+      ],
+      serviceAccount: {
+        create: true,
+        annotations: {
+          'iam.gke.io/gcp-service-account': terraformOutputs.user_service_account_email
+        },
+        name: 'user-service-sa'
+      }
+    };
+  } else if (serviceName === 'itinerary-service') {
+    serviceValues = {
+      initContainers: [
+        {
+          name: 'cloud-sql-proxy',
+          image: 'gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1',
+          args: [
+            '--port=5432',
+            terraformOutputs.database_connection_name
+          ],
+          restartPolicy: 'Always',
+          securityContext: {
+            runAsNonRoot: true
+          },
+          resources: {
+            requests: {
+              cpu: '250m',
+              memory: '512Mi'
+            }
+          }
+        }
+      ],
+      serviceAccount: {
+        create: true,
+        annotations: {
+          'iam.gke.io/gcp-service-account': terraformOutputs.itinerary_service_account_email
+        },
+        name: 'itinerary-service-sa'
+      }
+    };
+  } else if (serviceName === 'social-service') {
+    serviceValues = {
+      serviceAccount: {
+        create: true,
+        annotations: {
+          'iam.gke.io/gcp-service-account': terraformOutputs.social_service_account_email
+        },
+        name: 'social-service-sa'
+      }
+    };
+  } else if (serviceName === 'gateway') {
+    serviceValues = {
+      tenant: tenantName,
+      upstreams: {
+        userService: `user-service.${tenantName}.svc.cluster.local:8080`,
+        itineraryService: `itinerary-service.${tenantName}.svc.cluster.local:8081`,
+        socialService: `social-service.${tenantName}.svc.cluster.local:8082`,
+        // Shared services remain in default namespace
+        travelInfoService: 'travel-info-service.default.svc.cluster.local:8083',
+        tenantService: 'tenant-service.default.svc.cluster.local:8084'
+      }
+    };
+  } else if (serviceName === 'app') {
+    serviceValues = {
+      env: [
+        {
+          name: 'API_GATEWAY_URL',
+          value: `http://gateway.${tenantName}.svc.cluster.local:80`
+        },
+        {
+          name: 'NEXT_PUBLIC_TENANT_NAME',
+          value: tenantName
+        }
+      ]
+    };
+  }
+
+  // Merge base and service-specific values
+  const allValues = { ...baseValues, ...serviceValues };
+
+  // Convert to YAML format (simple string serialization)
+  return convertToYaml(allValues);
+}
+
+/**
+ * Simple YAML converter (handles basic types)
+ * For production, use a proper YAML library like js-yaml
+ */
+function convertToYaml(obj, indent = 0) {
+  const spaces = '  '.repeat(indent);
+  let yaml = '';
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined) {
+      yaml += `${spaces}${key}: null\n`;
+    } else if (Array.isArray(value)) {
+      yaml += `${spaces}${key}:\n`;
+      value.forEach(item => {
+        if (typeof item === 'object') {
+          yaml += `${spaces}- \n`;
+          yaml += convertToYaml(item, indent + 1).split('\n').map(line => `  ${line}`).join('\n') + '\n';
+        } else {
+          yaml += `${spaces}- ${item}\n`;
+        }
+      });
+    } else if (typeof value === 'object') {
+      yaml += `${spaces}${key}:\n`;
+      yaml += convertToYaml(value, indent + 1);
+    } else if (typeof value === 'string') {
+      yaml += `${spaces}${key}: "${value}"\n`;
+    } else {
+      yaml += `${spaces}${key}: ${value}\n`;
+    }
+  }
+
+  return yaml;
 }
 
 /**

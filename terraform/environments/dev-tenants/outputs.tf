@@ -57,3 +57,25 @@ output "tenant_count" {
     enterprise = length(local.enterprise_tenants)
   }
 }
+
+# ========================================
+# Enterprise Deployment Outputs
+# ========================================
+
+output "enterprise_deployments" {
+  description = "Detailed infrastructure for each enterprise tenant"
+  value = {
+    for name in keys(local.enterprise_tenants) :
+    name => {
+      namespace                      = name
+      database_instance_name         = module.enterprise_namespace[name].database_instance_name
+      database_connection_name       = module.enterprise_namespace[name].database_connection_name
+      images_bucket_name             = module.enterprise_namespace[name].images_bucket_name
+      social_db_name                 = module.enterprise_namespace[name].social_db_name
+      user_service_account_email     = module.enterprise_namespace[name].user_service_account_email
+      itinerary_service_account_email = module.enterprise_namespace[name].itinerary_service_account_email
+      social_service_account_email   = module.enterprise_namespace[name].social_service_account_email
+      tenant_service_account_email   = module.enterprise_namespace[name].tenant_service_account_email
+    }
+  }
+}
