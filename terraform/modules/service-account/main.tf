@@ -118,6 +118,14 @@ resource "google_project_iam_member" "terraform_firestore_admin" {
   member  = "serviceAccount:${google_service_account.sa.email}"
 }
 
+# Project IAM Admin Role (allows granting IAM permissions to other service accounts)
+resource "google_project_iam_member" "terraform_project_iam_admin" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/resourcemanager.projectIamAdmin"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
 # Workload Identity Bindings for Kubernetes Service Accounts
 resource "google_service_account_iam_member" "workload_identity" {
   for_each = toset(var.k8s_service_accounts)
