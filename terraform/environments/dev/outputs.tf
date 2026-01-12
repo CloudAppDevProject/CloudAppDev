@@ -37,6 +37,17 @@ output "tenant_db_connection_name" {
   value       = module.default_databases.instance_connection_name
 }
 
+output "tenant_db_password" {
+  description = "Tenant database password"
+  value = nonsensitive(module.default_databases.password)
+  sensitive = true
+}
+
+output "tenant_db_username" {
+  description = "Tenant database username"
+  value = module.default_databases.user_name
+}
+
 # --- App ---
 output "app_service_account_name" {
   description = "Service account name"

@@ -22,3 +22,14 @@ output "instance_id" {
   description = "The ID of the Cloud SQL instance"
   value       = google_sql_database_instance.instance.id
 }
+
+output "user_name" {
+  description = "The name of the created user"
+  value = { for user in google_sql_user.user : user.name => user.name }
+}
+
+output "password" {
+  description = "The password for the created user"
+  value = { for password in random_password.db_passwords : password.result => password.result }
+  sensitive = true
+}

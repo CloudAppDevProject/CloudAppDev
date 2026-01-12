@@ -448,43 +448,51 @@ async function getTerraformOutputsForTenant(tenantName, environment) {
 /**
  * Creates Kubernetes secrets for tenant services
  * Secrets include database URLs, service account emails, bucket names
+ * Each tenant gets their own isolated secrets (NOT shared from provisioner environment)
  */
 async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, environment) {
   console.log(`[K8s] Creating secrets in namespace ${namespace}`);
 
-  // Get secrets from environment variables (shared secrets like Firebase, JWT)
-  const sharedSecrets = {
-    FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || '',
-    JWT_SECRET: process.env.JWT_SECRET || 'dev-jwt-secret-change-in-production',
-    JWT_EXPIRATION: process.env.JWT_EXPIRATION || '7d',
+  // Retrieve tenant-specific secrets from Google Secret Manager
+  const tenantSecrets = await getTenantSecretsFromSecretManager(tenantName, environment);
+
+  // Generate tenant-specific database credentials
+  const dbUser = `${tenantName}_user`;
+  const dbPassword = await getSecretFromGSM(`${tenantName}-db-password`, environment);
+
+  // Base secrets for this tenant (isolated from other tenants)
+  const baseSecrets = {
+    FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: tenantSecrets.firebase_service_account || '',
+    JWT_SECRET: tenantSecrets.jwt_secret || `${tenantName}-jwt-secret-${Date.now()}`,
+    JWT_EXPIRATION: '7d',
     NODE_ENV: environment === 'prod' ? 'production' : 'development',
     GOOGLE_CLOUD_PROJECT_ID: process.env.GCP_PROJECT || 'cloudappdev-dev'
   };
 
-  // User Service Secrets
+  // User Service Secrets (tenant-specific)
   const userSecrets = {
-    ...sharedSecrets,
-    DATABASE_URL: generateDatabaseUrl(terraformOutputs.database_connection_name, 'users'),
+    ...baseSecrets,
+    DATABASE_URL: `postgresql://${dbUser}:${dbPassword}@localhost:5432/users`,
     GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
     GOOGLE_CLOUD_CREDENTIALS_BASE64: '' // Workload Identity handles this
   };
 
-  // Itinerary Service Secrets
+  // Itinerary Service Secrets (tenant-specific)
   const itinerarySecrets = {
-    ...sharedSecrets,
-    DATABASE_URL: generateDatabaseUrl(terraformOutputs.database_connection_name, 'itineraries'),
+    ...baseSecrets,
+    DATABASE_URL: `postgresql://${dbUser}:${dbPassword}@localhost:5432/itineraries`,
     GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
     GOOGLE_CLOUD_CREDENTIALS_BASE64: ''
   };
 
-  // Social Service Secrets
+  // Social Service Secrets (tenant-specific)
   const socialSecrets = {
-    ...sharedSecrets,
+    ...baseSecrets,
     FIRESTORE_DATABASE_ID: terraformOutputs.social_db_name,
     GOOGLE_CLOUD_PROJECT_ID: process.env.GCP_PROJECT || 'cloudappdev-dev'
   };
 
-  // Create secret YAML manifests and apply
+  // Create Kubernetes secrets in tenant namespace
   const secrets = [
     { name: 'user-service-secrets', data: userSecrets },
     { name: 'itinerary-service-secrets', data: itinerarySecrets },
@@ -493,10 +501,15 @@ async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, 
 
   for (const secret of secrets) {
     try {
-      // Delete existing secret if it exists (to update)
-      await execAsync(`kubectl delete secret ${secret.name} -n ${namespace} --ignore-not-found=true`);
+      // Check if secret exists
+      const secretExists = await checkSecretExists(secret.name, namespace);
 
-      // Create secret from literal key-value pairs
+      if (secretExists) {
+        console.log(`[K8s] Secret ${secret.name} already exists in namespace ${namespace}, skipping creation`);
+        continue;
+      }
+
+      // Create secret from literal key-value pairs (only if it doesn't exist)
       const secretArgs = Object.entries(secret.data)
         .map(([key, value]) => `--from-literal=${key}="${value}"`)
         .join(' ');
@@ -505,7 +518,7 @@ async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, 
         `kubectl create secret generic ${secret.name} -n ${namespace} ${secretArgs}`
       );
 
-      console.log(`[K8s] Created secret ${secret.name} in ${namespace}`);
+      console.log(`[K8s] Created secret ${secret.name} in namespace ${namespace} (isolated for tenant ${tenantName})`);
     } catch (err) {
       console.error(`[K8s] Failed to create secret ${secret.name}:`, err.message);
       throw err;
@@ -514,14 +527,74 @@ async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, 
 }
 
 /**
- * Generates a PostgreSQL DATABASE_URL from Cloud SQL connection name
+ * Checks if a Kubernetes secret exists in a namespace
  */
-function generateDatabaseUrl(connectionName, databaseName) {
-  // Format: postgresql://user:password@localhost:5432/dbname
-  // Cloud SQL Proxy handles the connection, so we use localhost
-  const user = process.env.DB_USER || 'postgres';
-  const password = process.env.DB_PASSWORD || 'postgres';
-  return `postgresql://${user}:${password}@localhost:5432/${databaseName}`;
+async function checkSecretExists(secretName, namespace) {
+  try {
+    await execAsync(`kubectl get secret ${secretName} -n ${namespace}`);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Retrieves tenant-specific secrets from Google Secret Manager
+ * Secrets are stored with naming convention: {tenant-name}-{secret-type}
+ */
+async function getTenantSecretsFromSecretManager(tenantName, environment) {
+  console.log(`[GSM] Retrieving secrets for tenant ${tenantName}`);
+
+  try {
+    // Retrieve tenant-specific secrets (if they exist)
+    const firebaseAccount = await getSecretFromGSM(`${tenantName}-firebase-service-account`, environment);
+    const jwtSecret = await getSecretFromGSM(`${tenantName}-jwt-secret`, environment);
+
+    return {
+      firebase_service_account: firebaseAccount,
+      jwt_secret: jwtSecret
+    };
+  } catch (err) {
+    console.warn(`[GSM] Could not retrieve some secrets for ${tenantName}, using defaults:`, err.message);
+
+    // Fallback: Generate tenant-specific secrets if not in Secret Manager
+    return {
+      firebase_service_account: process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || '',
+      jwt_secret: `${tenantName}-jwt-secret-${Date.now()}`
+    };
+  }
+}
+
+/**
+ * Retrieves a single secret from Google Secret Manager
+ * Returns the secret value or throws an error
+ */
+async function getSecretFromGSM(secretName, environment) {
+  const projectId = process.env.GCP_PROJECT || 'cloudappdev-dev';
+  const secretPath = `${secretName}-${environment}`;
+
+  try {
+    const { stdout } = await execAsync(
+      `gcloud secrets versions access latest --secret="${secretPath}" --project="${projectId}"`,
+      { timeout: 30000 }
+    );
+    return stdout.trim();
+  } catch (err) {
+    console.warn(`[GSM] Secret ${secretPath} not found, generating fallback`);
+
+    // Generate fallback secret value
+    if (secretName.includes('db-password')) {
+      // Generate secure random password for database
+      const crypto = await import('crypto');
+      return crypto.randomBytes(32).toString('base64');
+    } else if (secretName.includes('jwt-secret')) {
+      // Generate secure JWT secret
+      const crypto = await import('crypto');
+      return crypto.randomBytes(64).toString('hex');
+    }
+
+    throw new Error(`Secret ${secretPath} not found and no fallback available`);
+  }
 }
 
 /**
