@@ -104,6 +104,25 @@ module "tenant_service_account" {
   ]
 }
 
+module "provisioner_service_account" {
+  source = "../../modules/service-account"
+
+  project      = var.project_id
+  account_id   = "infrastructure-provisioner-sa"
+  display_name = "Infrastructure Provisioner - Dev"
+
+  enable_storage         = true
+  enable_terraform_admin = true
+
+  k8s_service_accounts = [
+    "infrastructure-provisioner-sa"
+  ]
+
+  depends_on = [
+    google_container_cluster.primary
+  ]
+}
+
 # ========================================
 # Certificate Management
 # ========================================

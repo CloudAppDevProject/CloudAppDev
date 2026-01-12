@@ -48,3 +48,9 @@ variable "k8s_service_accounts" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_terraform_admin" {
+  description = "Grant permissions for Terraform infrastructure management"
+  type        = bool
+  default     = false
+}

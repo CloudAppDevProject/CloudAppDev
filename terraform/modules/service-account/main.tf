@@ -58,6 +58,50 @@ resource "google_project_iam_member" "artifact_registry_reader" {
   member  = "serviceAccount:${google_service_account.sa.email}"
 }
 
+# Terraform Admin Roles (for infrastructure provisioner)
+# These roles allow the service account to manage tenant infrastructure via Terraform
+resource "google_project_iam_member" "terraform_editor" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/editor"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
+resource "google_project_iam_member" "terraform_compute_admin" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/compute.admin"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
+resource "google_project_iam_member" "terraform_storage_admin" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
+resource "google_project_iam_member" "terraform_sql_admin" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/cloudsql.admin"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
+resource "google_project_iam_member" "terraform_iam_admin" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/iam.serviceAccountAdmin"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
+resource "google_project_iam_member" "terraform_iam_creator" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/iam.serviceAccountKeyAdmin"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
 # Workload Identity Bindings for Kubernetes Service Accounts
 resource "google_service_account_iam_member" "workload_identity" {
   for_each = toset(var.k8s_service_accounts)
