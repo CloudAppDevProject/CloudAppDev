@@ -296,7 +296,6 @@ async function runTerraformApply(environment) {
   const workDir = `/terraform/environments/${environment}-tenants`;
 
   console.log(`[Terraform] Running terraform apply in ${workDir}`);
-
   
   try {
     // Ensure base configuration tfvars exists
