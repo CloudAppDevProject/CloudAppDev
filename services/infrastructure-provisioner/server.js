@@ -174,7 +174,7 @@ app.get('/tenants/:environment', async (req, res) => {
  * Ensures base terraform.tfvars file exists with required variables
  */
 async function ensureBaseTfvars(environment) {
-  const tfvarsPath = `/terraform/environments/${environment}/terraform.tfvars`;
+  const tfvarsPath = `/terraform/environments/${environment}-tenants/terraform.tfvars`;
 
   try {
     // Check if file exists
@@ -206,7 +206,7 @@ cloudflare_zone_id = "${cloudflareZoneId}"
  * Adds a tenant to the tenants.tfvars file
  */
 async function addTenantToTfvars(tenantName, tier, environment) {
-  const tfvarsPath = `/terraform/environments/${environment}/tenants.tfvars`;
+  const tfvarsPath = `/terraform/environments/${environment}-tenants/tenants.tfvars`;
 
   let content = '';
   try {
@@ -270,7 +270,7 @@ tenants = []
  * Removes a tenant from tenants.tfvars
  */
 async function removeTenantFromTfvars(tenantName, environment) {
-  const tfvarsPath = `/terraform/environments/${environment}/tenants.tfvars`;
+  const tfvarsPath = `/terraform/environments/${environment}-tenants/tenants.tfvars`;
 
   let content = await fs.readFile(tfvarsPath, 'utf-8');
 
@@ -293,7 +293,7 @@ async function removeTenantFromTfvars(tenantName, environment) {
  * Runs terraform apply for the specified environment
  */
 async function runTerraformApply(environment) {
-  const workDir = `/terraform/environments/${environment}`;
+  const workDir = `/terraform/environments/${environment}-tenants`;
 
   console.log(`[Terraform] Running terraform apply in ${workDir}`);
 
@@ -406,7 +406,7 @@ async function deployEnterpriseNamespace(tenantName, environment) {
  * Lists all provisioned tenants from Terraform state
  */
 async function listProvisionedTenants(environment) {
-  const workDir = `/terraform/environments/${environment}`;
+  const workDir = `/terraform/environments/${environment}-tenants`;
 
   try {
     const { stdout } = await execAsync('terraform output -json', { cwd: workDir });

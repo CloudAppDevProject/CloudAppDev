@@ -110,6 +110,14 @@ resource "google_project_iam_member" "secret_manager_accessor" {
   member  = "serviceAccount:${google_service_account.sa.email}"
 }
 
+# Firestore Admin Role (for Terraform provisioner)
+resource "google_project_iam_member" "terraform_firestore_admin" {
+  count   = var.enable_terraform_admin ? 1 : 0
+  project = var.project
+  role    = "roles/datastore.owner"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
 # Workload Identity Bindings for Kubernetes Service Accounts
 resource "google_service_account_iam_member" "workload_identity" {
   for_each = toset(var.k8s_service_accounts)

@@ -28,11 +28,15 @@ provider "cloudflare" {
 }
 
 # Kubernetes provider - uses GKE cluster credentials
+# Note: This will only work after the cluster is created
 data "google_client_config" "default" {}
 
 data "google_container_cluster" "primary" {
-  name     = google_container_cluster.primary.name
-  location = google_container_cluster.primary.location
+  name     = "${var.project_id}-cluster"
+  location = var.region
+
+  # This data source depends on the cluster being created first
+  depends_on = [google_container_cluster.primary]
 }
 
 provider "kubernetes" {

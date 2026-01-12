@@ -154,23 +154,3 @@ module "main_domain" {
   ]
 }
 
-# Example: Free tenant domain (free.dev.cloudappdev.site)
-# Uncomment when ready to add tenant domains:
-# module "free_domain" {
-#   source = "../../modules/domain"
-#
-#   project_id         = var.project_id
-#   hostname           = var.hostname
-#   certificate_map_id = google_certificate_manager_certificate_map.main.name
-#   cloudflare_zone_id = var.cloudflare_zone_id
-#   environment        = var.environment
-#   tenant_name        = "free"  # Will register as "free.dev.cloudappdev.site"
-#
-#   labels = merge(
-#     local.common_labels,
-#     {
-#       tenant = "free"
-#     }
-#   )
-# }
-
