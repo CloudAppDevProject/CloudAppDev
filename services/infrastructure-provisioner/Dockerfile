@@ -27,7 +27,8 @@ RUN apk add --no-cache \
     npm \
     git \
     curl \
-    bash
+    bash \
+    kubectl
 
 WORKDIR /app
 

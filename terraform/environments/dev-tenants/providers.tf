@@ -23,5 +23,5 @@ provider "google" {
 }
 
 provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+  api_token = local.CLOUDFLARE_API_TOKEN
 }

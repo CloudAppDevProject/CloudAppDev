@@ -27,12 +27,6 @@ variable "cloudflare_zone_id" {
   default     = "ddbd47810ae075fc0bc55a4ef05a91ec"
 }
 
-variable "cloudflare_api_token" {
-  description = "Cloudflare API token"
-  type        = string
-  sensitive   = true
-}
-
 # ========================================
 # Tenant Configuration
 # ========================================

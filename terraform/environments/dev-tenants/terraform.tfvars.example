@@ -5,6 +5,6 @@ project_id            = "your-gcp-project-id"
 region                = "europe-west1"
 environment           = "dev"
 cloudflare_zone_id    = "your-cloudflare-zone-id"
-cloudflare_api_token  = "your-cloudflare-api-token"
 
+# Note: cloudflare_api_token is fetched from Google Secret Manager
 # Note: tenants are managed via tenants.tfvars by infrastructure-provisioner service
