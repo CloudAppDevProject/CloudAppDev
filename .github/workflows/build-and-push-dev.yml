@@ -82,6 +82,7 @@ jobs:
               - 'services/tenant-service/**'
             infrastructure-provisioner:
               - 'services/infrastructure-provisioner/**'
+              - 'terraform/**'
             api-gateway:
               - 'nginx/**'
             workflow:
