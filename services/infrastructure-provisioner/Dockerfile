@@ -9,7 +9,9 @@ RUN apk add --no-cache \
     npm \
     git \
     curl \
-    bash
+    bash \
+    python3 \
+    py3-pip
 
 # Install Node.js dependencies
 WORKDIR /app
@@ -28,7 +30,19 @@ RUN apk add --no-cache \
     git \
     curl \
     bash \
-    kubectl
+    kubectl \
+    python3 \
+    py3-pip
+
+# Install Helm
+RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Install gcloud CLI
+RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz && \
+    tar -xf google-cloud-cli-linux-x86_64.tar.gz && \
+    ./google-cloud-sdk/install.sh --quiet --path-update=true && \
+    rm google-cloud-cli-linux-x86_64.tar.gz && \
+    ln -s /app/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud
 
 WORKDIR /app
 
@@ -44,6 +58,9 @@ COPY services/infrastructure-provisioner/server.js ./server.js
 # Copy Terraform configurations to /terraform-src
 # Init container will copy these to /terraform volume at startup
 COPY terraform /terraform-src
+
+# Copy Kubernetes/Helm charts
+COPY k8s /k8s
 
 # Expose API port
 EXPOSE 8080
