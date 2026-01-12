@@ -171,6 +171,38 @@ app.get('/tenants/:environment', async (req, res) => {
 // ========================================
 
 /**
+ * Ensures base terraform.tfvars file exists with required variables
+ */
+async function ensureBaseTfvars(environment) {
+  const tfvarsPath = `/terraform/environments/${environment}/terraform.tfvars`;
+
+  try {
+    // Check if file exists
+    await fs.access(tfvarsPath);
+    console.log(`[Terraform] Base tfvars file exists at ${tfvarsPath}`);
+  } catch (err) {
+    // File doesn't exist, create it with environment variables
+    console.log(`[Terraform] Creating base tfvars file at ${tfvarsPath}`);
+
+    const projectId = process.env.GCP_PROJECT || 'cloudappdev-dev';
+    const region = process.env.GCP_REGION || 'europe-west1';
+    const cloudflareZoneId = process.env.CLOUDFLARE_ZONE_ID || 'ddbd47810ae075fc0bc55a4ef05a91ec';
+
+    const content = `# Base Terraform Configuration
+# Managed by infrastructure-provisioner service
+
+project_id         = "${projectId}"
+region             = "${region}"
+environment        = "${environment}"
+cloudflare_zone_id = "${cloudflareZoneId}"
+`;
+
+    await fs.writeFile(tfvarsPath, content, 'utf-8');
+    console.log(`[Terraform] Successfully created base tfvars file`);
+  }
+}
+
+/**
  * Adds a tenant to the tenants.tfvars file
  */
 async function addTenantToTfvars(tenantName, tier, environment) {
@@ -266,6 +298,9 @@ async function runTerraformApply(environment) {
   console.log(`[Terraform] Running terraform apply in ${workDir}`);
 
   try {
+    // Ensure base configuration tfvars exists
+    await ensureBaseTfvars(environment);
+
     // Initialize Terraform (idempotent)
     console.log(`[Terraform] Initializing...`);
     await execAsync('terraform init -input=false', {
@@ -276,9 +311,10 @@ async function runTerraformApply(environment) {
 
     console.log(`[Terraform] Init completed, starting apply...`);
 
-    // Apply with auto-approve and var-file
+    // Apply with auto-approve and var-files (base config + tenants)
+    // Use -lock-timeout to prevent indefinite lock waiting
     const { stdout, stderr } = await execAsync(
-      'terraform apply -auto-approve -input=false -var-file=tenants.tfvars',
+      'terraform apply -auto-approve -input=false -lock-timeout=2m -var-file=terraform.tfvars -var-file=tenants.tfvars',
       {
         cwd: workDir,
         timeout: 600000, // 10 minutes
@@ -397,6 +433,30 @@ function getDomainForTenant(tenantName, tier) {
     return `https://${tenantName}.${hostname}`;
   
 }
+
+// ========================================
+// Graceful Shutdown Handler
+// ========================================
+
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`\n[Shutdown] Received ${signal}, cleaning up...`);
+
+  // Give ongoing operations time to complete
+  setTimeout(() => {
+    console.log('[Shutdown] Forcefully exiting after timeout');
+    process.exit(1);
+  }, 30000); // 30 seconds max
+
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // ========================================
 // Start Server
