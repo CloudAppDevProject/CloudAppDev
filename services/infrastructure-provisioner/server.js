@@ -297,6 +297,7 @@ async function runTerraformApply(environment) {
 
   console.log(`[Terraform] Running terraform apply in ${workDir}`);
 
+  
   try {
     // Ensure base configuration tfvars exists
     await ensureBaseTfvars(environment);
