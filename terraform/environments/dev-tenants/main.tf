@@ -6,7 +6,7 @@
 
 # Import GKE cluster reference from base infrastructure
 data "google_container_cluster" "primary" {
-  name     = "${var.project_name}-cluster"
+  name     = "${var.project_id}-cluster"
   location = var.region
 }
 
