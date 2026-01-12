@@ -265,22 +265,38 @@ async function runTerraformApply(environment) {
 
   console.log(`[Terraform] Running terraform apply in ${workDir}`);
 
-  // Initialize Terraform (idempotent)
-  await execAsync('terraform init', { cwd: workDir });
+  try {
+    // Initialize Terraform (idempotent)
+    console.log(`[Terraform] Initializing...`);
+    await execAsync('terraform init -input=false', {
+      cwd: workDir,
+      timeout: 300000, // 5 minutes
+      maxBuffer: 10 * 1024 * 1024 // 10MB
+    });
 
-  // Apply with auto-approve and var-file
-  const { stdout, stderr } = await execAsync(
-    'terraform apply -auto-approve -var-file=tenants.tfvars',
-    { cwd: workDir }
-  );
+    console.log(`[Terraform] Init completed, starting apply...`);
 
-  console.log(`[Terraform] Apply completed`);
+    // Apply with auto-approve and var-file
+    const { stdout, stderr } = await execAsync(
+      'terraform apply -auto-approve -input=false -var-file=tenants.tfvars',
+      {
+        cwd: workDir,
+        timeout: 600000, // 10 minutes
+        maxBuffer: 10 * 1024 * 1024 // 10MB
+      }
+    );
 
-  return {
-    success: true,
-    output: stdout,
-    errors: stderr
-  };
+    console.log(`[Terraform] Apply completed successfully`);
+
+    return {
+      success: true,
+      output: stdout,
+      errors: stderr
+    };
+  } catch (error) {
+    console.error(`[Terraform] Error during apply:`, error.message);
+    throw error;
+  }
 }
 
 /**
