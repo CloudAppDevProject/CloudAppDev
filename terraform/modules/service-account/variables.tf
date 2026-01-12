@@ -54,3 +54,9 @@ variable "enable_terraform_admin" {
   type        = bool
   default     = false
 }
+
+variable "enable_secret_manager" {
+  description = "Grant Secret Manager permissions"
+  type        = bool
+  default     = false
+}

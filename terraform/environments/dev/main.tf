@@ -113,6 +113,7 @@ module "provisioner_service_account" {
 
   enable_storage         = true
   enable_terraform_admin = true
+  enable_secret_manager  = true
 
   k8s_service_accounts = [
     "infrastructure-provisioner-sa"

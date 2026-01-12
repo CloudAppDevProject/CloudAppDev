@@ -102,6 +102,14 @@ resource "google_project_iam_member" "terraform_iam_creator" {
   member  = "serviceAccount:${google_service_account.sa.email}"
 }
 
+# Secret Manager Accessor Role
+resource "google_project_iam_member" "secret_manager_accessor" {
+  count   = var.enable_secret_manager ? 1 : 0
+  project = var.project
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.sa.email}"
+}
+
 # Workload Identity Bindings for Kubernetes Service Accounts
 resource "google_service_account_iam_member" "workload_identity" {
   for_each = toset(var.k8s_service_accounts)

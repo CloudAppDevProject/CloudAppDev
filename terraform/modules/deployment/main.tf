@@ -39,7 +39,7 @@ module "social_service_account" {
   source = "../service-account"
 
   project      = var.project_id
-  account_id   = "social-service-${var.namespace}-sa"
+  account_id   = "social-${var.namespace}-sa"
   display_name = "Social Database access - ${var.namespace}"
 
   enable_firestore = true
@@ -80,7 +80,7 @@ module "itinerary_service_account" {
   source = "../service-account"
 
   project      = var.project_id
-  account_id   = "itinerary-service-${var.namespace}-sa"
+  account_id   = "itin-svc-${var.namespace}-sa"
   display_name = "Itinerary Database access - ${var.namespace}"
 
   enable_cloudsql = true
@@ -101,7 +101,7 @@ module "tenant_service_account" {
   source = "../service-account"
 
   project      = var.project_id
-  account_id   = "tenant-service-${var.namespace}-sa"
+  account_id   = "tenant-${var.namespace}-sa"
   display_name = "Tenant Database access - ${var.namespace}"
 
   enable_cloudsql = true
