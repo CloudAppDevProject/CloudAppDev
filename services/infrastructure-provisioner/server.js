@@ -317,7 +317,7 @@ async function runTerraformApply(environment) {
       'terraform apply -auto-approve -input=false -lock-timeout=2m -var-file=terraform.tfvars -var-file=tenants.tfvars',
       {
         cwd: workDir,
-        timeout: 600000, // 10 minutes
+        timeout: 1200000, // 20 minutes
         maxBuffer: 10 * 1024 * 1024 // 10MB
       }
     );
