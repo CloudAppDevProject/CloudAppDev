@@ -68,8 +68,30 @@ app.post('/provision-tenant', async (req, res) => {
 
     // Step 3: For enterprise, trigger Kubernetes deployment
     let deploymentResult = null;
+    let deploymentError = null;
     if (tier === 'enterprise') {
-      deploymentResult = await deployEnterpriseNamespace(sanitizedName, environment);
+      try {
+        deploymentResult = await deployEnterpriseNamespace(sanitizedName, environment);
+      } catch (deployErr) {
+        deploymentError = {
+          message: deployErr.message,
+          details: deployErr.stderr || deployErr.stack
+        };
+        console.error('[K8s Deployment Error]', deploymentError);
+
+        // If deployment fails, we should report this as a failure
+        // even though Terraform succeeded
+        return res.status(500).json({
+          success: false,
+          tenantId,
+          tenantName: sanitizedName,
+          tier,
+          error: 'Kubernetes deployment failed after Terraform provisioning',
+          terraform: terraformResult,
+          deployment: deploymentError,
+          message: 'Infrastructure was provisioned but Kubernetes deployment failed. Manual intervention required.'
+        });
+      }
     }
 
     // Success response
@@ -380,23 +402,29 @@ async function deployEnterpriseNamespace(tenantName, environment) {
   ];
 
   const deployResults = [];
+  let hasFailures = false;
 
   for (const service of services) {
     try {
       const helmValues = generateHelmValues(service.name, tenantName, terraformOutputs, environment);
 
-      console.log(`[K8s] Deploying ${service.name} with values:`, JSON.stringify(helmValues, null, 2));
+      console.log(`[K8s] Deploying ${service.name} with generated values`);
 
       // Create temporary values file
       const valuesFilePath = `/tmp/helm-values-${tenantName}-${service.name}.yaml`;
       await fs.writeFile(valuesFilePath, helmValues, 'utf-8');
 
-      const { stdout } = await execAsync(
+      // Deploy with Helm
+      const { stdout, stderr } = await execAsync(
         `helm upgrade --install ${service.helmRelease} ${service.path} ` +
         `-f ${service.path}/values-${environment}.yaml ` +
         `-f ${valuesFilePath} ` +
         `--namespace ${namespace} ` +
-        `--wait --timeout 10m`
+        `--wait --timeout 10m`,
+        {
+          timeout: 600000, // 10 minutes
+          maxBuffer: 10 * 1024 * 1024 // 10MB
+        }
       );
 
       // Clean up temp file
@@ -405,18 +433,39 @@ async function deployEnterpriseNamespace(tenantName, environment) {
       deployResults.push({
         service: service.name,
         success: true,
-        output: stdout.substring(0, 500) // Truncate for response size
+        output: stdout.substring(0, 500), // Truncate for response size
+        warnings: stderr ? stderr.substring(0, 500) : null
       });
 
       console.log(`[K8s] Successfully deployed ${service.name} to ${namespace}`);
     } catch (err) {
+      hasFailures = true;
+
       deployResults.push({
         service: service.name,
         success: false,
-        error: err.message
+        error: err.message,
+        stderr: err.stderr ? err.stderr.substring(0, 1000) : null,
+        stdout: err.stdout ? err.stdout.substring(0, 1000) : null
       });
+
       console.error(`[K8s] Failed to deploy ${service.name}:`, err.message);
+      if (err.stderr) {
+        console.error(`[K8s] Helm stderr:`, err.stderr);
+      }
+
+      // Clean up temp file on error
+      await fs.unlink(`/tmp/helm-values-${tenantName}-${service.name}.yaml`).catch(() => {});
     }
+  }
+
+  // If any deployment failed, throw an error to indicate failure
+  if (hasFailures) {
+    const failedServices = deployResults.filter(r => !r.success).map(r => r.service);
+    throw new Error(
+      `Helm deployment failed for the following services: ${failedServices.join(', ')}. ` +
+      `Check the deployment results for details.`
+    );
   }
 
   return {
@@ -456,9 +505,8 @@ async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, 
   // Retrieve tenant-specific secrets from Google Secret Manager
   const tenantSecrets = await getTenantSecretsFromSecretManager(tenantName, environment);
 
-  // Generate tenant-specific database credentials
-  const dbUser = `${tenantName}_user`;
-  const dbPassword = await getSecretFromGSM(`${tenantName}-db-password`, environment);
+  const projectId = process.env.GCP_PROJECT || 'cloudappdev-dev';
+  const region = process.env.GCP_REGION || 'europe-west1';
 
   // Base secrets for this tenant (isolated from other tenants)
   const baseSecrets = {
@@ -466,13 +514,17 @@ async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, 
     JWT_SECRET: tenantSecrets.jwt_secret || `${tenantName}-jwt-secret-${Date.now()}`,
     JWT_EXPIRATION: '7d',
     NODE_ENV: environment === 'prod' ? 'production' : 'development',
-    GOOGLE_CLOUD_PROJECT_ID: process.env.GCP_PROJECT || 'cloudappdev-dev'
+    GOOGLE_CLOUD_PROJECT_ID: projectId
   };
 
+  // Extract Firestore database ID from the social_db_name (last segment of the path)
+  const firestoreDatabaseId = terraformOutputs.social_db_name.split('/').pop();
+
   // User Service Secrets (tenant-specific)
+  // Cloud SQL Proxy connects via Unix socket to localhost:5432
   const userSecrets = {
     ...baseSecrets,
-    DATABASE_URL: `postgresql://${dbUser}:${dbPassword}@localhost:5432/users`,
+    DATABASE_URL: `postgresql://postgres@localhost:5432/users`,
     GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
     GOOGLE_CLOUD_CREDENTIALS_BASE64: '' // Workload Identity handles this
   };
@@ -480,23 +532,38 @@ async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, 
   // Itinerary Service Secrets (tenant-specific)
   const itinerarySecrets = {
     ...baseSecrets,
-    DATABASE_URL: `postgresql://${dbUser}:${dbPassword}@localhost:5432/itineraries`,
+    DATABASE_URL: `postgresql://postgres@localhost:5432/itineraries`,
     GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
     GOOGLE_CLOUD_CREDENTIALS_BASE64: ''
   };
 
   // Social Service Secrets (tenant-specific)
+  // MongoDB URI format for Firestore native mode
+  const mongodbUri = `mongodb://${firestoreDatabaseId}.${region}.firestore.goog:443/${firestoreDatabaseId}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE`;
+
   const socialSecrets = {
     ...baseSecrets,
-    FIRESTORE_DATABASE_ID: terraformOutputs.social_db_name,
-    GOOGLE_CLOUD_PROJECT_ID: process.env.GCP_PROJECT || 'cloudappdev-dev'
+    MONGODB_URI: mongodbUri,
+    USER_SERVICE_URL: `http://user-service.${namespace}.svc.cluster.local:8080`,
+    ITINERARY_SERVICE_URL: `http://itinerary-service.${namespace}.svc.cluster.local:8081`,
+    SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
+    SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL || `team@${tenantName}.cloudappdev.site`,
+    SENDGRID_FROM_NAME: process.env.SENDGRID_FROM_NAME || 'CloudAppDev Team',
+    NEWSLETTER_MODE: 'sendgrid',
+    FRONTEND_URL: `https://${tenantName}.cloudappdev.site`
+  };
+
+  // App (frontend) secrets
+  const appSecrets = {
+    API_GATEWAY_URL: `http://gateway.${namespace}.svc.cluster.local:80`
   };
 
   // Create Kubernetes secrets in tenant namespace
   const secrets = [
     { name: 'user-service-secrets', data: userSecrets },
     { name: 'itinerary-service-secrets', data: itinerarySecrets },
-    { name: 'social-service-secrets', data: socialSecrets }
+    { name: 'social-service-secrets', data: socialSecrets },
+    { name: 'cloudappdev-secrets', data: appSecrets }
   ];
 
   for (const secret of secrets) {
@@ -510,12 +577,18 @@ async function createKubernetesSecrets(namespace, tenantName, terraformOutputs, 
       }
 
       // Create secret from literal key-value pairs (only if it doesn't exist)
+      // Filter out empty/null values and properly escape
       const secretArgs = Object.entries(secret.data)
-        .map(([key, value]) => `--from-literal=${key}="${value}"`)
+        .filter(([_, value]) => value !== '' && value !== undefined && value !== null)
+        .map(([key, value]) => `--from-literal=${key}=${String(value)}`)
         .join(' ');
 
       await execAsync(
-        `kubectl create secret generic ${secret.name} -n ${namespace} ${secretArgs}`
+        `kubectl create secret generic ${secret.name} -n ${namespace} ${secretArgs}`,
+        {
+          timeout: 30000, // 30 seconds
+          maxBuffer: 5 * 1024 * 1024 // 5MB
+        }
       );
 
       console.log(`[K8s] Created secret ${secret.name} in namespace ${namespace} (isolated for tenant ${tenantName})`);
@@ -599,6 +672,7 @@ async function getSecretFromGSM(secretName, environment) {
 
 /**
  * Generates Helm values YAML for a service with tenant-specific configuration
+ * Supports both nested objects (for Helm templates) and direct env variables
  */
 function generateHelmValues(serviceName, tenantName, terraformOutputs, environment) {
   const projectId = process.env.GCP_PROJECT || 'cloudappdev-dev';
@@ -607,7 +681,7 @@ function generateHelmValues(serviceName, tenantName, terraformOutputs, environme
   const baseValues = {
     namespace: tenantName,
     image: {
-      tag: 'latest' // Use latest for now, can be parameterized
+      tag: process.env.IMAGE_TAG || 'latest'
     }
   };
 
@@ -642,7 +716,18 @@ function generateHelmValues(serviceName, tenantName, terraformOutputs, environme
           'iam.gke.io/gcp-service-account': terraformOutputs.user_service_account_email
         },
         name: 'user-service-sa'
-      }
+      },
+      // Additional environment variables (merged with existing ones in Helm template)
+      env: [
+        {
+          name: 'TENANT_NAME',
+          value: tenantName
+        },
+        {
+          name: 'TENANT_NAMESPACE',
+          value: tenantName
+        }
+      ]
     };
   } else if (serviceName === 'itinerary-service') {
     serviceValues = {
@@ -672,7 +757,17 @@ function generateHelmValues(serviceName, tenantName, terraformOutputs, environme
           'iam.gke.io/gcp-service-account': terraformOutputs.itinerary_service_account_email
         },
         name: 'itinerary-service-sa'
-      }
+      },
+      env: [
+        {
+          name: 'TENANT_NAME',
+          value: tenantName
+        },
+        {
+          name: 'TENANT_NAMESPACE',
+          value: tenantName
+        }
+      ]
     };
   } else if (serviceName === 'social-service') {
     serviceValues = {
@@ -682,19 +777,42 @@ function generateHelmValues(serviceName, tenantName, terraformOutputs, environme
           'iam.gke.io/gcp-service-account': terraformOutputs.social_service_account_email
         },
         name: 'social-service-sa'
-      }
+      },
+      env: [
+        {
+          name: 'TENANT_NAME',
+          value: tenantName
+        },
+        {
+          name: 'TENANT_NAMESPACE',
+          value: tenantName
+        },
+        {
+          name: 'FIRESTORE_DATABASE_ID',
+          value: terraformOutputs.social_db_name
+        }
+      ]
     };
   } else if (serviceName === 'gateway') {
     serviceValues = {
       tenant: tenantName,
-      upstreams: {
-        userService: `user-service.${tenantName}.svc.cluster.local:8080`,
-        itineraryService: `itinerary-service.${tenantName}.svc.cluster.local:8081`,
-        socialService: `social-service.${tenantName}.svc.cluster.local:8082`,
-        // Shared services remain in default namespace
-        travelInfoService: 'travel-info-service.default.svc.cluster.local:8083',
-        tenantService: 'tenant-service.default.svc.cluster.local:8084'
-      }
+      serviceNamespaces: {
+        user: tenantName,
+        itinerary: tenantName,
+        social: tenantName,
+        travelInfo: 'default',
+        tenant: 'default'
+      },
+      env: [
+        {
+          name: 'TENANT_NAME',
+          value: tenantName
+        },
+        {
+          name: 'TENANT_NAMESPACE',
+          value: tenantName
+        }
+      ]
     };
   } else if (serviceName === 'app') {
     serviceValues = {
@@ -705,6 +823,14 @@ function generateHelmValues(serviceName, tenantName, terraformOutputs, environme
         },
         {
           name: 'NEXT_PUBLIC_TENANT_NAME',
+          value: tenantName
+        },
+        {
+          name: 'TENANT_NAME',
+          value: tenantName
+        },
+        {
+          name: 'TENANT_NAMESPACE',
           value: tenantName
         }
       ]
@@ -720,7 +846,7 @@ function generateHelmValues(serviceName, tenantName, terraformOutputs, environme
 
 /**
  * Simple YAML converter (handles basic types)
- * For production, use a proper YAML library like js-yaml
+ * Properly formats arrays of objects for Kubernetes/Helm values
  */
 function convertToYaml(obj, indent = 0) {
   const spaces = '  '.repeat(indent);
@@ -730,20 +856,33 @@ function convertToYaml(obj, indent = 0) {
     if (value === null || value === undefined) {
       yaml += `${spaces}${key}: null\n`;
     } else if (Array.isArray(value)) {
-      yaml += `${spaces}${key}:\n`;
-      value.forEach(item => {
-        if (typeof item === 'object') {
-          yaml += `${spaces}- \n`;
-          yaml += convertToYaml(item, indent + 1).split('\n').map(line => `  ${line}`).join('\n') + '\n';
-        } else {
-          yaml += `${spaces}- ${item}\n`;
-        }
-      });
-    } else if (typeof value === 'object') {
+      if (value.length === 0) {
+        yaml += `${spaces}${key}: []\n`;
+      } else {
+        yaml += `${spaces}${key}:\n`;
+        value.forEach(item => {
+          if (typeof item === 'object' && item !== null) {
+            // Array of objects - format each object on its own line
+            yaml += `${spaces}  -\n`;
+            const itemYaml = convertToYaml(item, indent + 2);
+            yaml += itemYaml;
+          } else {
+            // Array of primitives
+            yaml += `${spaces}  - ${item}\n`;
+          }
+        });
+      }
+    } else if (typeof value === 'object' && value !== null) {
       yaml += `${spaces}${key}:\n`;
       yaml += convertToYaml(value, indent + 1);
     } else if (typeof value === 'string') {
-      yaml += `${spaces}${key}: "${value}"\n`;
+      // Escape special characters and quotes in strings
+      const escapedValue = value.replace(/"/g, '\\"');
+      yaml += `${spaces}${key}: "${escapedValue}"\n`;
+    } else if (typeof value === 'boolean') {
+      yaml += `${spaces}${key}: ${value}\n`;
+    } else if (typeof value === 'number') {
+      yaml += `${spaces}${key}: ${value}\n`;
     } else {
       yaml += `${spaces}${key}: ${value}\n`;
     }

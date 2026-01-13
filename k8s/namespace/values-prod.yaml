@@ -1,0 +1,447 @@
+# CloudAppDev Umbrella Chart - Production Environment Values
+# This chart deploys the complete CloudAppDev stack:
+# - Next.js Frontend (app)
+# - API Gateway (gateway)
+# - User Service (user-service)
+# - Itinerary Service (itinerary-service)
+# - Social Service (social-service)
+
+# Global values shared across all sub-charts
+global:
+  namespace: default
+  environment: prod
+  gcpProject: cloudappdev-prod
+  gcpRegion: europe-west1
+  imageRegistry: europe-west1-docker.pkg.dev/cloudappdev-prod/docker-repo
+  imagePullPolicy: Always
+  domain: cloudappdev.site
+
+# Enable/disable individual services
+# Set to false to exclude a service from deployment
+app:
+  enabled: true
+  namespace: default
+  gatewayNamespace: default
+  fullnameOverride: "app"
+
+  image:
+    repository: europe-west1-docker.pkg.dev/cloudappdev-prod/docker-repo/cloudappdev-frontend
+    pullPolicy: Always
+    tag: "latest"
+
+  serviceAccount:
+    create: true
+    annotations:
+      iam.gke.io/gcp-service-account: "app-sa@cloudappdev-prod.iam.gserviceaccount.com"
+    name: "app-sa"
+
+  service:
+    type: LoadBalancer
+    port: 80
+
+  api:
+    className: "gke-l7-global-external-managed"
+    annotations: {}
+    hostname: cloudappdev.site
+
+  httpRoute:
+    enabled: true
+    annotations: {}
+    parentRefs:
+      - name: app-gateway
+        sectionName: http
+        namespace: default
+    rules:
+      - filters:
+          - type: RequestRedirect
+            requestRedirect:
+              scheme: https
+              statusCode: 301
+
+  httpsRoute:
+    enabled: true
+    annotations: {}
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+api-gateway:
+  enabled: true
+  namespace: default
+  fullnameOverride: "api-gateway"
+
+  serviceNamespaces:
+    user: default
+    itinerary: default
+    social: default
+    travelInfo: default
+    tenant: default
+
+  image:
+    repository: europe-west1-docker.pkg.dev/cloudappdev-prod/docker-repo/cloudappdev-api-gateway
+    pullPolicy: Always
+    tag: "latest"
+
+  env:
+    - name: RESOLVER_IP
+      value: "kube-dns.kube-system.svc.cluster.local"
+
+  resources:
+    limits:
+      memory: "1Gi"
+      cpu: "2000m"
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+
+  service:
+    create: false  # Terraform creates the LoadBalancer Service
+    type: ClusterIP
+    port: 80
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 75
+
+user-service:
+  enabled: true
+  namespace: default
+  fullnameOverride: "user-service"
+
+  image:
+    repository: europe-west1-docker.pkg.dev/cloudappdev-prod/docker-repo/cloudappdev-user-service
+    pullPolicy: Always
+    tag: "latest"
+
+  container:
+    port: 8080
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+
+  initContainers:
+    - name: cloud-sql-proxy
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+      args:
+        - "--port=5432"
+        - "cloudappdev-prod:europe-west1:cloudappdev-prod-users-db"
+      restartPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+
+  env:
+    - name: NODE_ENV
+      valueFrom:
+        secretKeyRef:
+          name: user-service-secrets
+          key: NODE_ENV
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          key: DATABASE_URL
+          name: user-service-secrets
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: user-service-secrets
+          key: JWT_SECRET
+    - name: JWT_EXPIRATION
+      valueFrom:
+        secretKeyRef:
+          name: user-service-secrets
+          key: JWT_EXPIRATION
+    - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+      valueFrom:
+        secretKeyRef:
+          name: user-service-secrets
+          key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+    - name: GOOGLE_CLOUD_STORAGE_BUCKET
+      valueFrom:
+        secretKeyRef:
+          name: user-service-secrets
+          key: GOOGLE_CLOUD_STORAGE_BUCKET
+    - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
+      valueFrom:
+        secretKeyRef:
+          name: user-service-secrets
+          key: GOOGLE_CLOUD_CREDENTIALS_BASE64
+    - name: GOOGLE_CLOUD_PROJECT_ID
+      valueFrom:
+        secretKeyRef:
+          name: user-service-secrets
+          key: GOOGLE_CLOUD_PROJECT_ID
+
+  serviceAccount:
+    create: true
+    annotations:
+      iam.gke.io/gcp-service-account: "user-service-sa@cloudappdev-prod.iam.gserviceaccount.com"
+    name: "user-service-sa"
+
+  service:
+    type: LoadBalancer
+    port: 8080
+
+  startupProbe:
+    tcpSocket:
+      port: 8080
+    initialDelaySeconds: 5
+    failureThreshold: 30
+    periodSeconds: 1
+
+  livenessProbe:
+    tcpSocket:
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+itinerary-service:
+  enabled: true
+  namespace: default
+  fullnameOverride: "itinerary-service"
+
+  image:
+    repository: europe-west1-docker.pkg.dev/cloudappdev-prod/docker-repo/cloudappdev-itinerary-service
+    pullPolicy: Always
+    tag: "latest"
+
+  container:
+    port: 8081
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+
+  initContainers:
+    - name: cloud-sql-proxy
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+      args:
+        - "--port=5432"
+        - "cloudappdev-prod:europe-west1:cloudappdev-prod-itinerary-db"
+      restartPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          key: DATABASE_URL
+          name: itinerary-service-secrets
+    - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+      valueFrom:
+        secretKeyRef:
+          name: itinerary-service-secrets
+          key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+    - name: GOOGLE_CLOUD_STORAGE_BUCKET
+      valueFrom:
+        secretKeyRef:
+          name: itinerary-service-secrets
+          key: GOOGLE_CLOUD_STORAGE_BUCKET
+    - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
+      valueFrom:
+        secretKeyRef:
+          name: itinerary-service-secrets
+          key: GOOGLE_CLOUD_CREDENTIALS_BASE64
+    - name: GOOGLE_CLOUD_PROJECT_ID
+      valueFrom:
+        secretKeyRef:
+          name: itinerary-service-secrets
+          key: GOOGLE_CLOUD_PROJECT_ID
+    - name: FRONTEND_URL
+      valueFrom:
+        secretKeyRef:
+          key: FRONTEND_URL
+          name: itinerary-service-secrets
+
+  serviceAccount:
+    create: true
+    annotations:
+      iam.gke.io/gcp-service-account: "itinerary-service-sa@cloudappdev-prod.iam.gserviceaccount.com"
+    name: "itinerary-service-sa"
+
+  service:
+    type: LoadBalancer
+    port: 8081
+
+  readinessProbe:
+    tcpSocket:
+      port: 8081
+    initialDelaySeconds: 5
+    failureThreshold: 30
+    periodSeconds: 1
+
+  livenessProbe:
+    tcpSocket:
+      port: 8081
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 75
+
+social-service:
+  enabled: true
+  namespace: default
+  fullnameOverride: "social-service"
+
+  image:
+    repository: europe-west1-docker.pkg.dev/cloudappdev-prod/docker-repo/cloudappdev-social-service
+    pullPolicy: Always
+    tag: "latest"
+
+  container:
+    port: 8082
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+
+  env:
+    - name: NODE_ENV
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: NODE_ENV
+    - name: MONGODB_URI
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: MONGODB_URI
+    - name: ITINERARY_SERVICE_URL
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: ITINERARY_SERVICE_URL
+    - name: USER_SERVICE_URL
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: USER_SERVICE_URL
+    - name: SENDGRID_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: SENDGRID_API_KEY
+    - name: SENDGRID_FROM_EMAIL
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: SENDGRID_FROM_EMAIL
+    - name: NEWSLETTER_FROM_NAME
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: SENDGRID_FROM_NAME
+    - name: NEWSLETTER_MODE
+      valueFrom:
+        secretKeyRef:
+          name: social-service-secrets
+          key: NEWSLETTER_MODE
+
+  serviceAccount:
+    create: true
+    annotations:
+      iam.gke.io/gcp-service-account: "social-service-sa@cloudappdev-prod.iam.gserviceaccount.com"
+    name: "social-service-sa"
+
+  service:
+    type: LoadBalancer
+    port: 8082
+
+  startupProbe:
+    tcpSocket:
+      port: 8082
+    initialDelaySeconds: 5
+    failureThreshold: 30
+    periodSeconds: 1
+
+  livenessProbe:
+    tcpSocket:
+      port: 8082
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+  # Newsletter CronJob Configuration
+  newsletter:
+    enabled: true
+    schedule: "0 20 * * 0"  # Sunday 8 PM UTC
+    image:
+      tag: "latest"
+    failedJobsHistoryLimit: 5
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Forbid
+    backoffLimit: 2
+    ttlSecondsAfterFinished: 7200
+    env:
+      NEWSLETTER_ENABLED: "true"
+      NEWSLETTER_BATCH_SIZE: "100"
+      NEWSLETTER_RETRY_LIMIT: "5"
+      NEWSLETTER_RETRY_DELAY_MS: "3000"
+      NODE_ENV: "production"
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "2Gi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+    tolerations:
+      - key: "batch-jobs"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"

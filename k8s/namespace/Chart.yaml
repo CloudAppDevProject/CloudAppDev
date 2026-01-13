@@ -1,0 +1,48 @@
+apiVersion: v2
+name: cloudappdev
+description: CloudAppDev - Complete microservices deployment (app, api-gateway, user-service, itinerary-service, social-service)
+type: application
+version: 1.0.2
+appVersion: "0.0.9"
+
+# Dependencies - all sub-charts
+dependencies:
+  - name: app
+    version: "1.0.2"
+    repository: "file://../app"
+    condition: app.enabled
+
+  - name: gateway
+    version: "1.0.4"
+    repository: "file://../gateway"
+    condition: gateway.enabled
+    alias: api-gateway
+
+  - name: user
+    version: "1.0.5"
+    repository: "file://../services/user"
+    condition: user.enabled
+    alias: user-service
+
+  - name: itinerary
+    version: "1.0.1"
+    repository: "file://../services/itinerary"
+    condition: itinerary.enabled
+    alias: itinerary-service
+
+  - name: social
+    version: "1.0.1"
+    repository: "file://../services/social"
+    condition: social.enabled
+    alias: social-service
+
+maintainers:
+  - name: CloudAppDev Team
+    
+
+keywords:
+  - cloudappdev
+  - microservices
+  - kubernetes
+  - saas
+  - travel

@@ -1,18 +1,18 @@
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: {{ include "app.fullname" . }}-gateway
-  namespace: {{ .Values.namespace }}
-  annotations:
-    networking.gke.io/certmap: cloudappdev-dev-cert-map # TODO Make configurable
-spec:
-  gatewayClassName: {{ .Values.api.className | quote }}
-  listeners:
-    - name: https
-      protocol: HTTPS
-      port: 443
-      hostname: {{ .Values.api.hostname | quote }}
-    - name: http
-      protocol: HTTP
-      port: 80
-      hostname: {{ .Values.api.hostname | quote }}
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: Gateway
+# metadata:
+#   name: {{ include "app.fullname" . }}-gateway
+#   namespace: {{ .Values.namespace }}
+#   annotations:
+#     networking.gke.io/certmap: cloudappdev-dev-cert-map # TODO Make configurable
+# spec:
+#   gatewayClassName: {{ .Values.api.className | quote }}
+#   listeners:
+#     - name: https
+#       protocol: HTTPS
+#       port: 443
+#       hostname: {{ .Values.api.hostname | quote }}
+#     - name: http
+#       protocol: HTTP
+#       port: 80
+#       hostname: {{ .Values.api.hostname | quote }}
