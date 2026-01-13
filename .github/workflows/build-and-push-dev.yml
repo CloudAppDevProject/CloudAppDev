@@ -413,6 +413,117 @@ jobs:
             # Create namespace if it doesn't exist
             kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
+            # Deploy service-specific secrets to namespace
+            echo "🔐 Deploying secrets for ${{ matrix.service }} to ${NAMESPACE}"
+
+            # Determine secret name and required keys based on service
+            case "${{ matrix.service }}" in
+              "user-service")
+                SECRET_NAME="user-service-secrets"
+                # Check if secret already exists
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=DATABASE_URL="${{ secrets.USER_DATABASE_URL }}" \
+                    --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                    --from-literal=JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
+                    --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="${{ secrets.GOOGLE_CLOUD_STORAGE_BUCKET }}" \
+                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GOOGLE_CLOUD_CREDENTIALS_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "itinerary-service")
+                SECRET_NAME="itinerary-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=DATABASE_URL="${{ secrets.ITINERARY_DATABASE_URL }}" \
+                    --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="${{ secrets.GOOGLE_CLOUD_STORAGE_BUCKET }}" \
+                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GOOGLE_CLOUD_CREDENTIALS_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
+                    --from-literal=FRONTEND_URL="https://dev.cloudappdev.site" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "social-service")
+                SECRET_NAME="social-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+                    --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
+                    --from-literal=USER_SERVICE_URL="http://user-service:8080" \
+                    --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
+                    --from-literal=SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
+                    --from-literal=SENDGRID_FROM_NAME="${{ secrets.SENDGRID_FROM_NAME }}" \
+                    --from-literal=NEWSLETTER_MODE="production" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "tenant-service")
+                SECRET_NAME="tenant-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=DATABASE_URL="${{ secrets.TENANT_DATABASE_URL }}" \
+                    --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                    --from-literal=INFRASTRUCTURE_PROVISIONER_URL="http://infrastructure-provisioner:8080" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "travel-info-service")
+                SECRET_NAME="travel-info-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "infrastructure-provisioner")
+                SECRET_NAME="infrastructure-provisioner-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=GCP_SERVICE_ACCOUNT_KEY="${{ secrets.GCP_SA_KEY }}" \
+                    --from-literal=CLOUDFLARE_API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+                    --from-literal=CLOUDFLARE_ZONE_ID="${{ secrets.CLOUDFLARE_ZONE_ID }}" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "frontend")
+                # Frontend may need app-level secrets (if any)
+                echo "ℹ️ Frontend uses Next.js public env vars (no secrets needed)"
+                ;;
+              "api-gateway")
+                # API Gateway is stateless and doesn't need secrets
+                echo "ℹ️ API Gateway is stateless (no secrets needed)"
+                ;;
+              *)
+                echo "⚠️ Unknown service ${{ matrix.service }}, skipping secret creation"
+                ;;
+            esac
+
             helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
               --namespace ${NAMESPACE} \
               --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
