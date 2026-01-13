@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         defaultFreeTenantUuid = dt.uuid;
       }
     } catch (err) {
-      console.warn('Could not resolve default free tenant UUID:', err.message);
+      console.warn('Could not resolve default free tenant UUID:', err instanceof Error ? err.message : String(err));
     }
 
     // Only allow users from Free Community to upgrade
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         })
       });
     } catch (err) {
-      console.warn('Failed to set tenant owner email:', err.message);
+      console.warn('Failed to set tenant owner email:', err instanceof Error ? err.message : String(err));
     }
 
     // 4. Generate new JWT token with updated tenantUuid and loginType (tenant_admin)

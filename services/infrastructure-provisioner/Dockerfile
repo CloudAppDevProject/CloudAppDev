@@ -32,7 +32,8 @@ RUN apk add --no-cache \
     bash \
     kubectl \
     python3 \
-    py3-pip
+    py3-pip \
+    openssl
 
 # Install Helm
 RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
