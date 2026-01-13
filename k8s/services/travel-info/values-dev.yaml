@@ -23,7 +23,7 @@ env:
         key: WEATHER_API_KEY
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 8083
 
 # Adding probes for better health monitoring

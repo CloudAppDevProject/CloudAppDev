@@ -14,8 +14,8 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    - name: {{ $fullName }}-gateway
-      namespace: {{ .Values.gatewayNamespace }}
+    - name: main-gateway
+      namespace: default
       sectionName: https
   hostnames:
     - {{ .Values.api.hostname | quote }}

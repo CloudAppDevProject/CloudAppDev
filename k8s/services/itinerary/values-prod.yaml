@@ -73,7 +73,7 @@ serviceAccount:
   name: "itinerary-service-sa"
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 8081
 
 readinessProbe:

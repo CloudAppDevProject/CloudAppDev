@@ -36,7 +36,7 @@ app:
     name: "app-sa"
 
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 80
 
   api:
@@ -45,10 +45,6 @@ app:
   httpRoute:
     enabled: true
     annotations: {}
-    parentRefs:
-      - name: app-gateway
-        sectionName: http
-        namespace: default
     rules:
       - filters:
           - type: RequestRedirect
@@ -111,7 +107,7 @@ api-gateway:
       cpu: "50m"
 
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 80
 
   livenessProbe:
@@ -210,7 +206,7 @@ user-service:
     name: "user-service-sa"
 
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 8080
 
   startupProbe:
@@ -304,7 +300,7 @@ itinerary-service:
     name: "itinerary-service-sa"
 
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 8081
 
   readinessProbe:
@@ -392,7 +388,7 @@ social-service:
     name: "social-service-sa"
 
   service:
-    type: LoadBalancer
+    type: ClusterIP
     port: 8082
 
   startupProbe:

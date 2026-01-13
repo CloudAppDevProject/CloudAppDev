@@ -18,7 +18,7 @@ serviceAccount:
   name: "app-sa"
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
 
 api:
@@ -31,7 +31,7 @@ httpRoute:
   enabled: true
   annotations: {}
   parentRefs:
-  - name: app-gateway
+  - name: main-gateway
     sectionName: http
     namespace: default
   rules:

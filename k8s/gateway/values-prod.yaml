@@ -47,7 +47,7 @@ resources:
 # NOTE: Service disabled because Terraform manages the LoadBalancer Service
 service:
   create: false  # Terraform creates the LoadBalancer Service
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
 
 livenessProbe:

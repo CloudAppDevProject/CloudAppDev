@@ -36,50 +36,5 @@ output "certificate_status" {
   value       = google_certificate_manager_certificate.domain.managed[0].provisioning_issue
 }
 
-# ========================================
-# Kubernetes Gateway API Outputs
-# ========================================
-
-output "gateway_static_ip_name" {
-  description = "Name of the reserved static IP resource"
-  value       = var.create_static_ip ? google_compute_global_address.gateway_ip[0].name : null
-}
-
-output "gateway_ip" {
-  description = "External IP address of the Gateway (pre-allocated static IP)"
-  value       = var.create_static_ip ? google_compute_global_address.gateway_ip[0].address : null
-}
-
-output "gateway_name" {
-  description = "Name of the Kubernetes Gateway resource"
-  value       = var.create_gateway ? kubernetes_manifest.gateway[0].manifest.metadata.name : null
-}
-
-output "gateway_namespace" {
-  description = "Namespace of the Kubernetes Gateway resource"
-  value       = var.create_gateway ? kubernetes_manifest.gateway[0].manifest.metadata.namespace : null
-}
-
-output "gateway_class_name" {
-  description = "Gateway class name used (gke-l7-global-external-managed)"
-  value       = var.create_gateway ? "gke-l7-global-external-managed" : null
-}
-
-output "gateway_dns_record" {
-  description = "DNS A record details for the gateway"
-  value = var.create_gateway && var.create_static_ip ? {
-    name    = cloudflare_dns_record.gateway[0].name
-    content = cloudflare_dns_record.gateway[0].content
-    proxied = cloudflare_dns_record.gateway[0].proxied
-  } : null
-}
-
-output "gateway_url_http" {
-  description = "HTTP URL to access the gateway"
-  value       = var.create_gateway ? "http://${local.actual_domain}" : null
-}
-
-output "gateway_url_https" {
-  description = "HTTPS URL to access the gateway (requires SSL certificate)"
-  value       = var.create_gateway ? "https://${local.actual_domain}" : null
-}
+# Note: Gateway outputs have been removed.
+# Gateway resources are now managed directly in the environment's main.tf

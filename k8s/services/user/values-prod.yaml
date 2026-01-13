@@ -78,7 +78,7 @@ serviceAccount:
   name: "user-service-sa"
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 8080
 
 startupProbe:

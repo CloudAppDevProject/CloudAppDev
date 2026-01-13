@@ -145,12 +145,87 @@ module "main_domain" {
   hostname           = var.hostname
   certificate_map_id = google_certificate_manager_certificate_map.main.name
   cloudflare_zone_id = var.cloudflare_zone_id
-  labels = local.common_labels
-  create_gateway = true
-  create_static_ip = true
-  
-  depends_on = [ 
+  labels             = local.common_labels
+
+  depends_on = [
     google_container_cluster.primary
+  ]
+}
+
+# ========================================
+# Kubernetes Gateway API Resources
+# ========================================
+
+# Reserve a global static external IP for the main Gateway
+resource "google_compute_global_address" "main_gateway_ip" {
+  name        = "main-gateway-ip"
+  description = "Static external IP for main Gateway"
+
+  labels = merge(
+    local.common_labels,
+    {
+      managed_by = "terraform"
+    }
+  )
+}
+
+# External Gateway using Gateway API
+# This creates a GCP Global External HTTP(S) Load Balancer
+resource "kubernetes_manifest" "main_gateway" {
+  manifest = {
+    apiVersion = "gateway.networking.k8s.io/v1"
+    kind       = "Gateway"
+
+    metadata = {
+      name      = "main-gateway"
+      namespace = "default"
+
+      labels = {
+        app        = "main-gateway"
+        managed_by = "terraform"
+      }
+
+      annotations = {
+        "networking.gke.io/global-static-ip-name" = google_compute_global_address.main_gateway_ip.name
+        "networking.gke.io/certmap"               = google_certificate_manager_certificate_map.main.name
+      }
+    }
+
+    spec = {
+      gatewayClassName = "gke-l7-global-external-managed"
+
+      listeners = [
+        {
+          name     = "http"
+          protocol = "HTTP"
+          port     = 80
+        },
+        {
+          name     = "https"
+          protocol = "HTTPS"
+          port     = 443
+        }
+      ]
+    }
+  }
+
+  depends_on = [
+    google_container_cluster.primary,
+    google_compute_global_address.main_gateway_ip
+  ]
+}
+
+# Cloudflare DNS A record pointing to the main Gateway IP
+resource "cloudflare_dns_record" "main_gateway" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.hostname
+  content = google_compute_global_address.main_gateway_ip.address
+  type    = "A"
+  ttl     = 300
+  proxied = false
+
+  depends_on = [
+    kubernetes_manifest.main_gateway
   ]
 }
 

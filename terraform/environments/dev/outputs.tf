@@ -125,30 +125,39 @@ output "certificate_map_id" {
 # --- Gateway ---
 output "gateway_ip" {
   description = "Gateway static IP address (for DNS A record)"
-  value       = module.main_domain.gateway_ip
+  value       = google_compute_global_address.main_gateway_ip.address
 }
 
 output "gateway_static_ip_name" {
   description = "Gateway static IP resource name in GCP"
-  value       = module.main_domain.gateway_static_ip_name
+  value       = google_compute_global_address.main_gateway_ip.name
 }
 
 output "gateway_name" {
   description = "Kubernetes Gateway resource name"
-  value       = module.main_domain.gateway_name
+  value       = kubernetes_manifest.main_gateway.manifest.metadata.name
+}
+
+output "gateway_namespace" {
+  description = "Kubernetes Gateway namespace"
+  value       = kubernetes_manifest.main_gateway.manifest.metadata.namespace
 }
 
 output "gateway_dns_record" {
   description = "Gateway DNS A record details in Cloudflare"
-  value       = module.main_domain.gateway_dns_record
+  value = {
+    name    = cloudflare_dns_record.main_gateway.name
+    content = cloudflare_dns_record.main_gateway.content
+    proxied = cloudflare_dns_record.main_gateway.proxied
+  }
 }
 
 output "gateway_url_http" {
   description = "HTTP URL to access the gateway"
-  value       = module.main_domain.gateway_url_http
+  value       = "http://${var.hostname}"
 }
 
 output "gateway_url_https" {
   description = "HTTPS URL to access the gateway"
-  value       = module.main_domain.gateway_url_https
+  value       = "https://${var.hostname}"
 }

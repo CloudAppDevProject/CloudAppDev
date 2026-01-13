@@ -2,5 +2,5 @@ apiVersion: v2
 name: infrastructure-provisioner
 description: Automated infrastructure provisioning service for multi-tenant deployments
 type: application
-version: 1.0.5
+version: 1.1.0
 appVersion: "0.0.21"

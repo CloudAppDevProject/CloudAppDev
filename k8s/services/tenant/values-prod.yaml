@@ -50,7 +50,7 @@ serviceAccount:
   name: "tenant-service-sa"
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 8084
 
 startupProbe:
