@@ -5,7 +5,6 @@ import { UsersService } from '../users/users.service';
 import { FirebaseService } from './firebase.service';
 import { LoginDto, RegisterDto, FirebaseAuthDto } from './dto/auth.dto';
 import { firstValueFrom } from 'rxjs';
-import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -20,142 +19,264 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     this.logger.log(`Login attempt for email: ${loginDto.email}`);
+    const tenantServiceUrl =
+      process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
+
+    // Step 1: Try User table first
     try {
-      const user = await this.usersService.validatePassword(
+      let user = await this.usersService.validatePassword(
         loginDto.email,
         loginDto.password,
       );
 
-      if (!user) {
-        this.logger.warn(
-          `Login failed: Invalid credentials for email ${loginDto.email}`,
-        );
-        throw new UnauthorizedException('Invalid credentials');
-      }
+      if (user) {
+        this.logger.log(`[AUTH] User found in Users table, proceeding with user login`);
 
-      // Fetch role from Tenant Service
-      const tenantServiceUrl =
-        process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
-      let role = 'user'; // Default role
+        // Additional check: determine whether this email is a tenant admin
+        try {
+          const checkUrl = `${tenantServiceUrl}/api/v1/tenants/check-admin-email/${encodeURIComponent(
+            loginDto.email,
+          )}`;
+          const checkResp = await firstValueFrom(this.httpService.get(checkUrl));
+          const isAdmin = checkResp.data?.isAdmin;
+          const tenantUuidFromCheck = checkResp.data?.tenantUuid || null;
 
-      this.logger.log(`[AUTH] Fetching role for user ${user.id} from Tenant Service: ${tenantServiceUrl}`);
+          if (isAdmin) {
+            this.logger.log(
+              `[AUTH] Email ${loginDto.email} is a tenant admin for tenant ${tenantUuidFromCheck}`,
+            );
 
-      try {
-        const roleUrl = `${tenantServiceUrl}/api/v1/user-roles/user/${user.id}`;
-        this.logger.log(`[AUTH] Calling: ${roleUrl}`);
+            // If user has no tenantUuid, try to associate it
+            if (!user.tenantUuid && tenantUuidFromCheck) {
+              try {
+                await this.usersService.update(user.id, { tenantUuid: tenantUuidFromCheck });
+                user = await this.usersService.findByEmail(user.email);
+                this.logger.debug(`Associated existing user ${user.id} with tenant ${tenantUuidFromCheck}`);
+              } catch (err) {
+                this.logger.warn(
+                  `[AUTH] Failed to associate existing user ${user?.id ?? 'unknown'} with tenant ${tenantUuidFromCheck}: ${err.message}`,
+                );
+              }
+            }
 
-        const roleResponse = await firstValueFrom(
-          this.httpService.get(roleUrl),
-        );
+            const payload = {
+              sub: user.id,
+              userId: user.id,
+              email: user.email,
+              tenantUuid: user.tenantUuid || tenantUuidFromCheck,
+              loginType: 'tenant_admin',
+            };
 
-        this.logger.log(`[AUTH] Tenant Service response status: ${roleResponse.status}`);
-        this.logger.log(`[AUTH] Tenant Service response data:`, JSON.stringify(roleResponse.data));
-
-        const userRoles = roleResponse.data;
-
-        // Get first role (simplified - users typically have one role)
-        if (userRoles && userRoles.length > 0) {
-          role = userRoles[0].role?.name || 'user';
-          this.logger.log(`[AUTH] Found role for user ${user.id}: ${role}`);
-        } else {
-          this.logger.warn(`[AUTH] No roles found for user ${user.id}, using default 'user'`);
+            this.logger.debug(`Tenant-admin login successful for user ID: ${user.id}`);
+            return {
+              access_token: this.jwtService.sign(payload),
+              user: { ...user, loginType: 'tenant_admin' },
+            };
+          }
+        } catch (err) {
+          this.logger.warn(`Error checking tenant admin status for ${loginDto.email}: ${err.message}`);
         }
-      } catch (error) {
-        this.logger.error(
-          `[AUTH] Failed to fetch role for user ${user.id}: ${error.message}`,
-          error.stack,
-        );
-        this.logger.error(`[AUTH] Error details:`, error);
-        this.logger.warn(`[AUTH] Using default role 'user' due to error`);
+
+        // Normal user login fallback
+        const payload = {
+          sub: user.id,
+          userId: user.id,
+          email: user.email,
+          tenantUuid: user.tenantUuid,
+          loginType: 'user',
+        };
+
+        this.logger.debug(`Login successful for user ID: ${user.id}`);
+        return {
+          access_token: this.jwtService.sign(payload),
+          user: { ...user, loginType: 'user' },
+        };
       }
-
-      const payload = {
-        sub: user.id,
-        userId: user.id,
-        email: user.email,
-        tenantId: user.tenantId,
-        role: role,
-      };
-
-      this.logger.debug(
-        `Login successful for user ID: ${user.id}, role: ${role}`,
-      );
-      return {
-        access_token: this.jwtService.sign(payload),
-        user: { ...user, role },
-      };
     } catch (error) {
-      this.logger.error(
-        `Login error for ${loginDto.email}: ${error.message}`,
-        error.stack,
-      );
-      throw error;
+      // User login failed, continue to try tenant login
+      this.logger.log(`[AUTH] User login failed, trying tenant login: ${error.message}`);
     }
+
+    // Step 2: Try Tenant table (via Tenant Service)
+    try {
+      this.logger.log(`[AUTH] Attempting tenant admin login for: ${loginDto.email}`);
+      const tenantLoginUrl = `${tenantServiceUrl}/api/v1/tenants/auth/login`;
+
+      const tenantResponse = await firstValueFrom(
+        this.httpService.post(tenantLoginUrl, {
+          email: loginDto.email,
+          password: loginDto.password,
+        }),
+      );
+
+      if (tenantResponse.data?.access_token) {
+        this.logger.log(`[AUTH] Tenant admin login successful for: ${loginDto.email}`);
+        const { access_token, tenant } = tenantResponse.data;
+
+        // Check if a corresponding user exists for this tenant email
+        try {
+          let user = await this.usersService.findByEmail(tenant.email);
+
+          if (!user) {
+            this.logger.log(`[AUTH] No user found for tenant email ${tenant.email}, creating user using tenant credentials`);
+            try {
+              const created = await this.usersService.create({
+                name: tenant.name,
+                email: tenant.email,
+                password: loginDto.password,
+                avatarUrl: tenant.avatarUrl,
+                tenantUuid: tenant.uuid,
+              });
+              // Fetch created user with password removed where necessary
+              user = await this.usersService.findByEmail(created.email);
+              this.logger.debug(`Created user for tenant ${tenant.uuid} with ID: ${created.id}`);
+            } catch (err) {
+              // If creation fails due to a race (user exists) or other error, log and attempt to continue
+              this.logger.warn(`[AUTH] Failed to create user for tenant email ${tenant.email}: ${err.message}`);
+              user = await this.usersService.findByEmail(tenant.email);
+            }
+          } else {
+            // If an existing user lacks tenant association, attach tenantUuid
+            if (!user.tenantUuid) {
+              try {
+                // Update user record to set tenantUuid
+                await this.usersService.update(user.id, { tenantUuid: tenant.uuid });
+                const updatedUser = await this.usersService.findByEmail(tenant.email);
+                if (updatedUser) {
+                  user = updatedUser;
+                  this.logger.debug(`Associated existing user ${user.id} with tenant ${tenant.uuid}`);
+                } else {
+                  this.logger.warn(`[AUTH] Updated user lookup returned null for email ${tenant.email}`);
+                }
+              } catch (err) {
+                this.logger.warn(`[AUTH] Failed to associate user ${user?.id ?? 'unknown'} with tenant ${tenant.uuid}: ${err.message}`);
+              }
+            }
+          }
+
+          // If we have a user now, switch login to user JWT (so downstream calls see a user token)
+          if (user) {
+            const payload = {
+              sub: user.id,
+              userId: user.id,
+              email: user.email,
+              tenantUuid: user.tenantUuid || tenant.uuid,
+              loginType: 'user',
+            };
+
+            this.logger.log(`[AUTH] Switching tenant login to user session for email ${loginDto.email}`);
+            return {
+              access_token: this.jwtService.sign(payload),
+              user: { ...user, loginType: 'user' },
+            };
+          }
+        } catch (err) {
+          this.logger.warn(`[AUTH] Error while mapping tenant to user: ${err.message}`);
+        }
+
+        // Fallback: return tenant admin token if we couldn't create/switch to a user
+        return {
+          access_token,
+          user: {
+            id: tenant.uuid,
+            name: tenant.name,
+            email: tenant.email,
+            tenantUuid: tenant.uuid,
+            namespace: tenant.namespace,
+            tier: tenant.tier,
+            loginType: 'tenant_admin',
+          },
+        };
+      }
+    } catch (error) {
+      this.logger.warn(`[AUTH] Tenant login also failed: ${error.message}`);
+    }
+
+    // Both login attempts failed
+    this.logger.warn(`Login failed: Invalid credentials for email ${loginDto.email}`);
+    throw new UnauthorizedException('Invalid credentials');
   }
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto, hostHeader?: string, headerNamespace?: string) {
     this.logger.log(`Registration attempt for email: ${registerDto.email}`);
     try {
       const tenantServiceUrl =
         process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
 
-      // Default tenant ID (Free Community)
-      const DEFAULT_TENANT_ID = 1;
+      // Determine tenant namespace (order of precedence):
+      //  - explicit header `x-tenant-namespace` or `x-tenant`
+      //  - subdomain of Host header (e.g. org1.cloudappdev.site -> org1)
+      //  - DEFAULT_TENANT_NAMESPACE env var
+      //  - fallback to 'free'
+      let tenantNamespace: string | undefined = undefined;
 
-      // 1. Create User in User Service with default tenantId
+      if (headerNamespace) {
+        tenantNamespace = String(headerNamespace).toLowerCase();
+        this.logger.log(`Using tenant namespace from header: ${tenantNamespace}`);
+      } else if (hostHeader) {
+        try {
+          const host = String(hostHeader).split(':')[0]; // strip port
+          // If host is not localhost and contains a dot, use first segment as namespace
+          if (!host.includes('localhost') && host.includes('.')) {
+            tenantNamespace = host.split('.')[0].toLowerCase();
+            this.logger.log(`Derived tenant namespace from Host header: ${tenantNamespace} (host: ${host})`);
+          } else {
+            this.logger.log(`Host header ${host} does not indicate a tenant subdomain; falling back`);
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to parse Host header for tenant namespace: ${err.message}`);
+        }
+      }
+
+      const defaultTenantNamespace = process.env.DEFAULT_TENANT_NAMESPACE || 'free';
+      if (!tenantNamespace) {
+        tenantNamespace = defaultTenantNamespace;
+        this.logger.log(`No tenant namespace derived from host/header; using default: ${tenantNamespace}`);
+      }
+
+      // Try to lookup tenant by namespace
+      let tenantUuid: string | null = null;
+      try {
+        this.logger.log(`Looking up tenant UUID for namespace: ${tenantNamespace}`);
+        const tenantResponse = await firstValueFrom(
+          this.httpService.get(`${tenantServiceUrl}/api/v1/tenants/namespace/${encodeURIComponent(tenantNamespace)}`),
+        );
+        tenantUuid = tenantResponse.data?.uuid || null;
+        if (tenantUuid) {
+          this.logger.log(`Resolved tenant namespace '${tenantNamespace}' to UUID: ${tenantUuid}`);
+        } else {
+          this.logger.warn(`Tenant namespace '${tenantNamespace}' not found in Tenant Service`);
+        }
+      } catch (error) {
+        this.logger.warn(`Error looking up tenant by namespace '${tenantNamespace}': ${error.message}`);
+      }
+
+      // Create User in User Service with resolved tenantUuid (may be null)
       this.logger.log(
-        `Creating user and assigning to default tenant (ID: ${DEFAULT_TENANT_ID})`,
+        `Creating user and assigning to tenant (namespace: ${tenantNamespace}, uuid: ${tenantUuid})`,
       );
       const user = await this.usersService.create({
         name: registerDto.name,
         email: registerDto.email,
         password: registerDto.password,
         avatarUrl: registerDto.avatarUrl,
-        tenantId: DEFAULT_TENANT_ID,
+        tenantUuid: tenantUuid ?? undefined,
       });
       this.logger.debug(`User created with ID: ${user.id}`);
 
-      // 2. Check if this is the first user for this tenant
-      const existingUsers = await this.usersService.findByTenant(DEFAULT_TENANT_ID);
-      const isFirstUser = existingUsers.length <= 1; // Only the newly created user exists
-      
-      this.logger.debug(`Is first user for tenant ${DEFAULT_TENANT_ID}: ${isFirstUser}`);
-
-      // 3. Get appropriate role from Tenant Service
-      const rolesResponse = await firstValueFrom(
-        this.httpService.get(`${tenantServiceUrl}/api/v1/roles`),
-      );
-      const targetRoleName = isFirstUser ? 'admin' : 'user';
-      const targetRole = rolesResponse.data.find((r: any) => r.name === targetRoleName);
-
-      if (!targetRole) {
-        this.logger.error(`${targetRoleName} role not found in Tenant Service`);
-        throw new Error(`${targetRoleName} role not found`);
-      }
-
-      // 4. Assign role to user in Tenant Service
-      await firstValueFrom(
-        this.httpService.post(`${tenantServiceUrl}/api/v1/user-roles`, {
-          userId: user.id,
-          roleId: targetRole.id,
-          tenantId: DEFAULT_TENANT_ID,
-        }),
-      );
-      this.logger.debug(`${targetRoleName} role assigned to user ${user.id}`);
-
-      // 5. Create JWT with tenantId and role
+      // Create JWT with tenantUuid
       const payload = {
         sub: user.id,
         userId: user.id,
         email: user.email,
-        tenantId: DEFAULT_TENANT_ID,
-        role: targetRoleName,
+        tenantUuid: tenantUuid ?? null,
+        loginType: 'user',
       };
 
-      this.logger.debug(`Registration successful for user ID: ${user.id} with role: ${targetRoleName}`);
+      this.logger.debug(`Registration successful for user ID: ${user.id}`);
       return {
         access_token: this.jwtService.sign(payload),
-        user: { ...user, role: targetRoleName },
+        user: { ...user, loginType: 'user' },
       };
     } catch (error) {
       this.logger.error(
@@ -213,29 +334,14 @@ export class AuthService {
         throw new UnauthorizedException('Failed to create/retrieve user');
       }
 
-      // Fetch user's role from Tenant Service
-      let role = 'user'; // Default role
-      if (user.tenantId) {
-        try {
-          const roleResponse = await firstValueFrom(
-            this.httpService.get(
-              `${process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084'}/api/v1/user-roles/user/${user.id}`,
-            ),
-          );
-          role = roleResponse.data[0]?.role?.name || 'user';
-        } catch (error) {
-          this.logger.warn(
-            `Could not fetch role from Tenant Service for user ${user.id}, defaulting to 'user'`,
-          );
-        }
-      }
+      const userTenantUuid = (user as any).tenantUuid || null;
 
       const payload = {
         sub: user.id,
         userId: user.id,
         email: user.email,
-        tenantId: user.tenantId,
-        role: role,
+        tenantUuid: userTenantUuid,
+        loginType: 'user',
       };
 
       this.logger.debug(`Firebase login successful for user ID: ${user.id}`);
@@ -243,7 +349,7 @@ export class AuthService {
         access_token: this.jwtService.sign(payload),
         user: {
           ...user,
-          role,
+          loginType: 'user',
         },
       };
     } catch (error) {
@@ -256,43 +362,9 @@ export class AuthService {
     this.logger.log(`Validating user with ID: ${userId}`);
     try {
       const user = await this.usersService.findOne(userId);
-      
-      // Fetch role from Tenant Service (same as login flow)
-      const tenantServiceUrl =
-        process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
-      let role = 'user'; // Default role
 
-      this.logger.log(`[VALIDATE] Fetching role for user ${user.id} from Tenant Service`);
-
-      try {
-        const roleUrl = `${tenantServiceUrl}/api/v1/user-roles/user/${user.id}`;
-        this.logger.log(`[VALIDATE] Calling: ${roleUrl}`);
-
-        const roleResponse = await firstValueFrom(
-          this.httpService.get(roleUrl),
-        );
-
-        this.logger.log(`[VALIDATE] Tenant Service response status: ${roleResponse.status}`);
-        
-        const userRoles = roleResponse.data;
-
-        // Get first role (simplified - users typically have one role)
-        if (userRoles && userRoles.length > 0) {
-          role = userRoles[0].role?.name || 'user';
-          this.logger.log(`[VALIDATE] Found role for user ${user.id}: ${role}`);
-        } else {
-          this.logger.warn(`[VALIDATE] No roles found for user ${user.id}, using default 'user'`);
-        }
-      } catch (error) {
-        this.logger.error(
-          `[VALIDATE] Failed to fetch role for user ${user.id}: ${error.message}`,
-          error.stack,
-        );
-        this.logger.warn(`[VALIDATE] Using default role 'user' due to error`);
-      }
-
-      this.logger.debug(`User validation successful for ID: ${userId}, role: ${role}`);
-      return { ...user, role };
+      this.logger.debug(`User validation successful for ID: ${userId}`);
+      return user;
     } catch (error) {
       this.logger.error(
         `User validation error for ID ${userId}: ${error.message}`,
@@ -302,28 +374,31 @@ export class AuthService {
     }
   }
 
-  async generateToken(userId: number, tenantId: number, role: string) {
-    this.logger.log(`Generating new token for user ${userId}, tenant ${tenantId}, role ${role}`);
+  async generateToken(userId: number, tenantUuid: string | null, loginType?: string | null) {
+    this.logger.log(`Generating new token for user ${userId}, tenant ${tenantUuid}, loginType ${loginType}`);
     try {
       const user = await this.usersService.findOne(userId);
-      
+
       if (!user) {
         this.logger.error(`User not found with ID: ${userId}`);
         throw new UnauthorizedException('User not found');
       }
 
+      // Determine loginType: prefer explicit loginType, otherwise default to 'user'
+      const resolvedLoginType = loginType ?? 'user';
+
       const payload = {
         sub: user.id,
         userId: user.id,
         email: user.email,
-        tenantId: tenantId,
-        role: role,
+        tenantUuid: tenantUuid,
+        loginType: resolvedLoginType,
       };
 
       this.logger.debug(`Token generated successfully for user ${userId}`);
       return {
         access_token: this.jwtService.sign(payload),
-        user: { ...user, role, tenantId },
+        user: { ...user, tenantUuid, loginType: resolvedLoginType },
       };
     } catch (error) {
       this.logger.error(

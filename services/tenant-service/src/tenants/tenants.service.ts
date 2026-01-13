@@ -1,27 +1,58 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import {
+  RegisterTenantDto,
+  RESERVED_NAMESPACES,
+} from './dto/register-tenant.dto';
+import { TenantAuthService } from '../auth/tenant-auth.service';
 
 @Injectable()
 export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name);
+
   constructor(
     private prisma: PrismaService,
     private httpService: HttpService,
+    private tenantAuthService: TenantAuthService,
   ) {}
 
-  async findOne(id: number) {
+  async findByUuid(uuid: string) {
     const tenant = await this.prisma.tenant.findUnique({
-      where: { id },
+      where: { uuid },
     });
 
     if (!tenant) {
-      throw new NotFoundException(`Tenant with ID ${id} not found`);
+      throw new NotFoundException(`Tenant with UUID ${uuid} not found`);
     }
 
     return tenant;
+  }
+
+  async findByNamespace(namespace: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { namespace },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant with namespace ${namespace} not found`);
+    }
+
+    return {
+      uuid: tenant.uuid,
+      name: tenant.name,
+      namespace: tenant.namespace,
+      tier: tenant.tier,
+    };
   }
 
   async findAll() {
@@ -30,68 +61,142 @@ export class TenantsService {
     });
   }
 
-  async getTenantUsers(tenantId: number) {
+  async getTenantUsers(tenantUuid: string) {
     // Verify tenant exists
-    await this.findOne(tenantId);
+    await this.findByUuid(tenantUuid);
 
-    // Call User Service to get users by tenantId
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:8080';
+    // Call User Service to get users by tenantUuid
+    const userServiceUrl =
+      process.env.USER_SERVICE_URL || 'http://user-service:8080';
 
     try {
       const response = await firstValueFrom(
-        this.httpService.get(`${userServiceUrl}/api/v1/users?tenantId=${tenantId}`)
+        this.httpService.get(
+          `${userServiceUrl}/api/v1/users?tenantUuid=${tenantUuid}`,
+        ),
       );
       return response.data;
     } catch (error) {
-      throw new NotFoundException(`Failed to fetch users for tenant ${tenantId}`);
+      throw new NotFoundException(
+        `Failed to fetch users for tenant ${tenantUuid}`,
+      );
     }
   }
 
-  async create(dto: CreateTenantDto) {
-    const maxUsers = this.getTierMaxUsers(dto.tier || 'free');
+  async checkNamespaceAvailability(
+    namespace: string,
+  ): Promise<{ available: boolean; reason?: string }> {
+    // Check if it's a reserved namespace
+    if (RESERVED_NAMESPACES.includes(namespace.toLowerCase())) {
+      return { available: false, reason: 'This namespace is reserved' };
+    }
 
+    // Check if namespace already exists
+    const existingTenant = await this.prisma.tenant.findUnique({
+      where: { namespace: namespace.toLowerCase() },
+    });
+
+    if (existingTenant) {
+      return { available: false, reason: 'This namespace is already taken' };
+    }
+
+    return { available: true };
+  }
+
+  async register(dto: RegisterTenantDto) {
+    this.logger.log(`Registering new tenant: ${dto.name} (${dto.namespace})`);
+
+    // Validate namespace
+    const namespaceCheck = await this.checkNamespaceAvailability(dto.namespace);
+    if (!namespaceCheck.available) {
+      throw new BadRequestException(namespaceCheck.reason);
+    }
+
+    // Check if email is already used
+    const existingTenant = await this.prisma.tenant.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (existingTenant) {
+      throw new ConflictException('Email is already registered');
+    }
+
+    // Hash password
+    const hashedPassword = await this.tenantAuthService.hashPassword(
+      dto.password,
+    );
+
+    // Create tenant
+    const tenant = await this.prisma.tenant.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        password: hashedPassword,
+        namespace: dto.namespace.toLowerCase(),
+        tier: dto.tier,
+      },
+    });
+
+    this.logger.log(`Tenant registered successfully: ${tenant.uuid}`);
+
+    return {
+      uuid: tenant.uuid,
+      name: tenant.name,
+      email: tenant.email,
+      namespace: tenant.namespace,
+      tier: tenant.tier,
+    };
+  }
+
+  async create(dto: CreateTenantDto) {
     return this.prisma.tenant.create({
       data: {
         name: dto.name,
+        email: `admin@${dto.name.toLowerCase().replace(/\s+/g, '-')}.local`,
+        password: await this.tenantAuthService.hashPassword('changeme'),
+        namespace: dto.name.toLowerCase().replace(/\s+/g, '-'),
         tier: dto.tier || 'free',
-        status: 'active',
-        maxUsers,
       },
     });
   }
 
-  async update(id: number, dto: UpdateTenantDto) {
+  async update(uuid: string, dto: UpdateTenantDto) {
     // Check if tenant exists
-    await this.findOne(id);
+    await this.findByUuid(uuid);
 
-    // If tier is being updated, adjust maxUsers unless explicitly provided
-    const updateData = { ...dto };
-    if (dto.tier && !dto.maxUsers) {
-      updateData.maxUsers = this.getTierMaxUsers(dto.tier);
+    return this.prisma.tenant.update({
+      where: { uuid },
+      data: dto,
+    });
+  }
+
+  async delete(uuid: string) {
+    // Hard delete - remove tenant
+    await this.findByUuid(uuid);
+
+    return this.prisma.tenant.delete({
+      where: { uuid },
+    });
+  }
+
+  /**
+   * Check if an email belongs to a tenant admin
+   * Used by other services to verify admin status
+   */
+  async checkAdminEmail(email: string): Promise<{ isAdmin: boolean; tenantUuid: string | null }> {
+    this.logger.debug(`Checking admin status for email: ${email}`);
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { email },
+      select: { uuid: true },
+    });
+
+    if (tenant) {
+      this.logger.debug(`Email ${email} is a tenant admin for tenant ${tenant.uuid}`);
+      return { isAdmin: true, tenantUuid: tenant.uuid };
     }
 
-    return this.prisma.tenant.update({
-      where: { id },
-      data: updateData,
-    });
-  }
-
-  async delete(id: number) {
-    // Soft delete - set status to inactive
-    await this.findOne(id);
-
-    return this.prisma.tenant.update({
-      where: { id },
-      data: { status: 'inactive' },
-    });
-  }
-
-  private getTierMaxUsers(tier: string): number {
-    const limits = {
-      free: 5,
-      standard: 50,
-      enterprise: 999999,
-    };
-    return limits[tier] || 5;
+    this.logger.debug(`Email ${email} is not a tenant admin`);
+    return { isAdmin: false, tenantUuid: null };
   }
 }

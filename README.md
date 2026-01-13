@@ -110,6 +110,21 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Registration modes & public routes 🔐➡️🌐
+
+- The app exposes a configurable `APP_MODE` environment variable. Valid values: **HUB | FREE | STANDARD | ENTERPRISE** (default: `FREE`).
+- **HUB**: the site acts as a public registration portal. `/` redirects to `/register/plan` and `/register/*` pages are publicly accessible.
+- **FREE/STANDARD/ENTERPRISE**: normal app behavior; registration wizard pages (`/register/*`) and the registration API proxies (`/api/register/*`) remain publicly reachable by design — they create organizations (tenants) and the tenant-service performs validation and security checks (e.g., reserved namespaces, password rules, etc.).
+- Legacy support: setting `IS_HUB=true` continues to enable HUB mode if `APP_MODE` is not set.
+
+### Tenant detection during registration
+- For production, the tenant namespace is inferred from the request Host header subdomain: e.g. `org1.cloudappdev.site` -> namespace `org1`.
+- For local development (localhost) the service falls back to `DEFAULT_TENANT_NAMESPACE` (defaults to `free`) or you can override on per-request basis using the `X-Tenant-Namespace` header.
+- For client-side checks (e.g., UI deciding whether to show "Create Organization"), you can expose the default free tenant via `NEXT_PUBLIC_DEFAULT_TENANT_UUID`.
+- Implementation: `auth.register` inspects `X-Tenant-Namespace` header first, then Host subdomain, then `DEFAULT_TENANT_NAMESPACE`, then `free`.
+
+> Note: Public registration endpoints are intentionally unauthenticated; make sure production deployments restrict abuse (rate limits, CAPTCHAs, monitoring, etc.).
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

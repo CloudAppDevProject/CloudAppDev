@@ -12,15 +12,14 @@ import { Message } from 'primereact/message';
 import { Divider } from 'primereact/divider';
 import { Avatar } from 'primereact/avatar';
 import { InputText } from 'primereact/inputtext';
-import { InputNumber } from 'primereact/inputnumber';
 import { Dialog } from 'primereact/dialog';
 
 interface Tenant {
-  id: number;
+  uuid: string;
   name: string;
   tier: string;
-  status: string;
-  maxUsers: number;
+  namespace: string;
+  email: string;
   createdAt: string;
 }
 
@@ -29,7 +28,6 @@ interface User {
   name: string;
   email: string;
   avatarUrl?: string;
-  roles: Array<{ role: { name: string } }>;
   createdAt: string;
 }
 
@@ -41,13 +39,11 @@ export default function TenantDashboardPage() {
   const [error, setError] = useState('');
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [editedName, setEditedName] = useState('');
-  const [editedMaxUsers, setEditedMaxUsers] = useState<number>(0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Always fetch fresh data when component mounts
     fetchTenantData();
-  }, []); // Dependency array is empty to run on mount
+  }, []);
 
   const fetchTenantData = async () => {
     try {
@@ -57,9 +53,9 @@ export default function TenantDashboardPage() {
         return;
       }
 
-      // Fetch current tenant info (with no-cache to prevent stale data)
+      // Fetch current tenant info
       const tenantResponse = await fetch('/api/tenants/current', {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
@@ -73,9 +69,9 @@ export default function TenantDashboardPage() {
       const tenantData = await tenantResponse.json();
       setTenant(tenantData);
 
-      // Fetch users in tenant (with no-cache)
+      // Fetch users in tenant
       const usersResponse = await fetch('/api/tenants/current/users', {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
@@ -96,35 +92,9 @@ export default function TenantDashboardPage() {
     }
   };
 
-  const handleRoleChange = async (userId: number, currentRole: string) => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const token = localStorage.getItem('access_token');
-
-    try {
-      const response = await fetch(`/api/users/${userId}/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ role: newRole })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update role');
-      }
-
-      // Refresh user list
-      await fetchTenantData();
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-    }
-  };
-
   const openSettingsDialog = () => {
     if (tenant) {
       setEditedName(tenant.name);
-      setEditedMaxUsers(tenant.maxUsers);
       setShowSettingsDialog(true);
     }
   };
@@ -136,15 +106,14 @@ export default function TenantDashboardPage() {
     const token = localStorage.getItem('access_token');
 
     try {
-      const response = await fetch(`/api/tenants/${tenant.id}`, {
+      const response = await fetch(`/api/tenants/${tenant.uuid}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: editedName,
-          maxUsers: editedMaxUsers
+          name: editedName
         })
       });
 
@@ -152,7 +121,6 @@ export default function TenantDashboardPage() {
         throw new Error('Failed to update organization settings');
       }
 
-      // Refresh tenant data
       await fetchTenantData();
       setShowSettingsDialog(false);
     } catch (err: any) {
@@ -224,18 +192,12 @@ export default function TenantDashboardPage() {
               <Tag value={tenant.tier} severity="info" className="capitalize" />
             </div>
             <div>
-              <p className="text-sm opacity-70 mb-1">Status</p>
-              <Tag
-                value={tenant.status}
-                severity={tenant.status === 'active' ? 'success' : 'warning'}
-                className="capitalize"
-              />
+              <p className="text-sm opacity-70 mb-1">Namespace</p>
+              <p className="text-lg font-medium">{tenant.namespace}</p>
             </div>
             <div>
               <p className="text-sm opacity-70 mb-1">Users</p>
-              <p className="text-lg font-medium">
-                {users.length} / {tenant.maxUsers}
-              </p>
+              <p className="text-lg font-medium">{users.length}</p>
             </div>
             <div>
               <p className="text-sm opacity-70 mb-1">Created</p>
@@ -252,7 +214,7 @@ export default function TenantDashboardPage() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Team Members</h2>
           <Button
-            label="Create User"
+            label="Invite User"
             icon="pi pi-user-plus"
             onClick={() => router.push('/admin/invite')}
             className="bg-blue-600 hover:bg-blue-700"
@@ -292,44 +254,11 @@ export default function TenantDashboardPage() {
           />
           <Column field="email" header="Email" />
           <Column
-            field="role"
-            header="Role"
-            body={(rowData: User) => {
-              const role = rowData.roles?.[0]?.role?.name || 'user';
-              return (
-                <Tag
-                  value={role}
-                  severity={role === 'admin' ? 'warning' : 'secondary'}
-                  className="capitalize"
-                />
-              );
-            }}
-          />
-          <Column
             field="createdAt"
             header="Joined"
             body={(rowData: User) =>
               new Date(rowData.createdAt).toLocaleDateString()
             }
-          />
-          <Column
-            header="Actions"
-            body={(rowData: User) => {
-              const role = rowData.roles?.[0]?.role?.name || 'user';
-              return (
-                <Button
-                  label={role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-                  icon={role === 'admin' ? 'pi pi-user-minus' : 'pi pi-star'}
-                  onClick={() => handleRoleChange(rowData.id, role)}
-                  className={
-                    role === 'admin'
-                      ? 'p-button-text p-button-danger'
-                      : 'p-button-text p-button-info'
-                  }
-                  size="small"
-                />
-              );
-            }}
           />
         </DataTable>
       </Card>
@@ -370,24 +299,6 @@ export default function TenantDashboardPage() {
               onChange={(e) => setEditedName(e.target.value)}
               className="w-full"
               placeholder="Enter organization name"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="max-users" className="block text-sm font-medium mb-2">
-              Maximum Users
-            </label>
-            <InputNumber
-              id="max-users"
-              value={editedMaxUsers}
-              onValueChange={(e) => setEditedMaxUsers(e.value || 0)}
-              className="w-full"
-              placeholder="Enter maximum number of users"
-              min={1}
-              showButtons
-              buttonLayout="horizontal"
-              incrementButtonIcon="pi pi-plus"
-              decrementButtonIcon="pi pi-minus"
             />
           </div>
 

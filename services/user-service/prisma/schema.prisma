@@ -14,11 +14,11 @@ model User {
   password   String?
   googleUid  String?  @unique
   avatarUrl  String?  @db.VarChar(500)
-  tenantId   Int?     // Reference to Tenant in Tenant Service (nullable for migration)
+  tenantUuid String?  @db.Uuid // Reference to Tenant UUID in Tenant Service
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([email])
   @@index([googleUid])
-  @@index([tenantId])
+  @@index([tenantUuid])
 }

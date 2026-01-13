@@ -4,28 +4,25 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
+import { TenantService } from '../tenant/tenant.service';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(
-    private prisma: PrismaService,
-    private httpService: HttpService,
-  ) {}
+  constructor(private prisma: PrismaService, private tenantService: TenantService) {}
 
   async create(createUserDto: CreateUserDto) {
     this.logger.log(`Creating user with email: ${createUserDto.email}`);
     try {
-      // Check if user already exists
+      // Check if user already exists (explicit select to avoid selecting migrated columns like tenantId)
       const existing = await this.prisma.user.findUnique({
         where: { email: createUserDto.email },
+        select: { id: true, email: true },
       });
 
       if (existing) {
@@ -41,16 +38,21 @@ export class UsersService {
         hashedPassword = await bcrypt.hash(createUserDto.password, 10);
       }
 
-      const user = await this.prisma.user.create({
-        data: {
-          name: createUserDto.name,
-          email: createUserDto.email,
-          password: hashedPassword,
-          googleUid: createUserDto.googleUid,
-          avatarUrl: createUserDto.avatarUrl,
-          tenantId: createUserDto.tenantId || 1, // Default tenant if not provided
-        },
-      });
+      // Build data object and cast to any to remain compatible with Prisma client types
+      // during the tenantId->tenantUuid migration. Remove cast after running migrations and
+      // `prisma generate` so generated client contains tenantUuid in types.
+      const createData: any = {
+        name: createUserDto.name,
+        email: createUserDto.email,
+        password: hashedPassword,
+        googleUid: createUserDto.googleUid,
+        avatarUrl: createUserDto.avatarUrl,
+      };
+      if (createUserDto.tenantUuid) {
+        createData.tenantUuid = createUserDto.tenantUuid;
+      }
+
+      const user = await this.prisma.user.create({ data: createData as any });
 
       // Remove password from response
       const { password, ...userWithoutPassword } = user;
@@ -89,47 +91,56 @@ export class UsersService {
     }
   }
 
-  async findByTenant(tenantId: number) {
-    this.logger.log(`Finding users for tenant: ${tenantId}`);
+  async findByTenant(tenantUuid: string) {
+    this.logger.log(`Finding users for tenant: ${tenantUuid}`);
     try {
+      // Guard: tenantUuid must be provided
+      if (!tenantUuid) {
+        this.logger.warn('findByTenant called without tenantUuid');
+        return [];
+      }
+
       const users = await this.prisma.user.findMany({
-        where: { tenantId },
+        where: { tenantUuid } as any,
         select: {
           id: true,
           name: true,
           email: true,
           avatarUrl: true,
           createdAt: true,
-          tenantId: true,
-          // NEVER select password!
         },
       });
 
-      this.logger.debug(`Found ${users.length} users for tenant ${tenantId}`);
-
-      // Enrich with roles from Tenant Service
-      const usersWithRoles = await Promise.all(
-        users.map(async (user) => {
-          try {
-            const roleResponse = await firstValueFrom(
-              this.httpService.get(
-                `${process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084'}/api/v1/user-roles/user/${user.id}`,
-              ),
-            );
-            return { ...user, roles: roleResponse.data };
-          } catch (error) {
-            this.logger.warn(
-              `Failed to fetch roles for user ${user.id}: ${error.message}`,
-            );
-            return { ...user, roles: [] };
-          }
-        }),
-      );
-
-      return usersWithRoles;
+      this.logger.debug(`Found ${users.length} users for tenant ${tenantUuid}`);
+      return users;
     } catch (error) {
       this.logger.error(
-        `Error finding users for tenant ${tenantId}: ${error.message}`,
+        `Error finding users for tenant ${tenantUuid}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async findUserIdsByTenant(tenantUuid: string): Promise<number[]> {
+    this.logger.log(`Finding user IDs for tenant: ${tenantUuid}`);
+    try {
+      if (!tenantUuid) {
+        this.logger.warn('findUserIdsByTenant called without tenantUuid');
+        return [];
+      }
+
+      const users = await this.prisma.user.findMany({
+        where: { tenantUuid } as any,
+        select: { id: true },
+      });
+
+      const userIds = users.map((u) => u.id);
+      this.logger.debug(`Found ${userIds.length} user IDs for tenant ${tenantUuid}`);
+      return userIds;
+    } catch (error) {
+      this.logger.error(
+        `Error finding user IDs for tenant ${tenantUuid}: ${error.message}`,
         error.stack,
       );
       throw error;
@@ -146,7 +157,7 @@ export class UsersService {
           name: true,
           email: true,
           avatarUrl: true,
-          tenantId: true,
+          tenantUuid: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -157,8 +168,18 @@ export class UsersService {
         throw new NotFoundException('User not found');
       }
 
-      this.logger.debug(`User found with ID: ${id}`);
-      return user;
+      // Enrich user with loginType and tenantUuid based on tenant-service admin check
+      try {
+        const { isAdmin, tenantUuid } = await this.tenantService.isEmailTenantAdmin(user.email);
+        const loginType = isAdmin ? 'tenant_admin' : 'user';
+        this.logger.debug(`Enriched user ${id} with loginType=${loginType}, tenantUuid=${tenantUuid}`);
+
+        return { ...user, loginType, tenantUuid };
+      } catch (err) {
+        // If tenant service fails, return user without enrichment but log warning
+        this.logger.warn(`Failed to enrich user ${id} with tenant info: ${err.message}`);
+        return { ...user, loginType: 'user', tenantUuid: user.tenantUuid ?? null };
+      }
     } catch (error) {
       this.logger.error(
         `Error finding user with ID ${id}: ${error.message}`,
@@ -173,6 +194,8 @@ export class UsersService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { email },
+        // include password and tenantUuid for authentication and tenant mapping; explicit select avoids accidentally selecting removed columns
+        select: { id: true, name: true, email: true, password: true, avatarUrl: true, tenantUuid: true, createdAt: true, updatedAt: true },
       });
       if (user) {
         this.logger.debug(`User found by email: ${email}`);
@@ -194,6 +217,7 @@ export class UsersService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { googleUid },
+        select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true, updatedAt: true },
       });
       if (user) {
         this.logger.debug(`User found by Google UID: ${googleUid}`);
@@ -241,12 +265,13 @@ export class UsersService {
     }
   }
 
-  async remove(id: number, tenantId: number) {
-    this.logger.log(`Deleting user with ID: ${id} for tenant: ${tenantId}`);
+  async remove(id: number, tenantUuid: string) {
+    this.logger.log(`Deleting user with ID: ${id} for tenant: ${tenantUuid}`);
     try {
       // Verify user belongs to tenant before deletion
+      // Use cast to remain compatible with schema that may still use tenantId during migration
       const user = await this.prisma.user.findFirst({
-        where: { id, tenantId },
+        where: { id, tenantUuid } as any,
       });
 
       if (!user) {

@@ -8,45 +8,16 @@ datasource db {
 }
 
 model Tenant {
-  id        Int       @id @default(autoincrement())
-  name      String    @db.VarChar(255)
-  tier      String    @default("free") // free, standard, enterprise
-  status    String    @default("active") // active, suspended, deleted
-  maxUsers  Int       @default(10)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  uuid      String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)                  // Organization name
+  email     String   @unique @db.VarChar(255)          // Admin email for login
+  password  String   @db.VarChar(255)                  // Hashed password (bcrypt)
+  namespace String   @unique @db.VarChar(63)           // Unique slug -> K8s namespace
+  tier      String   @default("free")                  // free, standard, enterprise
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userRoles UserRole[]
-
-  @@index([status])
+  @@index([namespace])
   @@index([tier])
   @@map("tenants")
-}
-
-model Role {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique @db.VarChar(50) // user, admin
-  permissions Json      // ["itinerary:create", "user:invite"]
-  createdAt   DateTime  @default(now())
-
-  userRoles UserRole[]
-
-  @@map("roles")
-}
-
-model UserRole {
-  id        Int      @id @default(autoincrement())
-  userId    Int      // User from User Service (cross-service reference)
-  roleId    Int
-  tenantId  Int
-  createdAt DateTime @default(now())
-
-  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, tenantId]) // One user can only have ONE role per tenant
-  @@index([userId])
-  @@index([tenantId])
-  @@index([roleId])
-  @@map("user_roles")
 }

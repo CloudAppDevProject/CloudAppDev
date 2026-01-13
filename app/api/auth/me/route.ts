@@ -5,7 +5,7 @@ const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
 /**
  * GET /api/auth/me - Get current authenticated user
  * Requires: Authorization header with Bearer token
- * Returns: User object with tenantId and role
+ * Returns: User object with tenantUuid and loginType
  */
 export async function GET(request: NextRequest) {
   try {

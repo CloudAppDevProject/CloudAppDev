@@ -56,14 +56,27 @@ export class UsersController {
   @Get()
   @UseGuards(TenantAuthGuard)
   async findAll(@Request() req) {
-    this.logger.log(`GET / - Finding all users for tenant ${req.tenantId}`);
+    this.logger.log(`GET / - Finding all users for tenant ${req.tenantUuid}`);
     try {
-      const result = await this.usersService.findByTenant(req.tenantId);
+      const result = await this.usersService.findByTenant(req.tenantUuid);
       this.logger.debug(`Find all users endpoint successful`);
       return result;
     } catch (error) {
       this.logger.error(`Find all users endpoint error: ${error.message}`);
       throw error;
+    }
+  }
+
+  // Internal endpoint for cross-service calls (no auth guard - service-to-service trust)
+  @Get('internal/ids-by-tenant/:tenantUuid')
+  async findUserIdsByTenant(@Param('tenantUuid') tenantUuid: string) {
+    this.logger.log(`GET /internal/ids-by-tenant/:tenantUuid - Finding user IDs for tenant: ${tenantUuid}`);
+    try {
+      const userIds = await this.usersService.findUserIdsByTenant(tenantUuid);
+      return { userIds };
+    } catch (error) {
+      this.logger.error(`Find user IDs by tenant endpoint error: ${error.message}`);
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -129,9 +142,9 @@ export class UsersController {
   @Delete(':id')
   @UseGuards(TenantAuthGuard, AdminGuard)
   async remove(@Param('id') id: string, @Request() req) {
-    this.logger.log(`DELETE /:id - Deleting user with ID: ${id} for tenant: ${req.tenantId}`);
+    this.logger.log(`DELETE /:id - Deleting user with ID: ${id} for tenant: ${req.tenantUuid}`);
     try {
-      const result = await this.usersService.remove(+id, req.tenantId);
+      const result = await this.usersService.remove(+id, req.tenantUuid);
       this.logger.debug(`Delete user endpoint successful`);
       return result;
     } catch (error) {
