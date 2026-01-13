@@ -339,41 +339,57 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Set Helm chart path
+      - name: Set Helm chart path and namespaces
         id: chart
         run: |
           case "${{ matrix.service }}" in
             "frontend")
               echo "path=./k8s/app" >> $GITHUB_OUTPUT
-              echo "release=cloudappdev" >> $GITHUB_OUTPUT
+              echo "release=app" >> $GITHUB_OUTPUT
+              # Deploy frontend to cloudappdev, free, and standard namespaces
+              echo "namespaces=cloudappdev,free,standard" >> $GITHUB_OUTPUT
               ;;
             "user-service")
               echo "path=./k8s/services/user" >> $GITHUB_OUTPUT
               echo "release=user-service" >> $GITHUB_OUTPUT
+              # Deploy to free and standard namespaces only
+              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
               ;;
             "itinerary-service")
               echo "path=./k8s/services/itinerary" >> $GITHUB_OUTPUT
               echo "release=itinerary-service" >> $GITHUB_OUTPUT
+              # Deploy to free and standard namespaces only
+              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
               ;;
             "social-service")
               echo "path=./k8s/services/social" >> $GITHUB_OUTPUT
               echo "release=social-service" >> $GITHUB_OUTPUT
+              # Deploy to free and standard namespaces only
+              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
               ;;
             "travel-info-service")
               echo "path=./k8s/services/travel-info" >> $GITHUB_OUTPUT
               echo "release=travel-info-service" >> $GITHUB_OUTPUT
+              # Deploy to default namespace only
+              echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
             "tenant-service")
               echo "path=./k8s/services/tenant" >> $GITHUB_OUTPUT
               echo "release=tenant-service" >> $GITHUB_OUTPUT
+              # Deploy to default namespace only
+              echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
             "infrastructure-provisioner")
               echo "path=./k8s/services/infrastructure-provisioner" >> $GITHUB_OUTPUT
               echo "release=infrastructure-provisioner" >> $GITHUB_OUTPUT
+              # Deploy to default namespace only
+              echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
             "api-gateway")
               echo "path=./k8s/gateway" >> $GITHUB_OUTPUT
               echo "release=api-gateway" >> $GITHUB_OUTPUT
+              # Deploy API gateway to free and standard namespaces
+              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "Unknown service: ${{ matrix.service }}"
@@ -383,35 +399,57 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          NAMESPACE="default"
           VERSION="${{ needs.prepare.outputs.version }}"
+          NAMESPACES="${{ steps.chart.outputs.namespaces }}"
 
-          echo "🚀 Deploying ${{ matrix.service }} with version ${VERSION}"
+          echo "🚀 Deploying ${{ matrix.service }} with version ${VERSION} to namespaces: ${NAMESPACES}"
 
-          helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
-            --namespace ${NAMESPACE} \
-            --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
-            --set image.tag=${VERSION} \
-            --wait \
-            --timeout 5m
+          # Split namespaces by comma and deploy to each
+          IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+          for NAMESPACE in "${NS_ARRAY[@]}"; do
+            echo ""
+            echo "📦 Deploying to namespace: ${NAMESPACE}"
+
+            # Create namespace if it doesn't exist
+            kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+            helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
+              --namespace ${NAMESPACE} \
+              --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
+              --set image.tag=${VERSION} \
+              --set namespace=${NAMESPACE} \
+              --set fullnameOverride=${{ steps.chart.outputs.release }} \
+              --wait \
+              --timeout 5m
+
+            echo "✅ Deployed to ${NAMESPACE}"
+          done
 
       - name: Verify deployment
         run: |
-          NAMESPACE="default"
-          echo "📋 Verifying deployment for ${{ matrix.service }}..."
+          NAMESPACES="${{ steps.chart.outputs.namespaces }}"
+          echo "📋 Verifying deployment for ${{ matrix.service }} across namespaces: ${NAMESPACES}"
 
-          kubectl rollout status deployment/${{ steps.chart.outputs.release }} -n ${NAMESPACE} --timeout=3m || true
+          # Split namespaces by comma and verify each
+          IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+          for NAMESPACE in "${NS_ARRAY[@]}"; do
+            echo ""
+            echo "📋 Namespace: ${NAMESPACE}"
 
-          echo ""
-          echo "📊 Pod status:"
-          kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/instance=${{ steps.chart.outputs.release }} --no-headers
+            kubectl rollout status deployment/${{ steps.chart.outputs.release }} -n ${NAMESPACE} --timeout=3m || true
+
+            echo ""
+            echo "📊 Pod status in ${NAMESPACE}:"
+            kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/instance=${{ steps.chart.outputs.release }} --no-headers || true
+          done
 
       - name: Deployment summary
         run: |
+          NAMESPACES="${{ steps.chart.outputs.namespaces }}"
           echo "## 🚀 ${{ matrix.service }} Deployed!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release:** \`${{ steps.chart.outputs.release }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Namespace:** \`default\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespaces:** \`${NAMESPACES}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
 
   summary:
