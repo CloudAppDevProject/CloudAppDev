@@ -2,7 +2,7 @@ apiVersion: v2
 name: cloudappdev
 description: CloudAppDev - Complete microservices deployment (app, api-gateway, user-service, itinerary-service, social-service)
 type: application
-version: 1.0.2
+version: 1.0.3
 appVersion: "0.0.9"
 
 # Dependencies - all sub-charts
@@ -13,7 +13,7 @@ dependencies:
     condition: app.enabled
 
   - name: gateway
-    version: "1.0.4"
+    version: "1.0.5"
     repository: "file://../gateway"
     condition: gateway.enabled
     alias: api-gateway
