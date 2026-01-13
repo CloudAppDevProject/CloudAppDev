@@ -228,7 +228,7 @@ FREE_TENANT_NAMESPACE=free-community
 ### Step 2: Organization (`/register/organization`)
 - Input: Organization Name
 - Input: Namespace (with real-time validation)
-- Shows preview: `{namespace}.cloudappdev.io`
+- Shows preview: `{namespace}.cloudappdev.site`
 - Validates against reserved namespaces
 
 ### Step 3: Admin Account (`/register/admin`)
@@ -238,7 +238,7 @@ FREE_TENANT_NAMESPACE=free-community
 
 ### Step 4: Success (`/register/success`)
 - Displays confirmation
-- Shows tenant URL: `https://{namespace}.cloudappdev.io`
+- Shows tenant URL: `https://{namespace}.cloudappdev.site`
 - Instructions to login at tenant URL
 
 ---

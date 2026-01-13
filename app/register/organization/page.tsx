@@ -185,7 +185,7 @@ export default function OrganizationPage() {
                 className="flex-1 px-4 py-3 rounded-l-lg border border-r-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <span className="px-4 py-3 bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-r-lg text-gray-500 dark:text-gray-400">
-                .cloudappdev.io
+                .cloudappdev.site
               </span>
             </div>
             {namespaceMessage && (

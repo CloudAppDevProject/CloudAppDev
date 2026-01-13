@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID;
 const GCP_CREDENTIALS_BASE64 = process.env.GCP_MONITORING_CREDENTIALS_BASE64;
 

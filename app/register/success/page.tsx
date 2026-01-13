@@ -15,7 +15,7 @@ export default function SuccessPage() {
     }
   }, [state, router]);
 
-  const tenantUrl = `https://${state.namespace}.cloudappdev.io`;
+  const tenantUrl = `https://${state.namespace}.cloudappdev.site`;
 
   const handleStartOver = () => {
     reset();
@@ -122,7 +122,7 @@ export default function SuccessPage() {
                   rel="noopener noreferrer"
                   className="font-semibold hover:underline"
                 >
-                  {state.namespace}.cloudappdev.io
+                  {state.namespace}.cloudappdev.site
                 </a>
               </span>
             </li>
