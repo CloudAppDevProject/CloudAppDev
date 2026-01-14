@@ -536,13 +536,27 @@ jobs:
                 ;;
             esac
 
-            # Check for stuck Helm releases and rollback if needed
+            # Check for stuck Helm releases and fix by deleting the stuck secret
             RELEASE_STATUS=$(helm status ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
             if [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ]; then
               echo "⚠️ Found stuck release in ${NAMESPACE} with status: ${RELEASE_STATUS}"
-              echo "🔄 Rolling back to previous version..."
-              helm rollback ${{ steps.chart.outputs.release }} -n ${NAMESPACE} --wait --timeout 2m || true
-              echo "✓ Rollback completed, proceeding with deployment"
+              echo "🔄 Deleting stuck Helm secret to unlock release..."
+
+              # Get the revision number of the stuck release
+              STUCK_REVISION=$(helm history ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r 'last | .revision' || echo "")
+
+              if [ -n "$STUCK_REVISION" ]; then
+                # Delete the Helm secret for the stuck revision
+                kubectl delete secret -n ${NAMESPACE} sh.helm.release.v1.${{ steps.chart.outputs.release }}.v${STUCK_REVISION} --ignore-not-found=true
+                echo "✓ Deleted stuck Helm secret for revision ${STUCK_REVISION}"
+              else
+                # Fallback: delete all pending secrets for this release
+                kubectl delete secret -n ${NAMESPACE} -l status=pending-install,name=${{ steps.chart.outputs.release }} --ignore-not-found=true
+                kubectl delete secret -n ${NAMESPACE} -l status=pending-upgrade,name=${{ steps.chart.outputs.release }} --ignore-not-found=true
+                echo "✓ Cleaned up pending Helm secrets"
+              fi
+
+              echo "✓ Release unlocked, proceeding with deployment"
             fi
 
             # Disable HTTPRoute and HTTPSRoute for free and standard namespaces (frontend only)
