@@ -514,11 +514,14 @@ jobs:
               "frontend")
                 SECRET_NAME="cloudappdev-secrets"
                 # Frontend may need app-level secrets (if any)
-                kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=API_GATEWAY_URL='api-gateway:80' \
-                  --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
-                  --from-literal=APP_MODE=HUB \
-                  --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=API_GATEWAY_URL='api-gateway:80' \
+                    --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
+                    --from-literal=APP_MODE=HUB \
+                    --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
                   --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
                   --namespace ${NAMESPACE} \
                 ;;
