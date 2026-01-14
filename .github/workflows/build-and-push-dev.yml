@@ -388,8 +388,8 @@ jobs:
             "api-gateway")
               echo "path=./k8s/gateway" >> $GITHUB_OUTPUT
               echo "release=api-gateway" >> $GITHUB_OUTPUT
-              # Deploy API gateway to free and standard namespaces
-              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
+              # Deploy API gateway to cloudappdev, free, and standard namespaces
+              echo "namespaces=cloudappdev,free,standard" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "Unknown service: ${{ matrix.service }}"
