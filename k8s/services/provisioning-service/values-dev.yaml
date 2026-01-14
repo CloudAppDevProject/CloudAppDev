@@ -26,9 +26,9 @@ environment: dev
 # Service account with permissions to manage GKE resources
 serviceAccount:
   create: true
-  name: infrastructure-provisioner-sa
+  name: provisioning-service-sa
   annotations:
-    iam.gke.io/gcp-service-account: infrastructure-provisioner-sa@cloudappdev-dev.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: provisioning-service-sa@cloudappdev-dev.iam.gserviceaccount.com
 
 # Terraform state backend
 terraform:
@@ -40,7 +40,7 @@ terraform:
 gcp:
   project: cloudappdev-dev
   region: europe-west1
-  credentialsSecret: infrastructure-provisioner-sa
+  credentialsSecret: provisioning-service-sa
 
 # Cloudflare configuration (from secrets)
 cloudflare:
