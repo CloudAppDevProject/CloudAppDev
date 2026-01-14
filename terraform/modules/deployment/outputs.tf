@@ -37,17 +37,11 @@ output "itinerary_service_account_email" {
   value       = module.itinerary_service_account.email
 }
 
-output "tenant_service_account_email" {
-  description = "Email of the tenant service account"
-  value       = module.tenant_service_account.email
-}
-
 output "all_service_accounts" {
   description = "Map of all service account emails for this deployment"
   value = {
     social    = module.social_service_account.email
     user      = module.user_service_account.email
     itinerary = module.itinerary_service_account.email
-    tenant    = module.tenant_service_account.email
   }
 }

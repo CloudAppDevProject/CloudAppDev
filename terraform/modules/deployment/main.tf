@@ -95,23 +95,3 @@ module "itinerary_service_account" {
     module.databases,
   ]
 }
-
-# Tenant Service Account - for PostgreSQL access
-module "tenant_service_account" {
-  source = "../service-account"
-
-  project      = var.project_id
-  account_id   = "tenant-${var.namespace}-sa"
-  display_name = "Tenant Database access - ${var.namespace}"
-
-  enable_cloudsql = true
-
-  k8s_service_accounts = [
-    "tenant-service-${var.namespace}-sa",
-  ]
-
-  depends_on = [
-    var.gke_cluster_id,
-    module.databases,
-  ]
-}

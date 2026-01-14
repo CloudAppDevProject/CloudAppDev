@@ -47,7 +47,6 @@ module "tenant_domain" {
   certificate_map_id = data.google_certificate_manager_certificate_map.main.name
   cloudflare_zone_id = var.cloudflare_zone_id
   tenant_name        = each.key
-  create_gateway     = false
 
   labels = merge(local.common_labels, {
     tenant = each.key
