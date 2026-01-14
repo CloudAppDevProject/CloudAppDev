@@ -18,7 +18,7 @@ export class TenantController {
   healthCheck() {
     return {
       status: 'healthy',
-      service: 'infrastructure-provisioner',
+      service: 'provisioning-service',
     };
   }
 
