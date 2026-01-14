@@ -512,6 +512,7 @@ jobs:
                 fi
                 ;;
               "frontend")
+                SECRET_NAME="cloudappdev-secrets"
                 # Frontend may need app-level secrets (if any)
                 kubectl create secret generic ${SECRET_NAME} \
                   --from-literal=API_GATEWAY_URL='api-gateway:80' \
