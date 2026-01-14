@@ -524,6 +524,8 @@ jobs:
                     --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
                   --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
                   --namespace ${NAMESPACE} \
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
                 ;;
               "api-gateway")
                 # API Gateway is stateless and doesn't need secrets
