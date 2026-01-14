@@ -221,7 +221,7 @@ jobs:
               ;;
             "provisioning-service")
               echo "image-name=cloudappdev-provisioning-service" >> $GITHUB_OUTPUT
-              echo "context=./services/provisioning-service" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
               echo "dockerfile=./services/provisioning-service/Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Infrastructure Provisioning Service (NestJS)" >> $GITHUB_OUTPUT
               ;;
