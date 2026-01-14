@@ -572,6 +572,19 @@ jobs:
               echo "ℹ️ Disabling HTTPRoute and HTTPSRoute for ${NAMESPACE} namespace"
             fi
 
+            # Configure API Gateway namespace routing for multi-tenant deployments
+            if [ "${{ matrix.service }}" = "api-gateway" ]; then
+              # Set service namespace values based on deployment namespace
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[1].name=USER_NAMESPACE --set env[1].value=${NAMESPACE}"
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[2].name=ITINERARY_NAMESPACE --set env[2].value=${NAMESPACE}"
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[3].name=SOCIAL_NAMESPACE --set env[3].value=${NAMESPACE}"
+              echo "ℹ️ Configuring API Gateway for namespace routing (USER/ITINERARY/SOCIAL: ${NAMESPACE}, TRAVEL_INFO/TENANT: default)"
+            fi
+
+            # Update Chart.yaml appVersion before deploying
+            echo "📝 Updating Chart.yaml appVersion to ${VERSION}"
+            sed -i.bak "s/^appVersion:.*/appVersion: \"${VERSION}\"/" ${{ steps.chart.outputs.path }}/Chart.yaml
+
             helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
               --namespace ${NAMESPACE} \
               --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
