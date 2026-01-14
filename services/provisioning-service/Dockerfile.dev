@@ -1,0 +1,55 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install infrastructure dependencies
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    python3 \
+    py3-pip \
+    openssl \
+    ca-certificates
+
+# Install Terraform
+ENV TERRAFORM_VERSION=1.9.8
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin/ && \
+    rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    terraform --version
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/ && \
+    kubectl version --client
+
+# Install Helm
+RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && \
+    helm version
+
+# Install gcloud CLI
+RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz && \
+    tar -xf google-cloud-cli-linux-x86_64.tar.gz && \
+    ./google-cloud-sdk/install.sh --quiet --path-update=true && \
+    rm google-cloud-cli-linux-x86_64.tar.gz && \
+    ln -s /google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud && \
+    ln -s /google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil
+
+# Install Node.js dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Copy Terraform configurations
+COPY ../../terraform /terraform-src 2>/dev/null || true
+
+# Copy Kubernetes/Helm charts
+COPY ../../k8s /k8s 2>/dev/null || true
+
+EXPOSE 8080
+
+CMD ["npm", "run", "start:dev"]
