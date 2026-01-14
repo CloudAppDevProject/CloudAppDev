@@ -104,19 +104,19 @@ module "tenant_service_account" {
   ]
 }
 
-module "provisioner_service_account" {
+module "provisioning_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "infrastructure-provisioner-sa"
-  display_name = "Infrastructure Provisioner - Dev"
+  account_id   = "provisioning-service-sa"
+  display_name = "Provisioning Service - Dev"
 
   enable_storage         = true
   enable_terraform_admin = true
   enable_secret_manager  = true
 
   k8s_service_accounts = [
-    "infrastructure-provisioner-sa"
+    "provisioning-service-sa"
   ]
 
   depends_on = [
