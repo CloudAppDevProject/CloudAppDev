@@ -380,7 +380,7 @@ jobs:
               echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
             "provisioning-service")
-              echo "path=./k8s/services/provisioning" >> $GITHUB_OUTPUT
+              echo "path=./k8s/services/provisioning-services" >> $GITHUB_OUTPUT
               echo "release=provisioning-service" >> $GITHUB_OUTPUT
               # Deploy to default namespace only
               echo "namespaces=default" >> $GITHUB_OUTPUT
