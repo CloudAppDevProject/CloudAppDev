@@ -536,6 +536,15 @@ jobs:
                 ;;
             esac
 
+            # Check for stuck Helm releases and rollback if needed
+            RELEASE_STATUS=$(helm status ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
+            if [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ]; then
+              echo "⚠️ Found stuck release in ${NAMESPACE} with status: ${RELEASE_STATUS}"
+              echo "🔄 Rolling back to previous version..."
+              helm rollback ${{ steps.chart.outputs.release }} -n ${NAMESPACE} --wait --timeout 2m || true
+              echo "✓ Rollback completed, proceeding with deployment"
+            fi
+
             # Disable HTTPRoute and HTTPSRoute for free and standard namespaces (frontend only)
             EXTRA_ARGS=""
             if [ "${{ matrix.service }}" = "frontend" ] && [ "${NAMESPACE}" != "cloudappdev" ]; then
