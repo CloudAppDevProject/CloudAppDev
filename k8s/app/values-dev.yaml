@@ -26,7 +26,6 @@ api:
   annotations: {}
   hostname: dev.cloudappdev.site
 
-
 httpRoute:
   enabled: true
   annotations: {}

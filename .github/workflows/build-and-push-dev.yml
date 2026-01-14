@@ -513,7 +513,13 @@ jobs:
                 ;;
               "frontend")
                 # Frontend may need app-level secrets (if any)
-                echo "ℹ️ Frontend uses Next.js public env vars (no secrets needed)"
+                kubectl create secret generic ${SECRET_NAME} \
+                  --from-literal=API_GATEWAY_URL='api-gateway:80' \
+                  --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
+                  --from-literal=APP_MODE=HUB \
+                  --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
+                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
+                  --namespace ${NAMESPACE} \
                 ;;
               "api-gateway")
                 # API Gateway is stateless and doesn't need secrets
