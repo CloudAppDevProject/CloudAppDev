@@ -70,8 +70,6 @@ spec:
           value: "{{ .Values.terraform.statePrefix }}"
         - name: CLOUDFLARE_ZONE_ID
           value: "{{ .Values.cloudflare.zoneId }}"
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: "/var/secrets/google/key.json"
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         livenessProbe:
@@ -92,9 +90,6 @@ spec:
         - name: kubeconfig
           mountPath: /root/.kube
           readOnly: true
-        - name: gcp-credentials
-          mountPath: /var/secrets/google
-          readOnly: true
       volumes:
       - name: terraform-volume
         emptyDir: {}
@@ -102,9 +97,3 @@ spec:
         secret:
           secretName: kubeconfig
           optional: true
-      - name: gcp-credentials
-        secret:
-          secretName: {{ .Values.gcp.credentialsSecret }}
-          items:
-          - key: key.json
-            path: key.json
