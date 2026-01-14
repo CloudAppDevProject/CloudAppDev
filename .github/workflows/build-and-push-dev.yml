@@ -522,8 +522,8 @@ jobs:
                     --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
                     --from-literal=APP_MODE=HUB \
                     --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
-                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
-                  --namespace ${NAMESPACE} \
+                    --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
+                    --namespace ${NAMESPACE}
                   echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
                 fi
                 ;;
