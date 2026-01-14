@@ -536,25 +536,31 @@ jobs:
                 ;;
             esac
 
-            # Check for stuck Helm releases and fix by deleting the stuck secret
+            # Check for stuck Helm releases and fix by deleting ALL stuck secrets
             RELEASE_STATUS=$(helm status ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
             if [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ]; then
               echo "⚠️ Found stuck release in ${NAMESPACE} with status: ${RELEASE_STATUS}"
-              echo "🔄 Deleting stuck Helm secret to unlock release..."
+              echo "🔄 Cleaning up ALL stuck Helm secrets..."
 
-              # Get the revision number of the stuck release
-              STUCK_REVISION=$(helm history ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r 'last | .revision' || echo "")
+              # Get all revisions with pending status
+              helm history ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | \
+                jq -r '.[] | select(.status | contains("pending")) | .revision' | \
+                while read -r revision; do
+                  if [ -n "$revision" ]; then
+                    echo "🗑️ Deleting stuck secret for revision ${revision}"
+                    kubectl delete secret -n ${NAMESPACE} sh.helm.release.v1.${{ steps.chart.outputs.release }}.v${revision} --ignore-not-found=true
+                  fi
+                done
 
-              if [ -n "$STUCK_REVISION" ]; then
-                # Delete the Helm secret for the stuck revision
-                kubectl delete secret -n ${NAMESPACE} sh.helm.release.v1.${{ steps.chart.outputs.release }}.v${STUCK_REVISION} --ignore-not-found=true
-                echo "✓ Deleted stuck Helm secret for revision ${STUCK_REVISION}"
-              else
-                # Fallback: delete all pending secrets for this release
-                kubectl delete secret -n ${NAMESPACE} -l status=pending-install,name=${{ steps.chart.outputs.release }} --ignore-not-found=true
-                kubectl delete secret -n ${NAMESPACE} -l status=pending-upgrade,name=${{ steps.chart.outputs.release }} --ignore-not-found=true
-                echo "✓ Cleaned up pending Helm secrets"
-              fi
+              # Also clean up by label selector (backup method)
+              kubectl delete secret -n ${NAMESPACE} \
+                -l "name=${{ steps.chart.outputs.release }},owner=helm,status in (pending-install,pending-upgrade,pending-rollback)" \
+                --ignore-not-found=true 2>/dev/null || true
+
+              echo "✓ All stuck Helm secrets cleaned up"
+
+              # Wait a moment for Kubernetes to process deletions
+              sleep 2
 
               echo "✓ Release unlocked, proceeding with deployment"
             fi
