@@ -84,15 +84,15 @@ output "tenant_service_account_email" {
 # --- Provisioner ---
 output "provisioner_service_account_name" {
   description = "Infrastructure provisioner service account name"
-  value       = module.provisioner_service_account.name
+  value       = module.provisioning_service_account.name
 }
 output "provisioner_service_account_email" {
   description = "Infrastructure provisioner service account email"
-  value       = module.provisioner_service_account.email
+  value       = module.provisioning_service_account.email
 }
 output "provisioner_service_account_key" {
   description = "Infrastructure provisioner service account key (base64 encoded)"
-  value       = module.provisioner_service_account.key
+  value       = module.provisioning_service_account.key
   sensitive   = true
 }
 

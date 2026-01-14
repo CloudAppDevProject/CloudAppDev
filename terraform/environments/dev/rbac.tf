@@ -5,11 +5,11 @@
 # and deploy resources across the cluster
 
 # ClusterRole: Defines permissions for managing tenant resources
-resource "kubernetes_cluster_role" "infrastructure_provisioner" {
+resource "kubernetes_cluster_role" "provisioning_service" {
   metadata {
-    name = "infrastructure-provisioner-role"
+    name = "provisioning-service-role"
     labels = {
-      app       = "infrastructure-provisioner"
+      app       = "provisioning-service"
       component = "rbac"
       managed_by = "terraform"
     }
@@ -91,11 +91,11 @@ resource "kubernetes_cluster_role" "infrastructure_provisioner" {
 }
 
 # ClusterRoleBinding: Binds the ClusterRole to the provisioner service account
-resource "kubernetes_cluster_role_binding" "infrastructure_provisioner" {
+resource "kubernetes_cluster_role_binding" "provisioning_service_binding" {
   metadata {
-    name = "infrastructure-provisioner-binding"
+    name = "provisioning-service-binding"
     labels = {
-      app        = "infrastructure-provisioner"
+      app        = "provisioning-service"
       component  = "rbac"
       managed_by = "terraform"
     }
@@ -105,18 +105,18 @@ resource "kubernetes_cluster_role_binding" "infrastructure_provisioner" {
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = kubernetes_cluster_role.infrastructure_provisioner.metadata[0].name
+    name      = kubernetes_cluster_role.provisioning_service.metadata[0].name
   }
 
   # Subject: The infrastructure-provisioner service account in default namespace
   subject {
     kind      = "ServiceAccount"
-    name      = "infrastructure-provisioner-sa"
+    name      = "provisioning-service-sa"
     namespace = "default"
   }
 
   depends_on = [
-    kubernetes_cluster_role.infrastructure_provisioner,
-    module.provisioner_service_account
+    kubernetes_cluster_role.provisioning_service,
+    module.provisioning_service_account
   ]
 }
