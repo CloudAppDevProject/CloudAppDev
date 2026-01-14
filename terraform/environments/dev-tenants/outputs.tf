@@ -75,7 +75,6 @@ output "enterprise_deployments" {
       user_service_account_email     = module.enterprise_namespace[name].user_service_account_email
       itinerary_service_account_email = module.enterprise_namespace[name].itinerary_service_account_email
       social_service_account_email   = module.enterprise_namespace[name].social_service_account_email
-      tenant_service_account_email   = module.enterprise_namespace[name].tenant_service_account_email
     }
   }
 }
