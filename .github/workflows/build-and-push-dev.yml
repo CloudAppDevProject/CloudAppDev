@@ -34,7 +34,7 @@ on:
           - social-service
           - travel-info-service
           - tenant-service
-          - infrastructure-provisioner
+          - provisioning-service
           - api-gateway
 
 env:
@@ -80,8 +80,8 @@ jobs:
               - 'services/travel-info-service/**'
             tenant-service:
               - 'services/tenant-service/**'
-            infrastructure-provisioner:
-              - 'services/infrastructure-provisioner/**'
+            provisioning-service:
+              - 'services/provisioning-service/**'
               - 'terraform/**'
               - 'k8s/**'
             api-gateway:
@@ -111,7 +111,7 @@ jobs:
 
           # Manual trigger with "all" - force build everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","infrastructure-provisioner","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","provisioning-service","api-gateway"]'
             echo "Manual trigger (all) - building all services"
           # Manual trigger with specific service
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$SERVICES_INPUT" ] && [ "$SERVICES_INPUT" != "all" ] && [ "$SERVICES_INPUT" != "changed-only" ]; then
@@ -119,7 +119,7 @@ jobs:
             echo "Manual trigger - building: ${SERVICES}"
           # Workflow file changed or manual "changed-only" - build everything as safety measure
           elif [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","infrastructure-provisioner","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","provisioning-service","api-gateway"]'
             echo "⚠️ Workflow changed - building all services for safety"
           else
             # Build only changed services
@@ -143,8 +143,8 @@ jobs:
             if [ "${{ steps.changes.outputs.tenant-service }}" = "true" ]; then
               SERVICES=$(echo "$SERVICES" | jq -c '. + ["tenant-service"]')
             fi
-            if [ "${{ steps.changes.outputs.infrastructure-provisioner }}" = "true" ]; then
-              SERVICES=$(echo "$SERVICES" | jq -c '. + ["infrastructure-provisioner"]')
+            if [ "${{ steps.changes.outputs.provisioning-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["provisioning-service"]')
             fi
             if [ "${{ steps.changes.outputs.api-gateway }}" = "true" ]; then
               SERVICES=$(echo "$SERVICES" | jq -c '. + ["api-gateway"]')
@@ -219,11 +219,11 @@ jobs:
               echo "dockerfile=./services/tenant-service/Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Tenant Management Microservice" >> $GITHUB_OUTPUT
               ;;
-            "infrastructure-provisioner")
-              echo "image-name=infrastructure-provisioner" >> $GITHUB_OUTPUT
-              echo "context=." >> $GITHUB_OUTPUT
-              echo "dockerfile=./services/infrastructure-provisioner/Dockerfile" >> $GITHUB_OUTPUT
-              echo "description=CloudAppDev Infrastructure Provisioning Service" >> $GITHUB_OUTPUT
+            "provisioning-service")
+              echo "image-name=cloudappdev-provisioning-service" >> $GITHUB_OUTPUT
+              echo "context=./services/provisioning-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/provisioning-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Infrastructure Provisioning Service (NestJS)" >> $GITHUB_OUTPUT
               ;;
             "api-gateway")
               echo "image-name=cloudappdev-api-gateway" >> $GITHUB_OUTPUT
@@ -379,9 +379,9 @@ jobs:
               # Deploy to default namespace only
               echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
-            "infrastructure-provisioner")
-              echo "path=./k8s/services/infrastructure-provisioner" >> $GITHUB_OUTPUT
-              echo "release=infrastructure-provisioner" >> $GITHUB_OUTPUT
+            "provisioning-service")
+              echo "path=./k8s/services/provisioning" >> $GITHUB_OUTPUT
+              echo "release=provisioning-service" >> $GITHUB_OUTPUT
               # Deploy to default namespace only
               echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
@@ -481,7 +481,19 @@ jobs:
                     --from-literal=NODE_ENV="production" \
                     --from-literal=DATABASE_URL="${{ secrets.TENANT_DATABASE_URL }}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-                    --from-literal=INFRASTRUCTURE_PROVISIONER_URL="http://infrastructure-provisioner:8080" \
+                    --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "provisioning-service")
+                SECRET_NAME="provisioning-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=GCP_SERVICE_ACCOUNT_KEY='${{ secrets.GCP_SA_KEY }}' \
                     --namespace ${NAMESPACE}
                   echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
                 fi
@@ -634,7 +646,7 @@ jobs:
       - name: Build summary
         run: |
           SERVICES='${{ needs.prepare.outputs.services }}'
-          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","infrastructure-provisioner","api-gateway"]'
+          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","provisioning-service","api-gateway"]'
 
           echo "## 📦 Development Build & Deploy Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
