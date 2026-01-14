@@ -536,12 +536,20 @@ jobs:
                 ;;
             esac
 
+            # Disable HTTPRoute and HTTPSRoute for free and standard namespaces (frontend only)
+            EXTRA_ARGS=""
+            if [ "${{ matrix.service }}" = "frontend" ] && [ "${NAMESPACE}" != "cloudappdev" ]; then
+              EXTRA_ARGS="--set httpRoute.enabled=false --set httpsRoute.enabled=false"
+              echo "ℹ️ Disabling HTTPRoute and HTTPSRoute for ${NAMESPACE} namespace"
+            fi
+
             helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
               --namespace ${NAMESPACE} \
               --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
               --set image.tag=${VERSION} \
               --set namespace=${NAMESPACE} \
               --set fullnameOverride=${{ steps.chart.outputs.release }} \
+              ${EXTRA_ARGS} \
               --wait \
               --timeout 5m
 
