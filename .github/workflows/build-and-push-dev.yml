@@ -407,21 +407,21 @@ jobs:
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-user-password")
-                echo "user_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_OUTPUT
+                echo "user_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
               done
               ;;
             "itinerary-service")
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-itinerary-password")
-                echo "itinerary_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_OUTPUT
+                echo "itinerary_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
               done
               ;;
             "tenant-service")
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-tenant-password")
-                echo "tenant_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_OUTPUT
+                echo "tenant_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
               done
               ;;
             *)
@@ -457,11 +457,9 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
-                  DB_PASSWORD_VAR="user_${NAMESPACE}_db_password"
-                  DB_PASSWORD="${{ steps.secrets.outputs[DB_PASSWORD_VAR] }}"
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                    --from-literal=DB_PASSWORD="${{ env.user_${NAMESPACE}_db_password }}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
@@ -477,11 +475,9 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
-                  DB_PASSWORD_VAR="itinerary_${NAMESPACE}_db_password"
-                  DB_PASSWORD="${{ steps.secrets.outputs[DB_PASSWORD_VAR] }}"
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                    --from-literal=DB_PASSWORD="${{ env.itinerary_${NAMESPACE}_db_password }}" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
                     --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                     --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
@@ -513,11 +509,9 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
-                  DB_PASSWORD_VAR="tenant_${NAMESPACE}_db_password"
-                  DB_PASSWORD="${{ steps.secrets.outputs[DB_PASSWORD_VAR] }}"
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                    --from-literal=DB_PASSWORD="${{ env.tenant_${NAMESPACE}_db_password }}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
                     --namespace ${NAMESPACE}
