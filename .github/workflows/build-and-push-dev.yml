@@ -440,9 +440,21 @@ jobs:
               echo "No secrets required for: ${{ matrix.service }}"
               ;;
           esac
-
+      
+      - name: DEBUG — show what Step 1 wrote (no secrets)
+        run: |
+          echo "=== DEBUG: GITHUB_ENV CONTENTS ==="
+          # Print only keys, never values
+          sed 's/=.*//' "$GITHUB_ENV" || echo "(GITHUB_ENV missing)"
+          echo "=================================="
+          
       - name: Deploy with Helm
         run: |
+          echo "=== DEBUG: File existence ==="
+          if [ -f "$GITHUB_ENV" ]; then echo "GITHUB_ENV exists"; else echo "GITHUB_ENV MISSING"; fi
+          echo "=== DEBUG: Raw file contents ==="
+          sed 's/=.*//' "$GITHUB_ENV"
+    
           echo "Loading GitHub env vars..."
           set -a
           source $GITHUB_ENV
