@@ -398,6 +398,37 @@ jobs:
               exit 1
               ;;
           esac
+      
+      - name: Obtain GCP secrets
+        id: secrets
+        run: |
+          case "${{ matrix.service }}" in
+            "user-service")
+              IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+              for NAMESPACE in "${NS_ARRAY[@]}"; do
+                SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-user-password")
+                echo "user_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_OUTPUT
+              done
+              ;;
+            "itinerary-service")
+              IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+              for NAMESPACE in "${NS_ARRAY[@]}"; do
+                SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-itinerary-password")
+                echo "itinerary_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_OUTPUT
+              done
+              ;;
+            "tenant-service")
+              IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+              for NAMESPACE in "${NS_ARRAY[@]}"; do
+                SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-tenant-password")
+                echo "tenant_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_OUTPUT
+              done
+              ;;
+            *)
+              echo "No secrets required: ${{ matrix.service }}"
+              exit 1
+              ;;
+          esac
 
       - name: Deploy with Helm
         run: |
@@ -428,12 +459,12 @@ jobs:
                 else
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DATABASE_URL="${{ secrets.USER_DATABASE_URL }}" \
+                    --from-literal=DB_PASSWORD="${{ steps.secrets.outputs.user_${NAMESPACE}_db_password }}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
-                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="${{ secrets.GOOGLE_CLOUD_STORAGE_BUCKET }}" \
-                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GOOGLE_CLOUD_CREDENTIALS_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
+                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
                     --from-literal=GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
                     --namespace ${NAMESPACE}
                   echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
@@ -446,12 +477,11 @@ jobs:
                 else
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DATABASE_URL="${{ secrets.ITINERARY_DATABASE_URL }}" \
+                    --from-literal=DB_PASSWORD="${{ steps.secrets.outputs.itinerary_${NAMESPACE}_db_password }}" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
-                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="${{ secrets.GOOGLE_CLOUD_STORAGE_BUCKET }}" \
-                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GOOGLE_CLOUD_CREDENTIALS_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
+                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
                     --from-literal=GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
-                    --from-literal=FRONTEND_URL="https://dev.cloudappdev.site" \
                     --namespace ${NAMESPACE}
                   echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
                 fi
@@ -481,7 +511,7 @@ jobs:
                 else
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DATABASE_URL="${{ secrets.TENANT_DATABASE_URL }}" \
+                    --from-literal=DB_PASSWORD="${{ steps.secrets.outputs.tenant_${NAMESPACE}_db_password }}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
                     --namespace ${NAMESPACE}
