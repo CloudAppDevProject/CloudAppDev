@@ -459,7 +459,7 @@ jobs:
                 else
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${{ env.user_${NAMESPACE}_db_password }}" \
+                    --from-literal=DB_PASSWORD="${user_${NAMESPACE}_db_password}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
@@ -477,7 +477,7 @@ jobs:
                 else
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${{ env.itinerary_${NAMESPACE}_db_password }}" \
+                    --from-literal=DB_PASSWORD="${itinerary_${NAMESPACE}_db_password}" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
                     --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                     --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
@@ -511,7 +511,7 @@ jobs:
                 else
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${{ env.tenant_${NAMESPACE}_db_password }}" \
+                    --from-literal=DB_PASSWORD="${tenant_${NAMESPACE}_db_password}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
                     --namespace ${NAMESPACE}
