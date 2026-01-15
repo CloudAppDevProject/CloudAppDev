@@ -399,11 +399,12 @@ jobs:
               ;;
           esac
       
+      
       - name: Obtain GCP secrets
         id: secrets
         run: |
           NAMESPACES="${{ steps.chart.outputs.namespaces }}"
-          
+
           case "${{ matrix.service }}" in
             "user-service")
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
