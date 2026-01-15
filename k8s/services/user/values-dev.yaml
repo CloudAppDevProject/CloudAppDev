@@ -20,7 +20,7 @@ initContainers:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
     args:
       - "--port=5432"
-      - "cloudappdev-dev:europe-west1:cloudappdev-dev-users-db"
+      - "cloudappdev-dev:europe-west1:cloudappdev-${namespace}"
     restartPolicy: Always
     securityContext:
       runAsNonRoot: true
@@ -31,25 +31,16 @@ initContainers:
 
 env:
   - name: NODE_ENV
-    valueFrom:
-      secretKeyRef:
-        name: user-service-secrets
-        key: NODE_ENV
+    value: "development"
   - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        key: DATABASE_URL
-        name: user-service-secrets
+    value: postgresql://user:$(DB_PASSWORD)@127.0.0.1:5432/user
   - name: JWT_SECRET
     valueFrom:
       secretKeyRef:
         name: user-service-secrets
         key: JWT_SECRET
   - name: JWT_EXPIRATION
-    valueFrom:
-      secretKeyRef:
-        name: user-service-secrets
-        key: JWT_EXPIRATION
+    value: "7d"
   - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
     valueFrom:
       secretKeyRef:
@@ -74,8 +65,8 @@ env:
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "user-service-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "user-service-sa"
+    iam.gke.io/gcp-service-account: "user-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
+  name: "user-${namespace}-sa"
 
 service:
   type: ClusterIP

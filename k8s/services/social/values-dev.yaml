@@ -17,25 +17,28 @@ podLabels: {}
 
 env:
   - name: NODE_ENV
+    value: "development"
+  - name: DB_UID
     valueFrom:
       secretKeyRef:
         name: social-service-secrets
-        key: NODE_ENV
+        key: DB_UID
+  - name: DB_LOCATION
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: DB_LOCATION
+  - name: DB_ID
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: DB_ID
   - name: MONGODB_URI
-    valueFrom:
-      secretKeyRef:
-        name: social-service-secrets
-        key: MONGODB_URI
+    value: mongodb://$(DB_UID).$(DB_LOCATION).firestore.goog:443/$(DB_ID)?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE
   - name: ITINERARY_SERVICE_URL
-    valueFrom:
-      secretKeyRef:
-        name: social-service-secrets
-        key: ITINERARY_SERVICE_URL
+    value: "itinerary-service:8081"
   - name: USER_SERVICE_URL
-    valueFrom:
-      secretKeyRef:
-        name: social-service-secrets
-        key: USER_SERVICE_URL
+    value: "user-service:8080"
   - name: SENDGRID_API_KEY
     valueFrom:
       secretKeyRef:
@@ -52,16 +55,13 @@ env:
         name: social-service-secrets
         key: SENDGRID_FROM_NAME
   - name: NEWSLETTER_MODE
-    valueFrom:
-      secretKeyRef:
-        name: social-service-secrets
-        key: NEWSLETTER_MODE
+    value: "sendgrid"
 
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "social-service-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "social-service-sa"
+    iam.gke.io/gcp-service-account: "social-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
+  name: "social-${namespace}-sa"
 
 service:
   type: ClusterIP

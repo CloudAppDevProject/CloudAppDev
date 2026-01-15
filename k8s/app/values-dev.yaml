@@ -12,7 +12,7 @@ image:
   tag: ""
 
 serviceAccount:
-  create: true
+  create: false
   annotations: 
     iam.gke.io/gcp-service-account: "app-sa@cloudappdev-dev.iam.gserviceaccount.com"
   name: "app-sa"
@@ -21,6 +21,29 @@ service:
   type: ClusterIP
   port: 80
 
+env:
+  - name: API_GATEWAY_URL
+    value: "api-gateway:80"
+  - name: NODE_ENV
+    value: "development"
+  - name: APP_MODE
+    value: "HUB"
+  - name: GCP_PROJECT_ID
+    valueFrom:
+      secretKeyRef:
+        name: app-secrets
+        key: GCP_PROJECT_ID
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: app-secrets
+        key: JWT_SECRET
+  - name: GCP_MONITORING_CREDENTIALS_BASE64
+    valueFrom:
+      secretKeyRef:
+        name: app-secrets
+        key: GCP_MONITORING_CREDENTIALS_BASE64
+        
 api:
   className: "gke-l7-global-external-managed"
   annotations: {}

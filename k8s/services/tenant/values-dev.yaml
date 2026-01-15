@@ -31,23 +31,22 @@ initContainers:
 
 env:
   - name: NODE_ENV
+    value: "development"
+  - name: DB_PASSWORD
     valueFrom:
       secretKeyRef:
         name: tenant-service-secrets
-        key: NODE_ENV
+        key: DB_PASSWORD
   - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        key: DATABASE_URL
-        name: tenant-service-secrets
+    value: postgresql://tenant:$(DB_PASSWORD)@127.0.0.1:5432/tenant
   - name: FREE_TENANT_NAME
     value: "Free Community"
 
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "tenant-service-default-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "tenant-service-default-sa"
+    iam.gke.io/gcp-service-account: "tenant-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
+  name: "tenant-${namespace}-sa"
 
 service:
   type: ClusterIP

@@ -26,9 +26,9 @@ environment: dev
 # Service account with permissions to manage GKE resources
 serviceAccount:
   create: true
-  name: provisioning-service-sa
   annotations:
-    iam.gke.io/gcp-service-account: provisioning-service-sa@cloudappdev-dev.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: provisioning-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com
+  name: provisioning-${namespace}-sa
 
 # Terraform state backend
 terraform:

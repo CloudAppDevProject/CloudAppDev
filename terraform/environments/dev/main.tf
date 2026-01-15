@@ -69,6 +69,7 @@ module "default_databases" {
   backup_enabled      = false
 }
 
+# Might not be needed anymore
 module "app_service_account" {
   source = "../../modules/service-account"
 
@@ -89,13 +90,13 @@ module "tenant_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "tenant-service-default-sa"
+  account_id   = "tenant-default-sa"
   display_name = "Tenant Database access - default"
 
   enable_cloudsql = true
 
   k8s_service_accounts = [
-    "tenant-service-default-sa"
+    "tenant-default-sa"
   ]
 
   depends_on = [
@@ -108,15 +109,15 @@ module "provisioning_service_account" {
   source = "../../modules/service-account"
 
   project      = var.project_id
-  account_id   = "provisioning-service-sa"
-  display_name = "Provisioning Service - Dev"
+  account_id   = "provisioning-default-sa"
+  display_name = "Provisioning default - Dev"
 
   enable_storage         = true
   enable_terraform_admin = true
   enable_secret_manager  = true
 
   k8s_service_accounts = [
-    "provisioning-service-sa"
+    "provisioning-default-sa"
   ]
 
   depends_on = [

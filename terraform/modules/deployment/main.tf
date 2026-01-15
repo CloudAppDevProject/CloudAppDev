@@ -45,7 +45,7 @@ module "social_service_account" {
   enable_firestore = true
 
   k8s_service_accounts = [
-    "social-service-${var.namespace}-sa"
+    "social-${var.namespace}-sa"
   ]
 
   depends_on = [
@@ -59,14 +59,14 @@ module "user_service_account" {
   source = "../service-account"
 
   project      = var.project_id
-  account_id   = "user-service-${var.namespace}-sa"
+  account_id   = "user-${var.namespace}-sa"
   display_name = "User Database access - ${var.namespace}"
 
   enable_cloudsql = true
   enable_storage  = true
 
   k8s_service_accounts = [
-    "user-service-${var.namespace}-sa",
+    "user-${var.namespace}-sa",
   ]
 
   depends_on = [
@@ -80,14 +80,14 @@ module "itinerary_service_account" {
   source = "../service-account"
 
   project      = var.project_id
-  account_id   = "itin-svc-${var.namespace}-sa"
+  account_id   = "itinerary-${var.namespace}-sa"
   display_name = "Itinerary Database access - ${var.namespace}"
 
   enable_cloudsql = true
   enable_storage  = true
 
   k8s_service_accounts = [
-    "itinerary-service-${var.namespace}-sa",
+    "itinerary-${var.namespace}-sa",
   ]
 
   depends_on = [
