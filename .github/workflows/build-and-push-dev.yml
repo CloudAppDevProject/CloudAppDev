@@ -457,9 +457,11 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
+                  VAR_NAME="user_${NAMESPACE}_db_password"
+                  DB_PASSWORD="${!VAR_NAME}"
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${user_${NAMESPACE}_db_password}" \
+                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
@@ -475,9 +477,11 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
+                  VAR_NAME="itinerary_${NAMESPACE}_db_password"
+                  DB_PASSWORD="${!VAR_NAME}"
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${itinerary_${NAMESPACE}_db_password}" \
+                    --from-literal=DB_PASSWORD="$DB_PASSWORD" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
                     --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                     --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
@@ -509,9 +513,11 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
+                  VAR_NAME="tenant_${NAMESPACE}_db_password"
+                  DB_PASSWORD="${!VAR_NAME}"
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
-                    --from-literal=DB_PASSWORD="${tenant_${NAMESPACE}_db_password}" \
+                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
                     --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
                     --namespace ${NAMESPACE}
