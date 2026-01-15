@@ -444,6 +444,10 @@ jobs:
 
       - name: Deploy with Helm
         run: |
+          echo "Loading GitHub env vars..."
+          set -a
+          source $GITHUB_ENV
+          set +a
           VERSION="${{ needs.prepare.outputs.version }}"
           NAMESPACES="${{ steps.chart.outputs.namespaces }}"
 
