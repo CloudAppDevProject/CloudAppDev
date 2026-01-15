@@ -407,7 +407,7 @@ jobs:
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-user-password")
-                if {[ -n "$SECRET_VALUE" ]; then
+                if {[ -z "$SECRET_VALUE" ]; then
                   echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-user-password"
                   exit 1
                 fi
@@ -418,7 +418,7 @@ jobs:
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-itinerary-password")
-                if {[ -n "$SECRET_VALUE" ]; then
+                if {[ -z "$SECRET_VALUE" ]; then
                   echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-itinerary-password"
                   exit 1
                 fi
@@ -429,7 +429,7 @@ jobs:
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-tenant-password")
-                if {[ -n "$SECRET_VALUE" ]; then
+                if {[ -z "$SECRET_VALUE" ]; then
                   echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-tenant-password"
                   exit 1
                 fi
@@ -437,8 +437,7 @@ jobs:
               done
               ;;
             *)
-              echo "No secrets required: ${{ matrix.service }}"
-              exit 1
+              echo "No secrets required for: ${{ matrix.service }}"
               ;;
           esac
 
