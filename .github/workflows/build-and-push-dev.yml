@@ -407,6 +407,10 @@ jobs:
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-user-password")
+                if {[ -n "$SECRET_VALUE" ]; then
+                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-user-password"
+                  exit 1
+                fi
                 echo "user_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
               done
               ;;
@@ -414,6 +418,10 @@ jobs:
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-itinerary-password")
+                if {[ -n "$SECRET_VALUE" ]; then
+                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-itinerary-password"
+                  exit 1
+                fi
                 echo "itinerary_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
               done
               ;;
@@ -421,6 +429,10 @@ jobs:
               IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-tenant-password")
+                if {[ -n "$SECRET_VALUE" ]; then
+                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-tenant-password"
+                  exit 1
+                fi
                 echo "tenant_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
               done
               ;;
