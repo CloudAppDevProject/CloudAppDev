@@ -458,8 +458,16 @@ jobs:
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
                   VAR_NAME="user_${NAMESPACE}_db_password"
-                  DB_PASSWORD="${!VAR_NAME}"
-                  kubectl create secret generic ${SECRET_NAME} \
+                  RAW_DB_PASSWORD="${!VAR_NAME}"
+
+                  if [[ -z "$RAW_DB_PASSWORD" ]]; then
+                    echo "❌ ERROR: Expected env variable $VAR_NAME but it is empty or undefined"
+                    exit 1
+                  fi
+
+                  DB_PASSWORD=$(printf '%q' "$RAW_DB_PASSWORD")
+
+                  kubectl create secret generic "${SECRET_NAME}" \
                     --from-literal=NODE_ENV="production" \
                     --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
                     --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
@@ -468,8 +476,7 @@ jobs:
                     --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                     --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
                     --from-literal=GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
-                    --namespace ${NAMESPACE}
-                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                    --namespace "${NAMESPACE}"
                 fi
                 ;;
               "itinerary-service")
@@ -477,8 +484,8 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
-                  VAR_NAME="itinerary_${NAMESPACE}_db_password"
-                  DB_PASSWORD="${!VAR_NAME}"
+                  VAR_NAME="itinerary_${NAMESPACE}_db_password" \
+                  DB_PASSWORD="${!VAR_NAME}" \
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
                     --from-literal=DB_PASSWORD="$DB_PASSWORD" \
@@ -513,8 +520,8 @@ jobs:
                 if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
-                  VAR_NAME="tenant_${NAMESPACE}_db_password"
-                  DB_PASSWORD="${!VAR_NAME}"
+                  VAR_NAME="tenant_${NAMESPACE}_db_password" \
+                  DB_PASSWORD="${!VAR_NAME}" \
                   kubectl create secret generic ${SECRET_NAME} \
                     --from-literal=NODE_ENV="production" \
                     --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
