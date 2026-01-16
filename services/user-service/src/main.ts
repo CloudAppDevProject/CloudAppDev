@@ -3,7 +3,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  console.log('------------- Environment:', process.env.DATABASE_URL);
   const app = await NestFactory.create(AppModule);
 
   // Global prefix for all routes (API Gateway ready)
