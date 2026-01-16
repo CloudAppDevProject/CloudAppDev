@@ -3,8 +3,48 @@ import { NextResponse } from 'next/server';
 const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
 
 /**
+ * Extract tenant namespace from hostname subdomain
+ * Examples:
+ *   - "acme.cloudappdev.site" → "acme"
+ *   - "acme.cloudappdev.site:3000" → "acme"
+ *   - "localhost:3000" → null
+ *   - "cloudappdev.site" → null (no subdomain)
+ *   - "dev.cloudappdev.site" → "dev"
+ *
+ * @param {string} host - The host header value
+ * @returns {string|null} - The extracted subdomain or null
+ */
+function extractTenantNamespace(host) {
+  if (!host) return null;
+
+  // Strip port if present
+  const hostname = host.split(':')[0];
+
+  // Skip localhost and IP addresses
+  if (hostname === 'localhost' || hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+    return null;
+  }
+
+  // Split by dots
+  const parts = hostname.split('.');
+
+  // Need at least 3 parts for a subdomain (e.g., "acme.cloudappdev.site")
+  // Or 2 parts for local dev domains (e.g., "acme.localhost" won't work, but "acme.local" could)
+  if (parts.length >= 3) {
+    const subdomain = parts[0].toLowerCase();
+    // Exclude common non-tenant subdomains
+    const excludedSubdomains = ['www', 'api', 'app', 'dev', 'staging', 'prod'];
+    if (!excludedSubdomains.includes(subdomain)) {
+      return subdomain;
+    }
+  }
+
+  return null;
+}
+
+/**
  * POST /api/auth/register - Proxy to User Service authentication via API Gateway
- * Creates a normal user and assigns them to the default "Free Community" tenant
+ * Extracts tenant namespace from subdomain and forwards to User Service
  *
  * Body: {
  *   email: string,
@@ -24,8 +64,13 @@ export async function POST(request) {
       );
     }
 
-    // Forward to User Service via API Gateway
-    // User will be automatically assigned to the default tenant (ID: 1)
+    // Extract tenant namespace from subdomain
+    const host = request.headers.get('host') || '';
+    const tenantNamespace = extractTenantNamespace(host);
+
+    console.log(`[API /auth/register] Host: ${host}, Extracted tenant namespace: ${tenantNamespace || '(none, will use default)'}`);
+
+    // Forward to User Service via API Gateway with tenantNamespace in body
     const response = await fetch(`${API_GATEWAY_URL}/api/v1/auth/register`, {
       method: 'POST',
       headers: {
@@ -34,7 +79,8 @@ export async function POST(request) {
       body: JSON.stringify({
         email: body.email,
         password: body.password,
-        name: body.name
+        name: body.name,
+        ...(tenantNamespace && { tenantNamespace }), // Only include if extracted
       }),
     });
 

@@ -35,13 +35,10 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() registerDto: RegisterDto, @Request() req) {
-    this.logger.log(`POST /auth/register - Email: ${registerDto.email}`);
+  async register(@Body() registerDto: RegisterDto) {
+    this.logger.log(`POST /auth/register - Email: ${registerDto.email}, TenantNamespace: ${registerDto.tenantNamespace || '(not provided)'}`);
     try {
-      // Pass host header and optional tenant namespace override header to the service
-      const hostHeader = req.headers['host'] || req.headers['x-forwarded-host'] || '';
-      const headerNamespace = req.headers['x-tenant-namespace'] || req.headers['x-tenant'] || undefined;
-      const result = await this.authService.register(registerDto, hostHeader, headerNamespace);
+      const result = await this.authService.register(registerDto);
       this.logger.debug(`Register endpoint successful`);
       return result;
     } catch (error) {

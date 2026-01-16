@@ -214,7 +214,7 @@ export default function TenantDashboardPage() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Team Members</h2>
           <Button
-            label="Invite User"
+            label="Add User"
             icon="pi pi-user-plus"
             onClick={() => router.push('/admin/invite')}
             className="bg-blue-600 hover:bg-blue-700"

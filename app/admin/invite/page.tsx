@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation';
 import { Card } from 'primereact/card';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
+import { Password } from 'primereact/password';
 import { Message } from 'primereact/message';
 
-export default function InviteUserPage() {
+export default function AddUserPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: '',
-    name: ''
+    name: '',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +32,7 @@ export default function InviteUserPage() {
         return;
       }
 
-      const response = await fetch('/api/users/invite', {
+      const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,11 +43,11 @@ export default function InviteUserPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || 'Failed to invite user');
+        throw new Error(data.message || 'Failed to add user');
       }
 
       setSuccess(true);
-      setFormData({ email: '', name: '' });
+      setFormData({ email: '', name: '', password: '' });
 
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
@@ -71,7 +73,7 @@ export default function InviteUserPage() {
         />
         <h1 className="text-3xl font-bold">
           <i className="pi pi-user-plus mr-2 text-blue-600"></i>
-          Invite User
+          Add User
         </h1>
       </div>
 
@@ -82,7 +84,7 @@ export default function InviteUserPage() {
       {success && (
         <Message
           severity="success"
-          text="User invited successfully! Redirecting..."
+          text="User added successfully! Redirecting..."
           className="mb-4"
         />
       )}
@@ -119,6 +121,26 @@ export default function InviteUserPage() {
             />
           </div>
 
+          <div className="field">
+            <label htmlFor="password" className="block text-sm font-medium mb-2">
+              Password <span className="text-red-500">*</span>
+            </label>
+            <Password
+              id="password"
+              required
+              className="w-full"
+              inputClassName="w-full"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="Enter password for user"
+              toggleMask
+              feedback={true}
+            />
+            <small className="text-gray-500">
+              Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+            </small>
+          </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
@@ -130,7 +152,7 @@ export default function InviteUserPage() {
             />
             <Button
               type="submit"
-              label={loading ? 'Inviting...' : 'Invite User'}
+              label={loading ? 'Adding...' : 'Add User'}
               icon={loading ? 'pi pi-spinner pi-spin' : 'pi pi-check'}
               disabled={loading}
               className="bg-blue-600 hover:bg-blue-700"

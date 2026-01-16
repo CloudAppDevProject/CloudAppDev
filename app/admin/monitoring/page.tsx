@@ -18,6 +18,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  TooltipProps,
 } from 'recharts';
 
 interface MetricDataPoint {
@@ -27,11 +28,20 @@ interface MetricDataPoint {
   clusterName?: string;
 }
 
+interface Tenant {
+  uuid: string;
+  name: string;
+  tier: string;
+  namespace: string;
+  email: string;
+}
+
 export default function MonitoringDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
 
   const [requestsByTenant, setRequestsByTenant] = useState<any[]>([]);
   const [errorsByTenant, setErrorsByTenant] = useState<any[]>([]);
@@ -42,13 +52,13 @@ export default function MonitoringDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (userRole === 'tenant_admin') {
+    if (isAdmin && tenant) {
       fetchMetrics();
       // Auto-refresh every 30 seconds
       const interval = setInterval(fetchMetrics, 30000);
       return () => clearInterval(interval);
     }
-  }, [userRole]);
+  }, [isAdmin, tenant]);
 
   const verifyAdminAccess = async () => {
     try {
@@ -63,26 +73,55 @@ export default function MonitoringDashboardPage() {
         return;
       }
 
-      // Decode JWT to check loginType (preferred)
+      // Verify admin access by calling the server-side tenant endpoint
+      // This endpoint checks: user.email === tenant.email (proper admin verification)
+      console.log('[Monitoring] Fetching tenant data for admin verification...');
+      const tenantResponse = await fetch('/api/tenants/current', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      if (!tenantResponse.ok) {
+        const errorData = await tenantResponse.json().catch(() => ({}));
+        console.error('[Monitoring] Tenant fetch failed:', tenantResponse.status, errorData);
+
+        if (tenantResponse.status === 401) {
+          router.push('/login');
+          return;
+        }
+
+        if (tenantResponse.status === 403) {
+          setError('Access denied. Only tenant administrators can access the monitoring dashboard.');
+          setLoading(false);
+          return;
+        }
+
+        throw new Error(errorData.message || 'Failed to verify admin access');
+      }
+
+      const tenantData = await tenantResponse.json();
+      console.log('[Monitoring] Tenant data received:', tenantData);
+
+      // Decode JWT to get user email for verification
       const parts = token.split('.');
-      console.log('[Monitoring] Token parts count:', parts.length);
-
       const payload = JSON.parse(atob(parts[1]));
-      console.log('[Monitoring] Decoded JWT payload:', payload);
-      console.log('[Monitoring] User loginType from token:', payload.loginType);
-      console.log('[Monitoring] User ID from token:', payload.sub || payload.userId);
       console.log('[Monitoring] User email from token:', payload.email);
+      console.log('[Monitoring] Tenant admin email:', tenantData.email);
 
-      setUserRole(payload.loginType);
-
-      if (payload.loginType !== 'tenant_admin') {
-        console.error('[Monitoring] Access denied - user loginType is:', payload.loginType, "(expected: tenant_admin)");
-        setError('Access denied. Tenant admin privileges required.');
+      // Verify user email matches tenant admin email
+      if (payload.email !== tenantData.email) {
+        console.error('[Monitoring] Access denied - user email does not match tenant admin email');
+        setError('Access denied. Only the tenant administrator can access this dashboard.');
         setLoading(false);
         return;
       }
 
-      console.log('[Monitoring] Admin access verified successfully');
+      console.log('[Monitoring] Admin access verified successfully (email match confirmed)');
+      setTenant(tenantData);
+      setIsAdmin(true);
       setLoading(false);
     } catch (err: any) {
       console.error('[Monitoring] Error verifying admin access:', err);
@@ -95,7 +134,7 @@ export default function MonitoringDashboardPage() {
   const fetchMetrics = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      if (!token) return;
+      if (!token || !tenant) return;
 
       // Fetch requests by tenant
       const requestsResponse = await fetch('/api/monitoring/metrics?preset=requests-by-tenant', {
@@ -104,7 +143,7 @@ export default function MonitoringDashboardPage() {
 
       if (requestsResponse.ok) {
         const requestsData = await requestsResponse.json();
-        setRequestsByTenant(transformGCPData(requestsData.data));
+        setRequestsByTenant(transformGCPData(requestsData.data, tenant.namespace));
       } else if (requestsResponse.status === 404) {
         // Metrics don't exist yet - this is expected for new deployments
         console.log('Metrics not found yet. Waiting for GKE to collect data...');
@@ -117,7 +156,7 @@ export default function MonitoringDashboardPage() {
 
       if (errorsResponse.ok) {
         const errorsData = await errorsResponse.json();
-        setErrorsByTenant(transformGCPData(errorsData.data));
+        setErrorsByTenant(transformGCPData(errorsData.data, tenant.namespace));
       } else if (errorsResponse.status === 404 || errorsResponse.status === 400) {
         console.log('Error metrics not found yet. Waiting for GKE to collect data...');
       }
@@ -129,7 +168,7 @@ export default function MonitoringDashboardPage() {
 
       if (healthResponse.ok) {
         const healthData = await healthResponse.json();
-        setServiceHealth(transformGCPData(healthData.data));
+        setServiceHealth(transformGCPData(healthData.data, tenant.namespace));
       } else if (healthResponse.status === 404) {
         console.log('Health metrics not found yet. Waiting for GKE to collect data...');
       }
@@ -138,19 +177,38 @@ export default function MonitoringDashboardPage() {
     }
   };
 
-  const transformGCPData = (timeSeries: any[]): any[] => {
+  const transformGCPData = (timeSeries: any[], tenantNamespace: string): any[] => {
     if (!timeSeries || timeSeries.length === 0) return [];
+
+    // Filter to only include metrics from the current tenant's namespace
+    const filteredSeries = timeSeries.filter((series) => {
+      const namespace = series.resource?.labels?.namespace;
+      return namespace === tenantNamespace;
+    });
+
+    if (filteredSeries.length === 0) {
+      console.log(`[Monitoring] No metrics found for namespace: ${tenantNamespace}`);
+      return [];
+    }
 
     // Transform GCP Cloud Monitoring format to recharts format
     const dataByTime: Record<string, any> = {};
 
-    timeSeries.forEach((series) => {
-      const label =
-        series.metric?.labels?.service ||
-        series.metric?.labels?.job ||
-        series.metric?.labels?.cluster_name ||
-        series.metric?.labels?.tenant_id ||
-        'unknown';
+    filteredSeries.forEach((series) => {
+      // Get namespace from resource labels
+      const namespace = series.resource?.labels?.namespace || 'unknown';
+      
+      // Get more specific labels if available
+      const pod = series.metric?.labels?.pod || series.metric?.labels?.instance || '';
+      const node = series.metric?.labels?.node || '';
+      
+      // Create a meaningful label combining namespace and pod/node info
+      let label = namespace;
+      if (pod) {
+        label = `${namespace}/${pod}`;
+      } else if (node) {
+        label = `${namespace}/${node}`;
+      }
 
       series.points?.forEach((point: any) => {
         const timestamp = point.interval?.endTime || point.interval?.startTime;
@@ -170,6 +228,23 @@ export default function MonitoringDashboardPage() {
     return Object.values(dataByTime).slice(-20); // Last 20 data points
   };
 
+  // Custom Tooltip Component for Charts
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+          <p className="font-semibold text-sm mb-2">{payload[0].payload.time}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color }} className="text-xs">
+              <span className="font-medium">{entry.name}:</span> {Number(entry.value).toFixed(2)}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -185,13 +260,13 @@ export default function MonitoringDashboardPage() {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <Message severity="error" text={error} className="mb-4" />
-        {userRole !== 'tenant_admin' && (
+        {!isAdmin && (
           <Message
             severity="warn"
-            text="Only tenant administrators can access the monitoring dashboard."
+            text="Only the tenant administrator (matching email) can access the monitoring dashboard."
             className="mb-4"
           />
-        )} 
+        )}
         <Button
           label="Back to Home"
           icon="pi pi-home"
@@ -212,7 +287,7 @@ export default function MonitoringDashboardPage() {
             System Monitoring
           </h1>
           <p className="text-sm">
-            Real-time metrics from GCP Cloud Monitoring across all tenant clusters
+            {tenant ? `Real-time metrics for ${tenant.name} (namespace: ${tenant.namespace})` : 'Real-time metrics from GCP Cloud Monitoring'}
           </p>
         </div>
         <Button
@@ -225,38 +300,6 @@ export default function MonitoringDashboardPage() {
 
       <Divider />
 
-      {/* Metrics Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="Total Services"
-          value="4"
-          subtitle="User, Itinerary, Social, Tenant"
-          icon="pi pi-server"
-          color="blue"
-        />
-        <MetricCard
-          title="Data Source"
-          value="GCP"
-          subtitle="Cloud Monitoring API"
-          icon="pi pi-cloud"
-          color="green"
-        />
-        <MetricCard
-          title="Refresh Rate"
-          value="30s"
-          subtitle="Auto-refresh enabled"
-          icon="pi pi-refresh"
-          color="purple"
-        />
-        <MetricCard
-          title="Multi-Cluster"
-          value="All"
-          subtitle="Centralized metrics"
-          icon="pi pi-globe"
-          color="orange"
-        />
-      </div>
-
       {/* Charts */}
       <div className="space-y-6">
         {/* CPU Usage by Service */}
@@ -267,7 +310,7 @@ export default function MonitoringDashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 {Object.keys(requestsByTenant[0] || {})
                   .filter((key) => key !== 'time')
@@ -296,7 +339,7 @@ export default function MonitoringDashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 {Object.keys(errorsByTenant[0] || {})
                   .filter((key) => key !== 'time')
@@ -318,7 +361,7 @@ export default function MonitoringDashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
                 <YAxis domain={[0, 1]} ticks={[0, 0.5, 1]} />
-                <Tooltip />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 {Object.keys(serviceHealth[0] || {})
                   .filter((key) => key !== 'time')
@@ -348,39 +391,6 @@ export default function MonitoringDashboardPage() {
 }
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0'];
-
-// Metric Card Component
-function MetricCard({
-  title,
-  value,
-  subtitle,
-  icon,
-  color,
-}: {
-  title: string;
-  value: string;
-  subtitle: string;
-  icon: string;
-  color: 'blue' | 'green' | 'purple' | 'orange';
-}) {
-  const colorClasses = {
-    blue: 'text-blue-600',
-    green: 'text-green-600',
-    purple: 'text-purple-600',
-    orange: 'text-orange-600',
-  };
-
-  return (
-    <Card className="shadow-md">
-      <div className="flex items-center justify-between mb-3">
-        <i className={`${icon} text-4xl ${colorClasses[color]}`}></i>
-      </div>
-      <h3 className="text-sm font-medium mb-2">{title}</h3>
-      <p className="text-2xl font-bold mb-1">{value}</p>
-      <p className="text-xs opacity-70">{subtitle}</p>
-    </Card>
-  );
-}
 
 // Chart Card Component
 function ChartCard({

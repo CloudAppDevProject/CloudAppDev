@@ -23,6 +23,10 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  tenantNamespace?: string;
 }
 
 export class FirebaseAuthDto {

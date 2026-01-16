@@ -4,6 +4,7 @@ import { jwtVerify } from 'jose';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 const GCP_PROJECT_ID = process.env.GCP_PROJECT_ID;
 const GCP_CREDENTIALS_BASE64 = process.env.GCP_MONITORING_CREDENTIALS_BASE64;
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
 
 /**
  * GCP Cloud Monitoring API Proxy
@@ -36,10 +37,11 @@ interface MetricsRequest {
   };
 }
 
-async function verifyAdminToken(request: NextRequest): Promise<{ valid: boolean; userId?: number; loginType?: string }> {
+async function verifyAdminToken(request: NextRequest): Promise<{ valid: boolean; userId?: number; email?: string; tenantUuid?: string }> {
   try {
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[Monitoring API] No authorization header');
       return { valid: false };
     }
 
@@ -47,15 +49,40 @@ async function verifyAdminToken(request: NextRequest): Promise<{ valid: boolean;
     const secret = new TextEncoder().encode(JWT_SECRET);
     const { payload } = await jwtVerify(token, secret);
 
-    // Require loginType === 'tenant_admin'
-    if (payload.loginType !== 'tenant_admin') {
+    const userEmail = payload.email as string | undefined;
+    const tenantUuid = payload.tenantUuid as string | undefined;
+
+    if (!userEmail || !tenantUuid) {
+      console.log('[Monitoring API] Missing email or tenantUuid in token');
       return { valid: false };
     }
 
+    // Fetch tenant to verify user is the tenant admin (email match)
+    console.log('[Monitoring API] Fetching tenant for admin verification...');
+    const tenantResponse = await fetch(`${API_GATEWAY_URL}/api/v1/tenants/${tenantUuid}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!tenantResponse.ok) {
+      console.error('[Monitoring API] Failed to fetch tenant:', tenantResponse.status);
+      return { valid: false };
+    }
+
+    const tenant = await tenantResponse.json();
+    console.log('[Monitoring API] User email:', userEmail, 'Tenant admin email:', tenant.email);
+
+    // Verify user email matches tenant admin email
+    if (userEmail !== tenant.email) {
+      console.error('[Monitoring API] Access denied - email mismatch');
+      return { valid: false };
+    }
+
+    console.log('[Monitoring API] Admin access verified (email match confirmed)');
     return {
       valid: true,
       userId: payload.userId as number,
-      loginType: payload.loginType as string,
+      email: userEmail,
+      tenantUuid,
     };
   } catch (error) {
     console.error('[Monitoring API] Token verification failed:', error);
@@ -216,34 +243,34 @@ export async function GET(request: NextRequest) {
   const preset = searchParams.get('preset');
 
   const presets: Record<string, MetricsRequest> = {
-    // CPU usage by service (default Node.js metrics)
+    // CPU usage by namespace using Prometheus metrics
     'requests-by-tenant': {
-      metricType: 'prometheus.googleapis.com/process_cpu_seconds_total/counter',
+      metricType: 'prometheus.googleapis.com/container_cpu_usage_seconds_total/counter',
       aggregation: {
         alignmentPeriod: '60s',
         perSeriesAligner: 'ALIGN_RATE',
         crossSeriesReducer: 'REDUCE_SUM',
-        groupByFields: ['metric.label.service'],
+        groupByFields: ['resource.labels.namespace'],
       },
     },
-    // Memory usage by service (default Node.js metrics)
+    // Memory usage by namespace
     'errors-by-tenant': {
-      metricType: 'prometheus.googleapis.com/nodejs_heap_size_used_bytes/gauge',
+      metricType: 'prometheus.googleapis.com/container_memory_working_set_bytes/gauge',
       aggregation: {
         alignmentPeriod: '60s',
         perSeriesAligner: 'ALIGN_MEAN',
         crossSeriesReducer: 'REDUCE_MEAN',
-        groupByFields: ['metric.label.service'],
+        groupByFields: ['resource.labels.namespace'],
       },
     },
-    // Service health (up metric from Prometheus)
+    // Network traffic by namespace
     'service-health': {
-      metricType: 'prometheus.googleapis.com/up/gauge',
+      metricType: 'prometheus.googleapis.com/container_network_receive_bytes_total/counter',
       aggregation: {
         alignmentPeriod: '60s',
-        perSeriesAligner: 'ALIGN_MEAN',
-        crossSeriesReducer: 'REDUCE_MEAN',
-        groupByFields: ['metric.label.service'],
+        perSeriesAligner: 'ALIGN_RATE',
+        crossSeriesReducer: 'REDUCE_SUM',
+        groupByFields: ['resource.labels.namespace'],
       },
     },
   };

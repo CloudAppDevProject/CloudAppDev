@@ -197,42 +197,20 @@ export class AuthService {
     throw new UnauthorizedException('Invalid credentials');
   }
 
-  async register(registerDto: RegisterDto, hostHeader?: string, headerNamespace?: string) {
+  async register(registerDto: RegisterDto) {
     this.logger.log(`Registration attempt for email: ${registerDto.email}`);
     try {
       const tenantServiceUrl =
         process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
 
       // Determine tenant namespace (order of precedence):
-      //  - explicit header `x-tenant-namespace` or `x-tenant`
-      //  - subdomain of Host header (e.g. org1.cloudappdev.site -> org1)
-      //  - DEFAULT_TENANT_NAMESPACE env var
-      //  - fallback to 'free'
-      let tenantNamespace: string | undefined = undefined;
-
-      if (headerNamespace) {
-        tenantNamespace = String(headerNamespace).toLowerCase();
-        this.logger.log(`Using tenant namespace from header: ${tenantNamespace}`);
-      } else if (hostHeader) {
-        try {
-          const host = String(hostHeader).split(':')[0]; // strip port
-          // If host is not localhost and contains a dot, use first segment as namespace
-          if (!host.includes('localhost') && host.includes('.')) {
-            tenantNamespace = host.split('.')[0].toLowerCase();
-            this.logger.log(`Derived tenant namespace from Host header: ${tenantNamespace} (host: ${host})`);
-          } else {
-            this.logger.log(`Host header ${host} does not indicate a tenant subdomain; falling back`);
-          }
-        } catch (err) {
-          this.logger.warn(`Failed to parse Host header for tenant namespace: ${err.message}`);
-        }
-      }
-
+      //  1. Explicit tenantNamespace from request body (extracted by frontend from subdomain)
+      //  2. DEFAULT_TENANT_NAMESPACE env var
+      //  3. Fallback to 'free'
       const defaultTenantNamespace = process.env.DEFAULT_TENANT_NAMESPACE || 'free';
-      if (!tenantNamespace) {
-        tenantNamespace = defaultTenantNamespace;
-        this.logger.log(`No tenant namespace derived from host/header; using default: ${tenantNamespace}`);
-      }
+      const tenantNamespace = registerDto.tenantNamespace?.toLowerCase() || defaultTenantNamespace;
+
+      this.logger.log(`Using tenant namespace: ${tenantNamespace} (from body: ${!!registerDto.tenantNamespace})`);
 
       // Try to lookup tenant by namespace
       let tenantUuid: string | null = null;
