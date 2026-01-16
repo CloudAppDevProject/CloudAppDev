@@ -132,6 +132,11 @@ resource "google_service_account_iam_member" "workload_identity" {
   
   service_account_id = google_service_account.sa.name
   role               = "roles/iam.workloadIdentityUser"
-  # TODO (): Make namespace configurable
   member             = "serviceAccount:${var.project}.svc.id.goog[${var.namespace}/${each.value}]"
+}
+
+resource "google_service_account_iam_member" "token_creator" {
+  service_account_id = google_service_account.sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.sa.email}"
 }
