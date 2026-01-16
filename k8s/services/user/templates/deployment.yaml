@@ -21,6 +21,11 @@ spec:
         {{- range .Values.initContainers }}
         - name: {{ .name }}
           image: {{ .image }}
+          restartPolicy: {{ .restartPolicy }}
+          securityContext:
+            runAsNonRoot: {{ .securityContext.runAsNonRoot }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
           args:
             - "--port=5432"
             - "cloudappdev-dev:europe-west1:cloudappdev-{{ $.Values.namespace }}"
