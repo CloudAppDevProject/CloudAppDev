@@ -419,7 +419,7 @@ jobs:
               for NAMESPACE in "${NS_ARRAY[@]}"; do
                 SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-users-password")
                 if {[ -z "$SECRET_VALUE" ]; then
-                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-user-password"
+                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-users-password"
                   exit 1
                 fi
                 echo "user_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
@@ -480,193 +480,127 @@ jobs:
 
             # Deploy service-specific secrets to namespace
             echo "🔐 Deploying secrets for ${{ matrix.service }} to ${NAMESPACE}"
-
-            # Determine secret name and required keys based on service
             case "${{ matrix.service }}" in
+
               "user-service")
                 SECRET_NAME="user-service-secrets"
-                # Check if secret already exists
-                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
-                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
-                else
-                  VAR_NAME="user_${NAMESPACE}_db_password"
-                  RAW_DB_PASSWORD="${!VAR_NAME}"
 
-                  if [[ -z "$RAW_DB_PASSWORD" ]]; then
-                    echo "❌ ERROR: Expected env variable $VAR_NAME but it is empty or undefined"
-                    exit 1
-                  fi
+                VAR_NAME="user_${NAMESPACE}_db_password"
+                RAW_DB_PASSWORD="${!VAR_NAME}"
 
-                  DB_PASSWORD=$(printf '%q' "$RAW_DB_PASSWORD")
-
-                  kubectl create secret generic "${SECRET_NAME}" \
-                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
-                    --from-literal=JWT_SECRET="$JWT_SECRET" \
-                    --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
-                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
-                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
-                    --from-literal=GOOGLE_CLOUD_PROJECT_ID="$GCP_PROJECT_ID" \
-                    --namespace "${NAMESPACE}"
+                if [[ -z "$RAW_DB_PASSWORD" ]]; then
+                  echo "❌ ERROR: Expected env variable $VAR_NAME but it is empty or undefined"
+                  exit 1
                 fi
+
+                DB_PASSWORD=$(printf '%q' "$RAW_DB_PASSWORD")
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
+
+                kubectl create secret generic "${SECRET_NAME}" \
+                  --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                  --from-literal=JWT_SECRET="$JWT_SECRET" \
+                  --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
+                  --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
+                  --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
+                  --from-literal=GOOGLE_CLOUD_PROJECT_ID="$GCP_PROJECT_ID" \
+                  --namespace "${NAMESPACE}"
                 ;;
+
               "itinerary-service")
                 SECRET_NAME="itinerary-service-secrets"
-                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
-                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
-                else
-                  VAR_NAME="itinerary_${NAMESPACE}_db_password" \
-                  DB_PASSWORD="${!VAR_NAME}" \
-                  kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=DB_PASSWORD="$DB_PASSWORD" \
-                    --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
-                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
-                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
-                    --from-literal=GOOGLE_CLOUD_PROJECT_ID="$GCP_PROJECT_ID" \
-                    --namespace ${NAMESPACE}
-                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
-                fi
+
+                VAR_NAME="itinerary_${NAMESPACE}_db_password"
+                DB_PASSWORD="${!VAR_NAME}"
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
+
+                kubectl create secret generic "${SECRET_NAME}" \
+                  --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+                  --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
+                  --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
+                  --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
+                  --from-literal=GOOGLE_CLOUD_PROJECT_ID="$GCP_PROJECT_ID" \
+                  --namespace ${NAMESPACE}
                 ;;
+
               "social-service")
                 SECRET_NAME="social-service-secrets"
-                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
-                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
-                else
-                  kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
-                    --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
-                    --from-literal=USER_SERVICE_URL="http://user-service:8080" \
-                    --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
-                    --from-literal=SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
-                    --from-literal=SENDGRID_FROM_NAME="${{ secrets.SENDGRID_FROM_NAME }}" \
-                    --from-literal=NEWSLETTER_MODE="production" \
-                    --namespace ${NAMESPACE}
-                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
-                fi
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
+
+                kubectl create secret generic ${SECRET_NAME} \
+                  --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+                  --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
+                  --from-literal=USER_SERVICE_URL="http://user-service:8080" \
+                  --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
+                  --from-literal=SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
+                  --from-literal=SENDGRID_FROM_NAME="${{ secrets.SENDGRID_FROM_NAME }}" \
+                  --from-literal=NEWSLETTER_MODE="production" \
+                  --namespace ${NAMESPACE}
                 ;;
+
               "tenant-service")
                 SECRET_NAME="tenant-service-secrets"
-                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
-                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
-                else
-                  VAR_NAME="tenant_${NAMESPACE}_db_password" \
-                  DB_PASSWORD="${!VAR_NAME}" \
-                  kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
-                    --from-literal=JWT_SECRET="$JWT_SECRET" \
-                    --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
-                    --namespace ${NAMESPACE}
-                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
-                fi
+
+                VAR_NAME="tenant_${NAMESPACE}_db_password"
+                DB_PASSWORD="${!VAR_NAME}"
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
+
+                kubectl create secret generic ${SECRET_NAME} \
+                  --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                  --from-literal=JWT_SECRET="$JWT_SECRET" \
+                  --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
+                  --namespace ${NAMESPACE}
                 ;;
+
               "provisioning-service")
                 SECRET_NAME="provisioning-service-secrets"
-                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
-                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
-                else
-                  kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=GCP_SERVICE_ACCOUNT_KEY="$GCP_SA_KEY" \
-                    --namespace ${NAMESPACE}
-                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
-                fi
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
+
+                kubectl create secret generic ${SECRET_NAME} \
+                  --from-literal=GCP_SERVICE_ACCOUNT_KEY="$GCP_SA_KEY" \
+                  --namespace ${NAMESPACE}
                 ;;
+
               "travel-info-service")
                 SECRET_NAME="travel-info-secrets"
-                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
-                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
-                else
-                  kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=JWT_SECRET="$JWT_SECRET" \
-                    --namespace ${NAMESPACE}
-                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
-                fi
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
+
+                kubectl create secret generic ${SECRET_NAME} \
+                  --from-literal=JWT_SECRET="$JWT_SECRET" \
+                  --namespace ${NAMESPACE}
                 ;;
 
               "frontend")
                 SECRET_NAME="cloudappdev-secrets"
-                # Frontend may need app-level secrets (if any)
-                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
-                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
-                else
-                  kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=API_GATEWAY_URL='api-gateway:80' \
-                    --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
-                    --from-literal=APP_MODE=HUB \
-                    --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
-                    --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
-                    --namespace ${NAMESPACE}
-                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
-                fi
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
+
+                kubectl create secret generic ${SECRET_NAME} \
+                  --from-literal=API_GATEWAY_URL='api-gateway:80' \
+                  --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
+                  --from-literal=APP_MODE=HUB \
+                  --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
+                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
+                  --namespace ${NAMESPACE}
                 ;;
+
               "api-gateway")
-                # API Gateway is stateless and doesn't need secrets
                 echo "ℹ️ API Gateway is stateless (no secrets needed)"
-                ;;
-              *)
-                echo "⚠️ Unknown service ${{ matrix.service }}, skipping secret creation"
                 ;;
             esac
 
-            # Check for stuck Helm releases and fix by deleting ALL stuck secrets
-            RELEASE_STATUS=$(helm status ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
-            if [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ]; then
-              echo "⚠️ Found stuck release in ${NAMESPACE} with status: ${RELEASE_STATUS}"
-              echo "🔄 Cleaning up ALL stuck Helm secrets..."
-
-              # Get all revisions with pending status
-              helm history ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | \
-                jq -r '.[] | select(.status | contains("pending")) | .revision' | \
-                while read -r revision; do
-                  if [ -n "$revision" ]; then
-                    echo "🗑️ Deleting stuck secret for revision ${revision}"
-                    kubectl delete secret -n ${NAMESPACE} sh.helm.release.v1.${{ steps.chart.outputs.release }}.v${revision} --ignore-not-found=true
-                  fi
-                done
-
-              # Also clean up by label selector (backup method)
-              kubectl delete secret -n ${NAMESPACE} \
-                -l "name=${{ steps.chart.outputs.release }},owner=helm,status in (pending-install,pending-upgrade,pending-rollback)" \
-                --ignore-not-found=true 2>/dev/null || true
-
-              echo "✓ All stuck Helm secrets cleaned up"
-
-              # Wait a moment for Kubernetes to process deletions
-              sleep 2
-
-              echo "✓ Release unlocked, proceeding with deployment"
-            fi
-
-            # Disable HTTPRoute and HTTPSRoute for free and standard namespaces (frontend only)
-            EXTRA_ARGS=""
-            if [ "${{ matrix.service }}" = "frontend" ] && [ "${NAMESPACE}" != "cloudappdev" ]; then
-              EXTRA_ARGS="--set httpRoute.enabled=false --set httpsRoute.enabled=false"
-              echo "ℹ️ Disabling HTTPRoute and HTTPSRoute for ${NAMESPACE} namespace"
-            fi
-
-            # Configure API Gateway namespace routing for multi-tenant deployments
-            if [ "${{ matrix.service }}" = "api-gateway" ]; then
-              # Set service namespace values based on deployment namespace
-              EXTRA_ARGS="${EXTRA_ARGS} --set env[1].name=USER_NAMESPACE --set env[1].value=${NAMESPACE}"
-              EXTRA_ARGS="${EXTRA_ARGS} --set env[2].name=ITINERARY_NAMESPACE --set env[2].value=${NAMESPACE}"
-              EXTRA_ARGS="${EXTRA_ARGS} --set env[3].name=SOCIAL_NAMESPACE --set env[3].value=${NAMESPACE}"
-              echo "ℹ️ Configuring API Gateway for namespace routing (USER/ITINERARY/SOCIAL: ${NAMESPACE}, TRAVEL_INFO/TENANT: default)"
-            fi
-
-            # Update Chart.yaml appVersion before deploying
-            echo "📝 Updating Chart.yaml appVersion to ${VERSION}"
-            sed -i.bak "s/^appVersion:.*/appVersion: \"${VERSION}\"/" ${{ steps.chart.outputs.path }}/Chart.yaml
-
-            helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
-              --namespace ${NAMESPACE} \
-              --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
-              --set image.tag=${VERSION} \
-              --set namespace=${NAMESPACE} \
-              --set fullnameOverride=${{ steps.chart.outputs.release }} \
-              ${EXTRA_ARGS} \
-              --wait \
-              --timeout 5m
-
-            echo "✅ Deployed to ${NAMESPACE}"
-          done
 
       - name: Verify deployment
         run: |
