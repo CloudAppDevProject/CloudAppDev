@@ -505,6 +505,7 @@ jobs:
               "itinerary-service")
                 SECRET_NAME="itinerary-service-secrets"
 
+  
                 VAR_NAME="itinerary_${NAMESPACE}_db_password"
                 DB_PASSWORD="${!VAR_NAME}"
 
