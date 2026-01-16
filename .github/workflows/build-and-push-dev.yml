@@ -600,6 +600,7 @@ jobs:
                 echo "ℹ️ API Gateway is stateless (no secrets needed)"
                 ;;
             esac
+          done
 
 
       - name: Verify deployment
