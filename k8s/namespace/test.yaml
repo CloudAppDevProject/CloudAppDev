@@ -1,0 +1,963 @@
+---
+# Source: cloudappdev/charts/app/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-sa
+  labels:
+    helm.sh/chart: app-1.0.2
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    iam.gke.io/gcp-service-account: app-sa@cloudappdev-dev.iam.gserviceaccount.com
+---
+# Source: cloudappdev/charts/itinerary-service/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: test4
+  name: itinerary-service-sa
+  labels:
+    helm.sh/chart: itinerary-service-1.0.1
+    app.kubernetes.io/name: itinerary-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    iam.gke.io/gcp-service-account: itinerary-service-sa@cloudappdev-dev.iam.gserviceaccount.com
+---
+# Source: cloudappdev/charts/social-service/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: test4
+  name: social-service-sa
+  labels:
+    helm.sh/chart: social-service-1.0.1
+    app.kubernetes.io/name: social-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    iam.gke.io/gcp-service-account: social-service-sa@cloudappdev-dev.iam.gserviceaccount.com
+---
+# Source: cloudappdev/charts/user-service/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: test4
+  name: user-service-sa
+  labels:
+    helm.sh/chart: user-service-1.0.5
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    iam.gke.io/gcp-service-account: user-service-sa@cloudappdev-dev.iam.gserviceaccount.com
+---
+# Source: cloudappdev/charts/app/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: test4-app
+  namespace: test4
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: test4
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+---
+# Source: cloudappdev/charts/itinerary-service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: test4
+  name: test4-itinerary-service
+  labels:
+    helm.sh/chart: itinerary-service-1.0.1
+    app.kubernetes.io/name: itinerary-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8081
+      targetPort: 8081
+  selector:
+    app.kubernetes.io/name: itinerary-service
+    app.kubernetes.io/instance: test4
+---
+# Source: cloudappdev/charts/social-service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: test4
+  name: test4-social-service
+  labels:
+    helm.sh/chart: social-service-1.0.1
+    app.kubernetes.io/name: social-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8082
+      targetPort: 8082
+      protocol: TCP
+      name: social-svc-port
+  selector:
+    app.kubernetes.io/name: social-service
+    app.kubernetes.io/instance: test4
+---
+# Source: cloudappdev/charts/user-service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: test4
+  name: test4-user-service
+  labels:
+    helm.sh/chart: user-service-1.0.5
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: user-svc-port
+  selector:
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/instance: test4
+---
+# Source: cloudappdev/charts/api-gateway/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: test4
+  name: test4-api-gateway
+  labels:
+    helm.sh/chart: api-gateway-1.0.4
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
+      app.kubernetes.io/instance: test4
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: api-gateway-1.0.4
+        app.kubernetes.io/name: api-gateway
+        app.kubernetes.io/instance: test4
+        app.kubernetes.io/version: "0.0.9"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      containers:
+        - name: api-gateway
+          image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-api-gateway:0.0.9"
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: RESOLVER_IP
+            value: kube-dns.kube-system.svc.cluster.local
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+---
+# Source: cloudappdev/charts/app/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test4-app
+  namespace: test4
+  labels: 
+    helm.sh/chart: app-1.0.2
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      
+      app.kubernetes.io/name: app
+      app.kubernetes.io/instance: test4
+  template:
+    metadata:
+      labels:
+        
+        app.kubernetes.io/name: app
+        app.kubernetes.io/instance: test4
+    spec:
+      serviceAccountName: app-sa
+      containers:
+        - name: app
+          image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-frontend:0.0.9"
+          ports:
+            - containerPort: 3000
+          env:
+            - name: API_GATEWAY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cloudappdev-secrets
+                  key: API_GATEWAY_URL
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "600m"
+              memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: "/"
+              port: 3000
+            initialDelaySeconds: 10
+            failureThreshold: 30
+            periodSeconds: 1
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: "/"
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: "/"
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 2
+---
+# Source: cloudappdev/charts/itinerary-service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: test4
+  name: test4-itinerary-service
+  labels:
+    helm.sh/chart: itinerary-service-1.0.1
+    app.kubernetes.io/name: itinerary-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: itinerary-service
+      app.kubernetes.io/instance: test4
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: itinerary-service-1.0.1
+        app.kubernetes.io/name: itinerary-service
+        app.kubernetes.io/instance: test4
+        app.kubernetes.io/version: "0.0.9"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      initContainers:
+        - args:
+          - --port=5432
+          - cloudappdev-dev:europe-west1:cloudappdev-dev-itinerary-db
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+          name: cloud-sql-proxy
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          restartPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+      serviceAccountName: itinerary-service-sa
+      containers:
+        - name: itinerary-service
+          image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-itinerary-service:0.0.9"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: itinerary-port
+              containerPort: 8081
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          livenessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            tcpSocket:
+              port: 8081
+          readinessProbe:
+            failureThreshold: 30
+            initialDelaySeconds: 5
+            periodSeconds: 1
+            tcpSocket:
+              port: 8081
+          env:
+            - name: NODE_ENV
+              value: development
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: itinerary-service-secrets
+            - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+              valueFrom:
+                secretKeyRef:
+                  key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+                  name: itinerary-service-secrets
+            - name: GOOGLE_CLOUD_STORAGE_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  key: GOOGLE_CLOUD_STORAGE_BUCKET
+                  name: itinerary-service-secrets
+            - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
+              valueFrom:
+                secretKeyRef:
+                  key: GOOGLE_CLOUD_CREDENTIALS_BASE64
+                  name: itinerary-service-secrets
+            - name: GOOGLE_CLOUD_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: GOOGLE_CLOUD_PROJECT_ID
+                  name: itinerary-service-secrets
+            - name: FRONTEND_URL
+              valueFrom:
+                secretKeyRef:
+                  key: FRONTEND_URL
+                  name: itinerary-service-secrets
+---
+# Source: cloudappdev/charts/social-service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: test4
+  name: test4-social-service
+  labels:
+    helm.sh/chart: social-service-1.0.1
+    app.kubernetes.io/name: social-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: social-service
+      app.kubernetes.io/instance: test4
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: social-service-1.0.1
+        app.kubernetes.io/name: social-service
+        app.kubernetes.io/instance: test4
+        app.kubernetes.io/version: "0.0.9"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: social-service-sa
+      containers:
+        - name: social-service
+          image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-social-service:0.0.9"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: social-port
+              containerPort: 8082
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          startupProbe:
+            failureThreshold: 30
+            initialDelaySeconds: 5
+            periodSeconds: 1
+            tcpSocket:
+              port: 8082
+          livenessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            tcpSocket:
+              port: 8082
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                secretKeyRef:
+                  key: NODE_ENV
+                  name: social-service-secrets
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  key: MONGODB_URI
+                  name: social-service-secrets
+            - name: ITINERARY_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: ITINERARY_SERVICE_URL
+                  name: social-service-secrets
+            - name: USER_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: USER_SERVICE_URL
+                  name: social-service-secrets
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: SENDGRID_API_KEY
+                  name: social-service-secrets
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  key: SENDGRID_FROM_EMAIL
+                  name: social-service-secrets
+            - name: NEWSLETTER_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  key: SENDGRID_FROM_NAME
+                  name: social-service-secrets
+            - name: NEWSLETTER_MODE
+              valueFrom:
+                secretKeyRef:
+                  key: NEWSLETTER_MODE
+                  name: social-service-secrets
+---
+# Source: cloudappdev/charts/user-service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: test4
+  name: test4-user-service
+  labels:
+    helm.sh/chart: user-service-1.0.5
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: user-service
+      app.kubernetes.io/instance: test4
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: user-service-1.0.5
+        app.kubernetes.io/name: user-service
+        app.kubernetes.io/instance: test4
+        app.kubernetes.io/version: "0.0.9"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      initContainers:
+        - args:
+          - --port=5432
+          - cloudappdev-dev:europe-west1:cloudappdev-dev-users-db
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+          name: cloud-sql-proxy
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          restartPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+      serviceAccountName: user-service-sa
+      containers:
+        - name: user-service
+          image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-user-service:0.0.9"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: user-port
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          startupProbe:
+            failureThreshold: 30
+            initialDelaySeconds: 5
+            periodSeconds: 1
+            tcpSocket:
+              port: 8080
+          livenessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            tcpSocket:
+              port: 8080
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                secretKeyRef:
+                  key: NODE_ENV
+                  name: user-service-secrets
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: user-service-secrets
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: JWT_SECRET
+                  name: user-service-secrets
+            - name: JWT_EXPIRATION
+              valueFrom:
+                secretKeyRef:
+                  key: JWT_EXPIRATION
+                  name: user-service-secrets
+            - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+              valueFrom:
+                secretKeyRef:
+                  key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+                  name: user-service-secrets
+            - name: GOOGLE_CLOUD_STORAGE_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  key: GOOGLE_CLOUD_STORAGE_BUCKET
+                  name: user-service-secrets
+            - name: GOOGLE_CLOUD_CREDENTIALS_BASE64
+              valueFrom:
+                secretKeyRef:
+                  key: GOOGLE_CLOUD_CREDENTIALS_BASE64
+                  name: user-service-secrets
+            - name: GOOGLE_CLOUD_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: GOOGLE_CLOUD_PROJECT_ID
+                  name: user-service-secrets
+---
+# Source: cloudappdev/charts/api-gateway/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: test4
+  name: test4-api-gateway
+  labels:
+    helm.sh/chart: api-gateway-1.0.4
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test4-api-gateway
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+# Source: cloudappdev/charts/app/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: test4-app
+  labels:
+    helm.sh/chart: app-1.0.2
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test4-app
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+# Source: cloudappdev/charts/itinerary-service/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: test4
+  name: test4-itinerary-service
+  labels:
+    helm.sh/chart: itinerary-service-1.0.1
+    app.kubernetes.io/name: itinerary-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test4-itinerary-service
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+# Source: cloudappdev/charts/social-service/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: test4
+  name: test4-social-service
+  labels:
+    helm.sh/chart: social-service-1.0.1
+    app.kubernetes.io/name: social-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test4-social-service
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+# Source: cloudappdev/charts/user-service/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: test4
+  name: test4-user-service
+  labels:
+    helm.sh/chart: user-service-1.0.5
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test4-user-service
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+# Source: cloudappdev/charts/social-service/templates/cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  namespace: test4
+  name: test4-social-service-newsletter
+  labels:
+    helm.sh/chart: social-service-1.0.1
+    app.kubernetes.io/name: social-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+    component: newsletter
+  annotations:
+    description: "Weekly newsletter distribution job for CloudAppDev platform"
+spec:
+  schedule: "0 20 * * 0"
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: social-service
+            app.kubernetes.io/instance: test4
+            job-type: newsletter
+          annotations:
+            description: "Weekly newsletter send job"
+        spec:
+          serviceAccountName: social-service-sa
+          restartPolicy: OnFailure
+          containers:
+          - name: newsletter-sender
+            image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-social-service:0.2.30"
+            imagePullPolicy: Always
+            command:
+            - npm
+            - run
+            - newsletter:send-weekly
+            env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: MONGODB_URI
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_API_KEY
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_FROM_EMAIL
+            - name: SENDGRID_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_FROM_NAME
+            - name: USER_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: USER_SERVICE_URL
+            - name: ITINERARY_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: ITINERARY_SERVICE_URL
+            - name: NEWSLETTER_ENABLED
+              value: "true"
+            - name: NEWSLETTER_BATCH_SIZE
+              value: "50"
+            - name: NEWSLETTER_RETRY_LIMIT
+              value: "3"
+            - name: NEWSLETTER_RETRY_DELAY_MS
+              value: "5000"
+            - name: FRONTEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: FRONTEND_URL
+            - name: NODE_ENV
+              value: "production"
+            - name: NEWSLETTER_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: NEWSLETTER_MODE
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+          tolerations:
+          - effect: NoSchedule
+            key: batch-jobs
+            operator: Equal
+            value: "true"
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                      - cloudappdev-app
+                  topologyKey: kubernetes.io/hostname
+---
+# Source: cloudappdev/charts/app/templates/gateway.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: test4-app-gateway
+  namespace: test4
+  annotations:
+    networking.gke.io/certmap: cloudappdev-dev-cert-map # TODO Make configurable
+spec:
+  gatewayClassName: "gke-l7-global-external-managed"
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "dev.cloudappdev.site"
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "dev.cloudappdev.site"
+---
+# Source: cloudappdev/charts/app/templates/httproute.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: test4-app-http
+  namespace: test4
+  labels:
+    helm.sh/chart: app-1.0.2
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: test4-app-gateway
+      namespace: 
+      sectionName: http
+  rules:
+    - filters:
+        - requestRedirect:
+            scheme: https
+            statusCode: 301
+          type: RequestRedirect
+---
+# Source: cloudappdev/charts/app/templates/httpsroute.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: test4-app-https
+  namespace: test4
+  labels:
+    helm.sh/chart: app-1.0.2
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: test4-app-gateway
+      namespace: 
+      sectionName: https
+  hostnames:
+    - "dev.cloudappdev.site"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: test4-app
+          port: 80
+          kind: Service
+---
+# Source: cloudappdev/charts/app/templates/healthcheck-policy.yaml
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: test4-app
+  namespace: test4
+spec:
+  default:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    config:
+      type: TCP
+      httpHealthCheck:
+        portSpecification: USE_SERVING_PORT
+        requestPath: /  
+  targetRef:
+    group: ""                  
+    kind: Service
+    name: test4-app
+---
+# Source: cloudappdev/charts/api-gateway/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "test4-api-gateway-test-connection"
+  labels:
+    helm.sh/chart: api-gateway-1.0.4
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['test4-api-gateway:80']
+  restartPolicy: Never
+---
+# Source: cloudappdev/charts/app/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "test4-app-test-connection"
+  labels:
+    helm.sh/chart: app-1.0.2
+    app.kubernetes.io/name: app
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['test4-app:80']
+  restartPolicy: Never
+---
+# Source: cloudappdev/charts/itinerary-service/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "test4-itinerary-service-test-connection"
+  labels:
+    helm.sh/chart: itinerary-service-1.0.1
+    app.kubernetes.io/name: itinerary-service
+    app.kubernetes.io/instance: test4
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['test4-itinerary-service:8081']
+  restartPolicy: Never

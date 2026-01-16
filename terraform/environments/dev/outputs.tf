@@ -1,113 +1,86 @@
-# --- Databases & Buckets ---
-output "users_db_connection_name" {
-  description = "Users database connection name"
-  value       = module.users_db.instance_connection_name
-}
-
-output "itinerary_db_connection_name" {
-  description = "Itinerary database connection name"
-  value       = module.itinerary_db.instance_connection_name
-}
-
-output "tenant_db_connection_name" {
-  description = "Tenant database connection name"
-  value       = module.tenant_db.instance_connection_name
-}
-
-output "images_bucket_name" {
-  description = "Images bucket name"
-  value       = module.images_bucket.bucket_name
-}
-
-output "social_db_name" {
-  description = "Social database name"
-  value       = module.social_db.database_name
-}
-
-# --- App ---
-output "app_service_account_name" {
-  description = "Service account name"
-  value       = module.app_service_account.name
-}
-
-output "app_service_account_email" {
-  description = "Service account email"
-  value       = module.app_service_account.email
-}
-
-# --- Itinerary ---
-output "itinerary_service_account_name" {
-  description = "Itinerary service account name"
-  value       = module.itinerary_service_account.name
-}
-
-output "itinerary_service_account_email" {
-  description = "Itinerary service account email"
-  value       = module.itinerary_service_account.email
-}
-
-# --- User ---
-output "user_service_account_name" {
-  description = "User service account name"
-  value       = module.user_service_account.name
-}
-
-output "user_service_account_email" {
-  description = "User service account email"
-  value       = module.user_service_account.email
-}
-
-# --- Social ---
-output "social_service_account_name" {
-  description = "Social service account name"
-  value       = module.social_service_account.name
-}
-output "social_service_account_email" {
-  description = "Social service account email"
-  value       = module.social_service_account.email
-}
-
-# --- Tenant ---
-output "tenant_service_account_name" {
-  description = "Tenant service account name"
-  value       = module.tenant_service_account.name
-}
-output "tenant_service_account_email" {
-  description = "Tenant service account email"
-  value       = module.tenant_service_account.email
-}
-
-output "gke_cluster_name" {
-  description = "GKE Cluster Name"
-  value       = google_container_cluster.primary.name
-}
-
-# --- Certificate ---
-output "dns_authorization_record" {
-  description = "DNS authorization CNAME record (auto-created in Cloudflare)"
+output "infrastructure" {
+  description = "Tier-grouped infrastructure outputs"
   value = {
-    name = google_certificate_manager_dns_authorization.default.dns_resource_record[0].name
-    type = google_certificate_manager_dns_authorization.default.dns_resource_record[0].type
-    data = google_certificate_manager_dns_authorization.default.dns_resource_record[0].data
+    free = {
+      databases = {
+        connection_name = module.free.database_connection_name
+        social_db_name  = module.free.social_db_name
+      }
+
+      buckets = {
+        images = module.free.images_bucket_name
+      }
+
+      service_accounts = module.free.all_service_accounts
+    }
+
+    standard = {
+      databases = {
+        connection_name = module.standard.database_connection_name
+        social_db_name  = module.standard.social_db_name
+      }
+
+      buckets = {
+        images = module.standard.images_bucket_name
+      }
+
+      service_accounts = module.standard.all_service_accounts
+    }
+
+    tenant = {
+      databases = {
+        connection_name = module.default_databases.instance_connection_name
+      }
+
+      service_account = {
+        name  = module.tenant_service_account.name
+        email = module.tenant_service_account.email
+      }
+    }
+
+    app = {
+      service_account = {
+        name  = module.app_service_account.name
+        email = module.app_service_account.email
+      }
+    }
+
+    provisioner = {
+      service_account = {
+        name  = module.provisioning_service_account.name
+        email = module.provisioning_service_account.email
+      }
+    }
+
+    gke = {
+      cluster_name = google_container_cluster.primary.name
+    }
+
+    certificate = {
+      dns_record     = module.main_domain.dns_validation_record
+      certificate_id = module.main_domain.certificate_id
+      map = {
+        name = google_certificate_manager_certificate_map.main.name
+        id   = google_certificate_manager_certificate_map.main.id
+      }
+    }
+
+    gateway = {
+      name        = kubernetes_manifest.main_gateway.manifest.metadata.name
+      namespace   = kubernetes_manifest.main_gateway.manifest.metadata.namespace
+      static_ip   = google_compute_global_address.main_gateway_ip.address
+      static_ip_name = google_compute_global_address.main_gateway_ip.name
+
+      dns_record = {
+        name    = cloudflare_dns_record.main_gateway.name
+        content = cloudflare_dns_record.main_gateway.content
+        proxied = cloudflare_dns_record.main_gateway.proxied
+      }
+
+      urls = {
+        http  = "http://${var.hostname}"
+        https = "https://${var.hostname}"
+      }
+    }
   }
-}
-
-output "certificate_name" {
-  description = "Google-managed SSL certificate name"
-  value       = google_certificate_manager_certificate.default.name
-}
-
-output "certificate_id" {
-  description = "Google-managed SSL certificate ID"
-  value       = google_certificate_manager_certificate.default.id
-}
-
-output "certificate_map_name" {
-  description = "Certificate map name"
-  value       = google_certificate_manager_certificate_map.default.name
-}
-
-output "certificate_map_id" {
-  description = "Certificate map ID (use this in Gateway annotations)"
-  value       = google_certificate_manager_certificate_map.default.id
 }

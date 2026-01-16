@@ -1,3 +1,6 @@
+# Namespace where this chart will be deployed
+namespace: default
+
 image:
   repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-itinerary-service
   pullPolicy: IfNotPresent
@@ -17,7 +20,7 @@ initContainers:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
     args:
       - "--port=5432"
-      - "cloudappdev-dev:europe-west1:cloudappdev-dev-itinerary-db"
+      - "cloudappdev-dev:europe-west1:cloudappdev-${namespace}"
     restartPolicy: Always
     securityContext:
       runAsNonRoot: true
@@ -29,11 +32,13 @@ initContainers:
 env:
   - name: NODE_ENV
     value: development
-  - name: DATABASE_URL
+  - name: DB_PASSWORD
     valueFrom:
       secretKeyRef:
-        key: DATABASE_URL
         name: itinerary-service-secrets
+        key: DB_PASSWORD
+  - name: DATABASE_URL
+    value: "postgresql://itinerary:$(DB_PASSWORD)@127.0.0.1:5432/itinerary"
   - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
     valueFrom:
       secretKeyRef:
@@ -55,19 +60,16 @@ env:
         name: itinerary-service-secrets
         key: GOOGLE_CLOUD_PROJECT_ID
   - name: FRONTEND_URL
-    valueFrom: 
-      secretKeyRef:
-        key: FRONTEND_URL
-        name: itinerary-service-secrets
+    value: app
 
 serviceAccount:
   create: true
   annotations: 
-    iam.gke.io/gcp-service-account: "itinerary-service-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "itinerary-service-sa"
+    iam.gke.io/gcp-service-account: "itinerary-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
+  name: "itinerary-${namespace}-sa"
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 8081
 
 readinessProbe:

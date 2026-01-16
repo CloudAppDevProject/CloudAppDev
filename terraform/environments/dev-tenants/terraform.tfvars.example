@@ -1,0 +1,10 @@
+# Terraform Variables for Tenant Infrastructure
+# Copy this to terraform.tfvars and fill in your values
+
+project_id            = "your-gcp-project-id"
+region                = "europe-west1"
+environment           = "dev"
+cloudflare_zone_id    = "your-cloudflare-zone-id"
+
+# Note: cloudflare_api_token is fetched from Google Secret Manager
+# Note: tenants are managed via tenants.tfvars by infrastructure-provisioner service

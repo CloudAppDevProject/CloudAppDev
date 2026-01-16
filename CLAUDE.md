@@ -177,6 +177,96 @@ Each microservice follows **NestJS framework** with:
 - **Async Workflows:** Background jobs with control mechanisms
 - **External API Integration:** Using `@nestjs/axios` for HTTP requests
 
+### Multi-Tenancy Architecture (Milestone 3)
+
+The application supports **B2B SaaS multi-tenancy** with three tiers:
+
+#### Tenant Tiers
+
+1. **Free Tier**
+   - Shared namespace (`free`)
+   - Shared PostgreSQL database (logical isolation)
+   - Shared MongoDB collections
+   - Shared Google Cloud Storage bucket
+   - Best-effort service (no SLA)
+   - Domain: `{tenant-name}.cloudappdev.site`
+
+2. **Standard Tier**
+   - Shared namespace (`standard`)
+   - Shared PostgreSQL database (logical isolation)
+   - Shared MongoDB collections
+   - Dedicated GCS bucket per tenant
+   - SLA with limited white-labeling
+   - Domain: `{tenant-name}.cloudappdev.site`
+
+3. **Enterprise Tier**
+   - **Dedicated namespace** per tenant
+   - **Dedicated PostgreSQL instance** per tenant
+   - **Dedicated MongoDB database** per tenant
+   - **Dedicated GCS bucket** per tenant
+   - **Dedicated microservice pods** (full stack isolation)
+   - Premium SLA with full customization
+   - Domain: `{tenant-name}.cloudappdev.site`
+
+#### Infrastructure Provisioning
+
+**Infrastructure-Provisioner Service** (`services/infrastructure-provisioner/`)
+- NestJS microservice for automated tenant provisioning
+- REST API for tenant lifecycle management
+- Terraform integration for infrastructure-as-code provisioning
+
+**Endpoints:**
+```bash
+POST /provision-tenant
+{
+  "tenantId": 123,
+  "tenantName": "acme-corp",
+  "tier": "enterprise",
+  "environment": "dev"
+}
+
+POST /deprovision-tenant
+{
+  "tenantName": "acme-corp",
+  "tier": "enterprise",
+  "environment": "dev"
+}
+
+GET /tenants/:environment
+```
+
+**Provisioning Flow:**
+1. Validate tenant request (tier, name, etc.)
+2. Update `tenants.tfvars` in `terraform/environments/{env}-tenants/`
+3. Run `terraform apply` (separate state file)
+4. For enterprise: Deploy dedicated K8s namespace with full stack
+5. Create subdomain certificate in Cloudflare
+6. Return tenant domain and infrastructure details
+
+**Key Features:**
+- **Separate Terraform states** prevent conflicts with base infrastructure
+- **Idempotent operations** (safe to retry)
+- **Automatic rollback** on failures
+- **Resource tagging** for cost allocation
+- **Service account provisioning** with minimal permissions
+
+#### Tenant Isolation
+
+**Network Isolation (Enterprise):**
+- Kubernetes NetworkPolicies restrict cross-namespace traffic
+- Dedicated service endpoints per enterprise namespace
+- API Gateway routes traffic based on subdomain
+
+**Data Isolation:**
+- Free/Standard: Logical isolation via `tenant_id` column
+- Enterprise: Physical isolation with dedicated databases
+
+**Resource Isolation (Enterprise):**
+- Dedicated CPU/memory limits per namespace
+- Separate Cloud SQL instances
+- Separate MongoDB databases
+- Separate GCS buckets
+
 ### Path Aliases
 
 Configured in `tsconfig.json`:
@@ -885,8 +975,23 @@ docker-compose -f docker-compose.microservices.yml up -d
 
 ### Terraform (IaC)
 
+**⚠️ Important: Terraform State Separation**
+
+Infrastructure is split into **two separate state files** to prevent conflicts between local management and dynamic tenant provisioning:
+
+#### 1. Base Infrastructure (`terraform/environments/dev/`)
+Manages core infrastructure that changes infrequently:
+- GKE Autopilot cluster
+- Workload Identity Pool
+- Base namespaces (free, standard, default)
+- Service accounts (app, tenant, provisioner)
+- Certificate map
+- Main domain (dev.cloudappdev.site)
+
+**State:** `gs://cloudappdev-tf-state-dev/env/dev`
+
 ```bash
-cd terraform
+cd terraform/environments/dev
 
 # Initialize
 terraform init
@@ -897,17 +1002,30 @@ terraform plan
 # Apply infrastructure
 terraform apply
 
-# Destroy (careful!)
-terraform destroy
+# SAFE: Won't affect dynamically provisioned tenants
 ```
 
-**Files:**
-- `main.tf` - Main resources
-- `network-config.tf` - VPC, subnets
-- `service-accounts.tf` - IAM
-- `secrets.tf` - Secret Manager
-- `variables.tf` - Input variables
-- `terraform.tfvars` - Values (gitignored)
+#### 2. Tenant Infrastructure (`terraform/environments/dev-tenants/`)
+Manages tenant-specific resources (dynamically provisioned):
+- Tenant domains (subdomain certificates)
+- Enterprise namespaces (dedicated infrastructure)
+
+**State:** `gs://cloudappdev-tf-state-dev/env/dev-tenants`
+
+**Managed by:** `infrastructure-provisioner` service via API endpoints
+
+```bash
+# Typically not run manually, but for debugging:
+cd terraform/environments/dev-tenants
+
+terraform init
+terraform plan -var-file=terraform.tfvars -var-file=tenants.tfvars
+```
+
+**Why Separate States?**
+- Local runs on base infrastructure won't delete provisioned tenant resources
+- Infrastructure-provisioner service manages tenant lifecycle independently
+- Clear separation of concerns: static vs. dynamic infrastructure
 
 ### Kubernetes (GKE)
 

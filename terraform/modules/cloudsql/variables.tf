@@ -3,12 +3,6 @@ variable "instance_name" {
   type        = string
 }
 
-variable "database_version" {
-  description = "PostgreSQL version"
-  type        = string
-  default     = "POSTGRES_17"
-}
-
 variable "region" {
   description = "GCP region"
   type        = string
@@ -19,26 +13,9 @@ variable "tier" {
   type        = string
 }
 
-variable "edition" {
-  description = "Database edition (ENTERPRISE or ENTERPRISE_PLUS)"
-  type        = string
-  default     = "ENTERPRISE"
-}
-
-variable "database_name" {
-  description = "Name of the database to create"
-  type        = string
-}
-
-variable "database_user" {
-  description = "Database user name"
-  type        = string
-}
-
-variable "database_password" {
-  description = "Database user password"
-  type        = string
-  sensitive   = true
+variable "database_names" {
+  description = "Names of the databases to create"
+  type        = list(string)
 }
 
 variable "deletion_protection" {
@@ -57,4 +34,16 @@ variable "point_in_time_recovery" {
   description = "Enable point-in-time recovery"
   type        = bool
   default     = false
+}
+
+variable "namespace" {
+  description = "Namespace/environment label for the database (e.g., 'free', 'standard', 'default')"
+  type        = string
+  default     = ""
+}
+
+variable "labels" {
+  description = "Labels to apply to resources"
+  type        = map(string)
+  default     = {}
 }

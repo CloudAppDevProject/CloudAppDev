@@ -1,0 +1,98 @@
+████████████████████████████████████████████████████████████████████████████████
+                         CloudAppDev Deployed Successfully!
+████████████████████████████████████████████████████████████████████████████████
+
+Thank you for installing {{ .Chart.Name }} (version {{ .Chart.Version }}).
+
+RELEASE INFORMATION:
+  Name:        {{ .Release.Name }}
+  Namespace:   {{ .Release.Namespace }}
+  Environment: {{ .Values.global.environment | default "dev" }}
+
+DEPLOYED SERVICES:
+{{- if .Values.app.enabled }}
+  ✓ Frontend App (Next.js)
+{{- end }}
+{{- if index .Values "api-gateway" "enabled" }}
+  ✓ API Gateway (Nginx)
+{{- end }}
+{{- if index .Values "user-service" "enabled" }}
+  ✓ User Service (Port 8080)
+{{- end }}
+{{- if index .Values "itinerary-service" "enabled" }}
+  ✓ Itinerary Service (Port 8081)
+{{- end }}
+{{- if index .Values "social-service" "enabled" }}
+  ✓ Social Service (Port 8082)
+{{- end }}
+
+APPLICATION URL:
+  {{ if .Values.app.api.hostname }}
+  🌐 https://{{ .Values.app.api.hostname }}
+  {{- else }}
+  🌐 https://{{ .Values.global.domain | default "dev.cloudappdev.site" }}
+  {{- end }}
+
+GETTING STARTED:
+
+1. Check deployment status:
+   kubectl get deployments -n {{ .Release.Namespace }}
+
+2. View all pods:
+   kubectl get pods -n {{ .Release.Namespace }}
+
+3. Check services:
+   kubectl get services -n {{ .Release.Namespace }}
+
+4. View logs for a specific service:
+   {{- if .Values.app.enabled }}
+   kubectl logs -l app=app -n {{ .Release.Namespace }}
+   {{- end }}
+   {{- if index .Values "user-service" "enabled" }}
+   kubectl logs -l app=user-service -n {{ .Release.Namespace }}
+   {{- end }}
+
+5. Check Horizontal Pod Autoscalers:
+   kubectl get hpa -n {{ .Release.Namespace }}
+
+MONITORING:
+
+  View release status:
+    helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+  View release history:
+    helm history {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+  Get all values:
+    helm get values {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+UPGRADE:
+
+  To upgrade this release:
+    helm upgrade {{ .Release.Name }} . \
+      --namespace {{ .Release.Namespace }} \
+      --values values-{{ .Values.global.environment | default "dev" }}.yaml
+
+ROLLBACK:
+
+  To rollback to previous version:
+    helm rollback {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+UNINSTALL:
+
+  To remove this release:
+    helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+DOCUMENTATION:
+
+  📖 Full documentation: k8s/namespace/README.md
+  📖 Project repo: https://github.com/markus-eiglsperger/CloudAppDev
+
+SUPPORT:
+
+  For issues or questions, contact:
+  📧 markus.eiglsperger@htwg-konstanz.de
+
+████████████████████████████████████████████████████████████████████████████████
+                            Happy Cloud Computing! ☁️
+████████████████████████████████████████████████████████████████████████████████

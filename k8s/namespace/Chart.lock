@@ -1,0 +1,18 @@
+dependencies:
+- name: app
+  repository: file://../app
+  version: 1.0.2
+- name: gateway
+  repository: file://../gateway
+  version: 1.0.4
+- name: user
+  repository: file://../services/user
+  version: 1.0.5
+- name: itinerary
+  repository: file://../services/itinerary
+  version: 1.0.1
+- name: social
+  repository: file://../services/social
+  version: 1.0.1
+digest: sha256:50db810433e9ed1cb4528095ad0049720ce612cd52dcc2ef2020315b9917df42
+generated: "2026-01-13T22:48:53.195794+01:00"

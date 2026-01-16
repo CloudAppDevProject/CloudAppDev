@@ -48,3 +48,15 @@ variable "k8s_service_accounts" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_terraform_admin" {
+  description = "Grant permissions for Terraform infrastructure management"
+  type        = bool
+  default     = false
+}
+
+variable "enable_secret_manager" {
+  description = "Grant Secret Manager permissions"
+  type        = bool
+  default     = false
+}

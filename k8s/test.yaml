@@ -1,0 +1,272 @@
+---
+# Source: social/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: default
+  name: social-${namespace}-sa
+  labels:
+    helm.sh/chart: social-1.1.0
+    app.kubernetes.io/name: social
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    iam.gke.io/gcp-service-account: social-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com
+---
+# Source: social/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: test-social
+  labels:
+    helm.sh/chart: social-1.1.0
+    app.kubernetes.io/name: social
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8082
+      targetPort: 8082
+      protocol: TCP
+      name: social-svc-port
+  selector:
+    app.kubernetes.io/name: social
+    app.kubernetes.io/instance: test
+---
+# Source: social/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: test-social
+  labels:
+    helm.sh/chart: social-1.1.0
+    app.kubernetes.io/name: social
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: social
+      app.kubernetes.io/instance: test
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: social-1.1.0
+        app.kubernetes.io/name: social
+        app.kubernetes.io/instance: test
+        app.kubernetes.io/version: "0.0.9"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: social-${namespace}-sa
+      containers:
+        - name: social
+          image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-social-service:0.0.9"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: social-port
+              containerPort: 8082
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          startupProbe:
+            failureThreshold: 30
+            initialDelaySeconds: 5
+            periodSeconds: 1
+            tcpSocket:
+              port: 8082
+          livenessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            tcpSocket:
+              port: 8082
+          env:
+            - name: NODE_ENV
+              value: development
+            - name: DB_UID
+              valueFrom:
+                secretKeyRef:
+                  key: DB_UID
+                  name: social-service-secrets
+            - name: DB_LOCATION
+              valueFrom:
+                secretKeyRef:
+                  key: DB_LOCATION
+                  name: social-service-secrets
+            - name: DB_ID
+              valueFrom:
+                secretKeyRef:
+                  key: DB_ID
+                  name: social-service-secrets
+            - name: MONGODB_URI
+              value: mongodb://$(DB_UID).$(DB_LOCATION).firestore.goog:443/$(DB_ID)?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE
+            - name: ITINERARY_SERVICE_URL
+              value: http://itinerary-service:8081
+            - name: USER_SERVICE_URL
+              value: http://user-service:8080
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: SENDGRID_API_KEY
+                  name: social-service-secrets
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  key: SENDGRID_FROM_EMAIL
+                  name: social-service-secrets
+            - name: NEWSLETTER_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  key: SENDGRID_FROM_NAME
+                  name: social-service-secrets
+            - name: NEWSLETTER_MODE
+              value: sendgrid
+---
+# Source: social/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: default
+  name: test-social
+  labels:
+    helm.sh/chart: social-1.1.0
+    app.kubernetes.io/name: social
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test-social
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+# Source: social/templates/cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  namespace: default
+  name: test-social-newsletter
+  labels:
+    helm.sh/chart: social-1.1.0
+    app.kubernetes.io/name: social
+    app.kubernetes.io/instance: test
+    app.kubernetes.io/version: "0.0.9"
+    app.kubernetes.io/managed-by: Helm
+    component: newsletter
+  annotations:
+    description: "Weekly newsletter distribution job for CloudAppDev platform"
+spec:
+  schedule: "0 20 * * 0"
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: social
+            app.kubernetes.io/instance: test
+            job-type: newsletter
+          annotations:
+            description: "Weekly newsletter send job"
+        spec:
+          serviceAccountName: social-${namespace}-sa
+          restartPolicy: OnFailure
+          containers:
+          - name: newsletter-sender
+            image: "europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-social-service:0.2.30"
+            imagePullPolicy: Always
+            command:
+            - npm
+            - run
+            - newsletter:send-weekly
+            env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: MONGODB_URI
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_API_KEY
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_FROM_EMAIL
+            - name: SENDGRID_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: SENDGRID_FROM_NAME
+            - name: USER_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: USER_SERVICE_URL
+            - name: ITINERARY_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: ITINERARY_SERVICE_URL
+            - name: NEWSLETTER_ENABLED
+              value: "true"
+            - name: NEWSLETTER_BATCH_SIZE
+              value: "50"
+            - name: NEWSLETTER_RETRY_LIMIT
+              value: "3"
+            - name: NEWSLETTER_RETRY_DELAY_MS
+              value: "5000"
+            - name: FRONTEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: FRONTEND_URL
+            - name: NODE_ENV
+              value: "production"
+            - name: NEWSLETTER_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: social-service-secrets
+                  key: NEWSLETTER_MODE
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+          tolerations:
+          - effect: NoSchedule
+            key: batch-jobs
+            operator: Equal
+            value: "true"
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                      - cloudappdev-app
+                  topologyKey: kubernetes.io/hostname

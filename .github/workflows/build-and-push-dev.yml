@@ -4,10 +4,12 @@ concurrency:
   group: build-services-dev-${{ github.ref }}
   cancel-in-progress: true
 
+
 on:
   push:
     branches:
       - develop
+      - feature/multi-tenancy
     paths:
       - 'app/**'
       - 'lib/**'
@@ -33,6 +35,7 @@ on:
           - social-service
           - travel-info-service
           - tenant-service
+          - provisioning-service
           - api-gateway
 
 env:
@@ -78,6 +81,10 @@ jobs:
               - 'services/travel-info-service/**'
             tenant-service:
               - 'services/tenant-service/**'
+            provisioning-service:
+              - 'services/provisioning-service/**'
+              - 'terraform/**'
+              - 'k8s/**'
             api-gateway:
               - 'nginx/**'
             workflow:
@@ -105,7 +112,7 @@ jobs:
 
           # Manual trigger with "all" - force build everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SERVICES_INPUT" = "all" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","provisioning-service","api-gateway"]'
             echo "Manual trigger (all) - building all services"
           # Manual trigger with specific service
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$SERVICES_INPUT" ] && [ "$SERVICES_INPUT" != "all" ] && [ "$SERVICES_INPUT" != "changed-only" ]; then
@@ -113,7 +120,7 @@ jobs:
             echo "Manual trigger - building: ${SERVICES}"
           # Workflow file changed or manual "changed-only" - build everything as safety measure
           elif [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
-            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
+            SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","provisioning-service","api-gateway"]'
             echo "⚠️ Workflow changed - building all services for safety"
           else
             # Build only changed services
@@ -136,6 +143,9 @@ jobs:
             fi
             if [ "${{ steps.changes.outputs.tenant-service }}" = "true" ]; then
               SERVICES=$(echo "$SERVICES" | jq -c '. + ["tenant-service"]')
+            fi
+            if [ "${{ steps.changes.outputs.provisioning-service }}" = "true" ]; then
+              SERVICES=$(echo "$SERVICES" | jq -c '. + ["provisioning-service"]')
             fi
             if [ "${{ steps.changes.outputs.api-gateway }}" = "true" ]; then
               SERVICES=$(echo "$SERVICES" | jq -c '. + ["api-gateway"]')
@@ -209,6 +219,12 @@ jobs:
               echo "context=./services/tenant-service" >> $GITHUB_OUTPUT
               echo "dockerfile=./services/tenant-service/Dockerfile" >> $GITHUB_OUTPUT
               echo "description=CloudAppDev Tenant Management Microservice" >> $GITHUB_OUTPUT
+              ;;
+            "provisioning-service")
+              echo "image-name=cloudappdev-provisioning-service" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "dockerfile=./services/provisioning-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "description=CloudAppDev Infrastructure Provisioning Service (NestJS)" >> $GITHUB_OUTPUT
               ;;
             "api-gateway")
               echo "image-name=cloudappdev-api-gateway" >> $GITHUB_OUTPUT
@@ -319,80 +335,357 @@ jobs:
           location: ${{ secrets.GKE_CLUSTER_LOCATION }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
           version: 'latest'
 
-      - name: Set Helm chart path
+      - name: Set Helm chart path and namespaces
         id: chart
         run: |
           case "${{ matrix.service }}" in
             "frontend")
               echo "path=./k8s/app" >> $GITHUB_OUTPUT
-              echo "release=cloudappdev" >> $GITHUB_OUTPUT
+              echo "release=app" >> $GITHUB_OUTPUT
+              # Deploy frontend to cloudappdev, free, and standard namespaces
+              echo "namespaces=cloudappdev,free,standard" >> $GITHUB_OUTPUT
               ;;
             "user-service")
               echo "path=./k8s/services/user" >> $GITHUB_OUTPUT
               echo "release=user-service" >> $GITHUB_OUTPUT
+              # Deploy to free and standard namespaces only
+              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
               ;;
             "itinerary-service")
               echo "path=./k8s/services/itinerary" >> $GITHUB_OUTPUT
               echo "release=itinerary-service" >> $GITHUB_OUTPUT
+              # Deploy to free and standard namespaces only
+              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
               ;;
             "social-service")
               echo "path=./k8s/services/social" >> $GITHUB_OUTPUT
               echo "release=social-service" >> $GITHUB_OUTPUT
+              # Deploy to free and standard namespaces only
+              echo "namespaces=free,standard" >> $GITHUB_OUTPUT
               ;;
             "travel-info-service")
               echo "path=./k8s/services/travel-info" >> $GITHUB_OUTPUT
               echo "release=travel-info-service" >> $GITHUB_OUTPUT
+              # Deploy to default namespace only
+              echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
             "tenant-service")
               echo "path=./k8s/services/tenant" >> $GITHUB_OUTPUT
               echo "release=tenant-service" >> $GITHUB_OUTPUT
+              # Deploy to default namespace only
+              echo "namespaces=default" >> $GITHUB_OUTPUT
+              ;;
+            "provisioning-service")
+              echo "path=./k8s/services/provisioning-service" >> $GITHUB_OUTPUT
+              echo "release=provisioning-service" >> $GITHUB_OUTPUT
+              # Deploy to default namespace only
+              echo "namespaces=default" >> $GITHUB_OUTPUT
               ;;
             "api-gateway")
               echo "path=./k8s/gateway" >> $GITHUB_OUTPUT
               echo "release=api-gateway" >> $GITHUB_OUTPUT
+              # Deploy API gateway to cloudappdev, free, and standard namespaces
+              echo "namespaces=cloudappdev,free,standard" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "Unknown service: ${{ matrix.service }}"
               exit 1
               ;;
           esac
+      
+      
+      - name: Obtain GCP secrets
+        id: secrets
+        run: |
+          NAMESPACES="${{ steps.chart.outputs.namespaces }}"
+
+          case "${{ matrix.service }}" in
+            "user-service")
+              IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+              for NAMESPACE in "${NS_ARRAY[@]}"; do
+                SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-users-password")
+                if {[ -z "$SECRET_VALUE" ]; then
+                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-user-password"
+                  exit 1
+                fi
+                echo "user_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
+              done
+              ;;
+            "itinerary-service")
+              IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+              for NAMESPACE in "${NS_ARRAY[@]}"; do
+                SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-itinerary-password")
+                if {[ -z "$SECRET_VALUE" ]; then
+                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-itinerary-password"
+                  exit 1
+                fi
+                echo "itinerary_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
+              done
+              ;;
+            "tenant-service")
+              IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+              for NAMESPACE in "${NS_ARRAY[@]}"; do
+                SECRET_VALUE=$(gcloud secrets versions access latest --secret="${NAMESPACE}-tenant-password")
+                if {[ -z "$SECRET_VALUE" ]; then
+                  echo "❌ ERROR: Retrieved empty secret for ${NAMESPACE}-tenant-password"
+                  exit 1
+                fi
+                echo "tenant_${NAMESPACE}_db_password=${SECRET_VALUE}" >> $GITHUB_ENV
+              done
+              ;;
+            *)
+              echo "No secrets required for: ${{ matrix.service }}"
+              ;;
+          esac
 
       - name: Deploy with Helm
         run: |
-          NAMESPACE="default"
+          echo "Loading GitHub env vars..."
+          set -a
+          source $GITHUB_ENV
+          set +a
           VERSION="${{ needs.prepare.outputs.version }}"
+          NAMESPACES="${{ steps.chart.outputs.namespaces }}"
 
-          echo "🚀 Deploying ${{ matrix.service }} with version ${VERSION}"
+          echo "🚀 Deploying ${{ matrix.service }} with version ${VERSION} to namespaces: ${NAMESPACES}"
 
-          helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
-            --namespace ${NAMESPACE} \
-            --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
-            --set image.tag=${VERSION} \
-            --wait \
-            --timeout 5m
+          # Split namespaces by comma and deploy to each
+          IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+          for NAMESPACE in "${NS_ARRAY[@]}"; do
+            echo ""
+            echo "📦 Deploying to namespace: ${NAMESPACE}"
+
+            # Create namespace if it doesn't exist
+            kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+            # Deploy service-specific secrets to namespace
+            echo "🔐 Deploying secrets for ${{ matrix.service }} to ${NAMESPACE}"
+
+            # Determine secret name and required keys based on service
+            case "${{ matrix.service }}" in
+              "user-service")
+                SECRET_NAME="user-service-secrets"
+                # Check if secret already exists
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  VAR_NAME="user_${NAMESPACE}_db_password"
+                  RAW_DB_PASSWORD="${!VAR_NAME}"
+
+                  if [[ -z "$RAW_DB_PASSWORD" ]]; then
+                    echo "❌ ERROR: Expected env variable $VAR_NAME but it is empty or undefined"
+                    exit 1
+                  fi
+
+                  DB_PASSWORD=$(printf '%q' "$RAW_DB_PASSWORD")
+
+                  kubectl create secret generic "${SECRET_NAME}" \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                    --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                    --from-literal=JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
+                    --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
+                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
+                    --from-literal=GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
+                    --namespace "${NAMESPACE}"
+                fi
+                ;;
+              "itinerary-service")
+                SECRET_NAME="itinerary-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  VAR_NAME="itinerary_${NAMESPACE}_db_password" \
+                  DB_PASSWORD="${!VAR_NAME}" \
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+                    --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}" \
+                    --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
+                    --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="${{ secrets.GCP_SA_KEY }}" \
+                    --from-literal=GOOGLE_CLOUD_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "social-service")
+                SECRET_NAME="social-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+                    --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
+                    --from-literal=USER_SERVICE_URL="http://user-service:8080" \
+                    --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
+                    --from-literal=SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
+                    --from-literal=SENDGRID_FROM_NAME="${{ secrets.SENDGRID_FROM_NAME }}" \
+                    --from-literal=NEWSLETTER_MODE="production" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "tenant-service")
+                SECRET_NAME="tenant-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  VAR_NAME="tenant_${NAMESPACE}_db_password" \
+                  DB_PASSWORD="${!VAR_NAME}" \
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                    --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                    --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "provisioning-service")
+                SECRET_NAME="provisioning-service-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=GCP_SERVICE_ACCOUNT_KEY='${{ secrets.GCP_SA_KEY }}' \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "travel-info-service")
+                SECRET_NAME="travel-info-secrets"
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=NODE_ENV="production" \
+                    --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+
+              "frontend")
+                SECRET_NAME="cloudappdev-secrets"
+                # Frontend may need app-level secrets (if any)
+                if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} &>/dev/null; then
+                  echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
+                else
+                  kubectl create secret generic ${SECRET_NAME} \
+                    --from-literal=API_GATEWAY_URL='api-gateway:80' \
+                    --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
+                    --from-literal=APP_MODE=HUB \
+                    --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
+                    --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
+                    --namespace ${NAMESPACE}
+                  echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
+                fi
+                ;;
+              "api-gateway")
+                # API Gateway is stateless and doesn't need secrets
+                echo "ℹ️ API Gateway is stateless (no secrets needed)"
+                ;;
+              *)
+                echo "⚠️ Unknown service ${{ matrix.service }}, skipping secret creation"
+                ;;
+            esac
+
+            # Check for stuck Helm releases and fix by deleting ALL stuck secrets
+            RELEASE_STATUS=$(helm status ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
+            if [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ]; then
+              echo "⚠️ Found stuck release in ${NAMESPACE} with status: ${RELEASE_STATUS}"
+              echo "🔄 Cleaning up ALL stuck Helm secrets..."
+
+              # Get all revisions with pending status
+              helm history ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | \
+                jq -r '.[] | select(.status | contains("pending")) | .revision' | \
+                while read -r revision; do
+                  if [ -n "$revision" ]; then
+                    echo "🗑️ Deleting stuck secret for revision ${revision}"
+                    kubectl delete secret -n ${NAMESPACE} sh.helm.release.v1.${{ steps.chart.outputs.release }}.v${revision} --ignore-not-found=true
+                  fi
+                done
+
+              # Also clean up by label selector (backup method)
+              kubectl delete secret -n ${NAMESPACE} \
+                -l "name=${{ steps.chart.outputs.release }},owner=helm,status in (pending-install,pending-upgrade,pending-rollback)" \
+                --ignore-not-found=true 2>/dev/null || true
+
+              echo "✓ All stuck Helm secrets cleaned up"
+
+              # Wait a moment for Kubernetes to process deletions
+              sleep 2
+
+              echo "✓ Release unlocked, proceeding with deployment"
+            fi
+
+            # Disable HTTPRoute and HTTPSRoute for free and standard namespaces (frontend only)
+            EXTRA_ARGS=""
+            if [ "${{ matrix.service }}" = "frontend" ] && [ "${NAMESPACE}" != "cloudappdev" ]; then
+              EXTRA_ARGS="--set httpRoute.enabled=false --set httpsRoute.enabled=false"
+              echo "ℹ️ Disabling HTTPRoute and HTTPSRoute for ${NAMESPACE} namespace"
+            fi
+
+            # Configure API Gateway namespace routing for multi-tenant deployments
+            if [ "${{ matrix.service }}" = "api-gateway" ]; then
+              # Set service namespace values based on deployment namespace
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[1].name=USER_NAMESPACE --set env[1].value=${NAMESPACE}"
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[2].name=ITINERARY_NAMESPACE --set env[2].value=${NAMESPACE}"
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[3].name=SOCIAL_NAMESPACE --set env[3].value=${NAMESPACE}"
+              echo "ℹ️ Configuring API Gateway for namespace routing (USER/ITINERARY/SOCIAL: ${NAMESPACE}, TRAVEL_INFO/TENANT: default)"
+            fi
+
+            # Update Chart.yaml appVersion before deploying
+            echo "📝 Updating Chart.yaml appVersion to ${VERSION}"
+            sed -i.bak "s/^appVersion:.*/appVersion: \"${VERSION}\"/" ${{ steps.chart.outputs.path }}/Chart.yaml
+
+            helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
+              --namespace ${NAMESPACE} \
+              --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
+              --set image.tag=${VERSION} \
+              --set namespace=${NAMESPACE} \
+              --set fullnameOverride=${{ steps.chart.outputs.release }} \
+              ${EXTRA_ARGS} \
+              --wait \
+              --timeout 5m
+
+            echo "✅ Deployed to ${NAMESPACE}"
+          done
 
       - name: Verify deployment
         run: |
-          NAMESPACE="default"
-          echo "📋 Verifying deployment for ${{ matrix.service }}..."
+          NAMESPACES="${{ steps.chart.outputs.namespaces }}"
+          echo "📋 Verifying deployment for ${{ matrix.service }} across namespaces: ${NAMESPACES}"
 
-          kubectl rollout status deployment/${{ steps.chart.outputs.release }} -n ${NAMESPACE} --timeout=3m || true
+          # Split namespaces by comma and verify each
+          IFS=',' read -ra NS_ARRAY <<< "$NAMESPACES"
+          for NAMESPACE in "${NS_ARRAY[@]}"; do
+            echo ""
+            echo "📋 Namespace: ${NAMESPACE}"
 
-          echo ""
-          echo "📊 Pod status:"
-          kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/instance=${{ steps.chart.outputs.release }} --no-headers
+            kubectl rollout status deployment/${{ steps.chart.outputs.release }} -n ${NAMESPACE} --timeout=3m || true
+
+            echo ""
+            echo "📊 Pod status in ${NAMESPACE}:"
+            kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/instance=${{ steps.chart.outputs.release }} --no-headers || true
+          done
 
       - name: Deployment summary
         run: |
+          NAMESPACES="${{ steps.chart.outputs.namespaces }}"
           echo "## 🚀 ${{ matrix.service }} Deployed!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release:** \`${{ steps.chart.outputs.release }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Namespace:** \`default\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespaces:** \`${NAMESPACES}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
 
   summary:
@@ -404,7 +697,7 @@ jobs:
       - name: Build summary
         run: |
           SERVICES='${{ needs.prepare.outputs.services }}'
-          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","api-gateway"]'
+          ALL_SERVICES='["frontend","user-service","itinerary-service","social-service","travel-info-service","tenant-service","provisioning-service","api-gateway"]'
 
           echo "## 📦 Development Build & Deploy Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

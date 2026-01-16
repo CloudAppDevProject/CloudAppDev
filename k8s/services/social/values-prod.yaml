@@ -1,3 +1,6 @@
+# Namespace where this chart will be deployed
+namespace: default
+
 image:
   repository: europe-west1-docker.pkg.dev/oceanic-citadel-474512-c1/docker-repo/cloudappdev-social-service
   pullPolicy: IfNotPresent
@@ -61,7 +64,7 @@ serviceAccount:
   name: "social-service-sa"
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 8082
 
 startupProbe:

@@ -2,6 +2,7 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
+  namespace: {{ .Values.namespace }}
   name: {{ include "travel-info.fullname" . }}
   labels:
     {{- include "travel-info.labels" . | nindent 4 }}

@@ -1,3 +1,16 @@
+# Namespace where this chart will be deployed
+namespace: default
+
+# Service namespaces for cross-namespace routing
+# NOTE: If microservices are deployed in different namespaces,
+# the nginx config must use FQDN: service-name.namespace.svc.cluster.local
+serviceNamespaces:
+  user: default
+  itinerary: default
+  social: default
+  travelInfo: default
+  tenant: default
+
 image:
   repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-api-gateway
   pullPolicy: IfNotPresent
@@ -10,6 +23,16 @@ podLabels: {}
 env:
   - name: RESOLVER_IP
     value: "kube-dns.kube-system.svc.cluster.local"
+  - name: USER_NAMESPACE
+    value: "default"
+  - name: ITINERARY_NAMESPACE
+    value: "default"
+  - name: SOCIAL_NAMESPACE
+    value: "default"
+  - name: TRAVEL_INFO_NAMESPACE
+    value: "default"
+  - name: TENANT_NAMESPACE
+    value: "default"
 
 resources:
   limits:
@@ -21,7 +44,7 @@ resources:
     
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
 
 livenessProbe:

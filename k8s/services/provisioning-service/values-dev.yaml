@@ -1,0 +1,46 @@
+replicaCount: 1
+
+image:
+  repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-provisioning-service
+  pullPolicy: IfNotPresent
+  tag: ""
+
+service:
+  type: ClusterIP
+  port: 8090
+  targetPort: 8080
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+environment: dev
+
+namespace:
+
+# Service account with permissions to manage GKE resources
+serviceAccount:
+  create: true
+
+# Terraform state backend
+terraform:
+  stateBackend: gcs
+  stateBucket: cloudappdev-tf-state-dev
+  statePrefix: environments/dev-tenants
+
+# GCP configuration
+gcp:
+  project: cloudappdev-dev
+  region: europe-west1
+  credentialsSecret: provisioning-service-secrets
+
+# Cloudflare configuration (from secrets)
+cloudflare:
+  zoneId: ddbd47810ae075fc0bc55a4ef05a91ec

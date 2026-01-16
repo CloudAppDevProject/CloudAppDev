@@ -2,7 +2,7 @@ apiVersion: networking.gke.io/v1
 kind: HealthCheckPolicy
 metadata:
   name: {{ include "app.fullname" . }}
-  namespace: default
+  namespace: {{ .Values.namespace }}
 spec:
   default:
     checkIntervalSec: 15

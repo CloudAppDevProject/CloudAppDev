@@ -1,3 +1,6 @@
+# Namespace where this chart will be deployed
+namespace: default
+
 image:
   repository: europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo/cloudappdev-tenant-service
   pullPolicy: IfNotPresent
@@ -17,7 +20,7 @@ initContainers:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
     args:
       - "--port=5432"
-      - "cloudappdev-dev:europe-west1:cloudappdev-dev-tenant-db"
+      - "cloudappdev-dev:europe-west1:cloudappdev-default"
     restartPolicy: Always
     securityContext:
       runAsNonRoot: true
@@ -28,26 +31,25 @@ initContainers:
 
 env:
   - name: NODE_ENV
+    value: "development"
+  - name: DB_PASSWORD
     valueFrom:
       secretKeyRef:
         name: tenant-service-secrets
-        key: NODE_ENV
+        key: DB_PASSWORD
   - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        key: DATABASE_URL
-        name: tenant-service-secrets
+    value: postgresql://tenant:$(DB_PASSWORD)@127.0.0.1:5432/tenant
   - name: FREE_TENANT_NAME
     value: "Free Community"
 
 serviceAccount:
   create: true
   annotations:
-    iam.gke.io/gcp-service-account: "tenant-service-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "tenant-service-sa"
+    iam.gke.io/gcp-service-account: "tenant-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
+  name: "tenant-${namespace}-sa"
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 8084
 
 startupProbe:

@@ -5,7 +5,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: {{ $fullName }}-https
-  namespace: default
+  namespace: {{ .Values.namespace }}
   labels:
     {{- include "app.labels" . | nindent 4 }}
   {{- with .Values.httpsRoute.annotations }}
@@ -14,7 +14,8 @@ metadata:
   {{- end }}
 spec:
   parentRefs:
-    - name: {{ $fullName }}-gateway
+    - name: main-gateway
+      namespace: default
       sectionName: https
   hostnames:
     - {{ .Values.api.hostname | quote }}
