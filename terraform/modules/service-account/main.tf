@@ -136,6 +136,7 @@ resource "google_service_account_iam_member" "workload_identity" {
 }
 
 resource "google_service_account_iam_member" "token_creator" {
+  for_each = toset(var.k8s_service_accounts)
   service_account_id = google_service_account.sa.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:${google_service_account.sa.email}"
