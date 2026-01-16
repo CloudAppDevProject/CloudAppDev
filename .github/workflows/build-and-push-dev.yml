@@ -600,6 +600,67 @@ jobs:
                 echo "ℹ️ API Gateway is stateless (no secrets needed)"
                 ;;
             esac
+
+            # Check for stuck Helm releases and fix by deleting ALL stuck secrets
+            RELEASE_STATUS=$(helm status ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
+            if [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ]; then
+              echo "⚠️ Found stuck release in ${NAMESPACE} with status: ${RELEASE_STATUS}"
+              echo "🔄 Cleaning up ALL stuck Helm secrets..."
+
+              # Get all revisions with pending status
+              helm history ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | \
+                jq -r '.[] | select(.status | contains("pending")) | .revision' | \
+                while read -r revision; do
+                  if [ -n "$revision" ]; then
+                    echo "🗑️ Deleting stuck secret for revision ${revision}"
+                    kubectl delete secret -n ${NAMESPACE} sh.helm.release.v1.${{ steps.chart.outputs.release }}.v${revision} --ignore-not-found=true
+                  fi
+                done
+
+              # Also clean up by label selector (backup method)
+              kubectl delete secret -n ${NAMESPACE} \
+                -l "name=${{ steps.chart.outputs.release }},owner=helm,status in (pending-install,pending-upgrade,pending-rollback)" \
+                --ignore-not-found=true 2>/dev/null || true
+
+              echo "✓ All stuck Helm secrets cleaned up"
+
+              # Wait a moment for Kubernetes to process deletions
+              sleep 2
+
+              echo "✓ Release unlocked, proceeding with deployment"
+            fi
+
+            # Disable HTTPRoute and HTTPSRoute for free and standard namespaces (frontend only)
+            EXTRA_ARGS=""
+            if [ "${{ matrix.service }}" = "frontend" ] && [ "${NAMESPACE}" != "cloudappdev" ]; then
+              EXTRA_ARGS="--set httpRoute.enabled=false --set httpsRoute.enabled=false"
+              echo "ℹ️ Disabling HTTPRoute and HTTPSRoute for ${NAMESPACE} namespace"
+            fi
+
+            # Configure API Gateway namespace routing for multi-tenant deployments
+            if [ "${{ matrix.service }}" = "api-gateway" ]; then
+              # Set service namespace values based on deployment namespace
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[1].name=USER_NAMESPACE --set env[1].value=${NAMESPACE}"
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[2].name=ITINERARY_NAMESPACE --set env[2].value=${NAMESPACE}"
+              EXTRA_ARGS="${EXTRA_ARGS} --set env[3].name=SOCIAL_NAMESPACE --set env[3].value=${NAMESPACE}"
+              echo "ℹ️ Configuring API Gateway for namespace routing (USER/ITINERARY/SOCIAL: ${NAMESPACE}, TRAVEL_INFO/TENANT: default)"
+            fi
+
+            # Update Chart.yaml appVersion before deploying
+            echo "📝 Updating Chart.yaml appVersion to ${VERSION}"
+            sed -i.bak "s/^appVersion:.*/appVersion: \"${VERSION}\"/" ${{ steps.chart.outputs.path }}/Chart.yaml
+
+            helm upgrade --install ${{ steps.chart.outputs.release }} ${{ steps.chart.outputs.path }} \
+              --namespace ${NAMESPACE} \
+              --values ${{ steps.chart.outputs.path }}/values-dev.yaml \
+              --set image.tag=${VERSION} \
+              --set namespace=${NAMESPACE} \
+              --set fullnameOverride=${{ steps.chart.outputs.release }} \
+              ${EXTRA_ARGS} \
+              --wait \
+              --timeout 5m
+
+            echo "✅ Deployed to ${NAMESPACE}"
           done
 
 
