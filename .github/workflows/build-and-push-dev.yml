@@ -491,8 +491,9 @@ jobs:
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
+                DB_URL="postgresql://users:${RAW_DB_PASSWORD}@127.0.0.1:5432/users"
                 kubectl create secret generic "${SECRET_NAME}" \
-                  --from-literal=DB_PASSWORD=$RAW_DB_PASSWORD \
+                  --from-literal=DATABASE_URL="$DB_URL" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
                   --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                   --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
@@ -510,8 +511,9 @@ jobs:
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
+                ITINERARY_DB_URL="postgresql://itinerary:${DB_PASSWORD}@127.0.0.1:5432/itinerary"
                 kubectl create secret generic "${SECRET_NAME}" \
-                  --from-literal=DB_PASSWORD="$DB_PASSWORD" \
+                  --from-literal=DATABASE_URL="$ITINERARY_DB_URL" \
                   --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                   --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                   --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
@@ -545,8 +547,9 @@ jobs:
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
+                TENANT_DB_URL="postgresql://tenant:${DB_PASSWORD}@127.0.0.1:5432/tenant"
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                  --from-literal=DATABASE_URL="$TENANT_DB_URL" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
                   --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
                   --namespace ${NAMESPACE}
