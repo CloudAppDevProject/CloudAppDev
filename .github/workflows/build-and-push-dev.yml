@@ -488,11 +488,11 @@ jobs:
 
                 VAR_NAME="user_${NAMESPACE}_db_password"
                 RAW_DB_PASSWORD="${!VAR_NAME}"
-
+                encodedPassword=$(printf %s "$RAW_DB_PASSWORD" | jq -s -R -r @uri)
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
-                DB_URL="postgresql://users:${RAW_DB_PASSWORD}@127.0.0.1:5432/users?schema=public"
+                DB_URL="postgresql://users:${encodedPassword}@127.0.0.1:5432/users?schema=public"
                 kubectl create secret generic "${SECRET_NAME}" \
                   --from-literal=DATABASE_URL="$DB_URL" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
@@ -509,11 +509,12 @@ jobs:
 
                 VAR_NAME="itinerary_${NAMESPACE}_db_password"
                 DB_PASSWORD="${!VAR_NAME}"
+                encodedPassword=$(printf %s "$DB_PASSWORD" | jq -s -R -r @uri)
 
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
-                ITINERARY_DB_URL="postgresql://itinerary:${DB_PASSWORD}@127.0.0.1:5432/itinerary?schema=public"
+                ITINERARY_DB_URL="postgresql://itinerary:${encodedPassword}@127.0.0.1:5432/itinerary?schema=public"
                 kubectl create secret generic "${SECRET_NAME}" \
                   --from-literal=DATABASE_URL="$ITINERARY_DB_URL" \
                   --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
@@ -545,11 +546,12 @@ jobs:
 
                 VAR_NAME="tenant_${NAMESPACE}_db_password"
                 DB_PASSWORD="${!VAR_NAME}"
+                encodedPassword=$(printf %s "$DB_PASSWORD" | jq -s -R -r @uri)
 
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
-                TENANT_DB_URL="postgresql://tenant:${DB_PASSWORD}@127.0.0.1:5432/tenant?schema=public"
+                TENANT_DB_URL="postgresql://tenant:${encodedPassword}@127.0.0.1:5432/tenant?schema=public"
                 kubectl create secret generic ${SECRET_NAME} \
                   --from-literal=DATABASE_URL="$TENANT_DB_URL" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
