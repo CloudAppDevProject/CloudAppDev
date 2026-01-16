@@ -18,7 +18,13 @@ spec:
         {{- end }}
     spec:
       initContainers:
-        {{- toYaml .Values.initContainers | nindent 8 }}
+        {{- range .Values.initContainers }}
+        - name: {{ .name }}
+          image: {{ .image }}
+          args:
+            - "--port=5432"
+            - "cloudappdev-dev:europe-west1:cloudappdev-{{ $.Values.namespace }}"
+        {{- end }}
       serviceAccountName: {{ include "user.serviceAccountName" . }}
       containers:
         - name: {{ .Chart.Name }}

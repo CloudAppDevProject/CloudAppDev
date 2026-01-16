@@ -71,22 +71,29 @@ jobs:
               - 'package-lock.json'
               - 'tsconfig.json'
               - 'next.config.ts'
+              - './k8s/app/**'
             user-service:
               - 'services/user-service/**'
+              - 'k8s/services/user/**'
             itinerary-service:
               - 'services/itinerary-service/**'
+              - 'k8s/services/itinerary/**'
             social-service:
               - 'services/social-service/**'
+              - 'k8s/services/social/**'
             travel-info-service:
               - 'services/travel-info-service/**'
+              - 'k8s/services/travel-info/**'
             tenant-service:
               - 'services/tenant-service/**'
+              - 'k8s/services/tenant/**'
             provisioning-service:
               - 'services/provisioning-service/**'
               - 'terraform/**'
               - 'k8s/**'
             api-gateway:
               - 'nginx/**'
+              - 'k8s/gateway/**'
             workflow:
               - '.github/workflows/build-and-push-dev.yml'
 
