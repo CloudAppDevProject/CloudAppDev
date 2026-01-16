@@ -541,6 +541,7 @@ jobs:
                   --namespace ${NAMESPACE}
                 ;;
 
+
               "tenant-service")
                 SECRET_NAME="tenant-service-secrets"
 

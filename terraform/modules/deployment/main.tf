@@ -41,7 +41,7 @@ module "social_service_account" {
   project      = var.project_id
   account_id   = "social-${var.namespace}-sa"
   display_name = "Social Database access - ${var.namespace}"
-
+  namespace = var.namespace
   enable_firestore = true
 
   k8s_service_accounts = [
