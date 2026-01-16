@@ -454,7 +454,6 @@ jobs:
       - name: Deploy with Helm
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
           FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -500,10 +499,8 @@ jobs:
                   DB_PASSWORD=$(printf '%q' "$RAW_DB_PASSWORD")
 
                   kubectl create secret generic "${SECRET_NAME}" \
-                    --from-literal=NODE_ENV="production" \
                     --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
                     --from-literal=JWT_SECRET="$JWT_SECRET" \
-                    --from-literal=JWT_EXPIRATION="$JWT_EXPIRATION" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                     --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                     --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
@@ -519,7 +516,6 @@ jobs:
                   VAR_NAME="itinerary_${NAMESPACE}_db_password" \
                   DB_PASSWORD="${!VAR_NAME}" \
                   kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=NODE_ENV="production" \
                     --from-literal=DB_PASSWORD="$DB_PASSWORD" \
                     --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                     --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
@@ -535,7 +531,6 @@ jobs:
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
                   kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=NODE_ENV="production" \
                     --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
                     --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
                     --from-literal=USER_SERVICE_URL="http://user-service:8080" \
@@ -555,7 +550,6 @@ jobs:
                   VAR_NAME="tenant_${NAMESPACE}_db_password" \
                   DB_PASSWORD="${!VAR_NAME}" \
                   kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=NODE_ENV="production" \
                     --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
                     --from-literal=JWT_SECRET="$JWT_SECRET" \
                     --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
@@ -569,7 +563,6 @@ jobs:
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
                   kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=NODE_ENV="production" \
                     --from-literal=GCP_SERVICE_ACCOUNT_KEY="$GCP_SA_KEY" \
                     --namespace ${NAMESPACE}
                   echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"
@@ -581,7 +574,6 @@ jobs:
                   echo "✓ Secret ${SECRET_NAME} already exists in ${NAMESPACE}, skipping"
                 else
                   kubectl create secret generic ${SECRET_NAME} \
-                    --from-literal=NODE_ENV="production" \
                     --from-literal=JWT_SECRET="$JWT_SECRET" \
                     --namespace ${NAMESPACE}
                   echo "✓ Created secret ${SECRET_NAME} in ${NAMESPACE}"

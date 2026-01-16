@@ -184,10 +184,7 @@ user-service:
           name: user-service-secrets
           key: JWT_SECRET
     - name: JWT_EXPIRATION
-      valueFrom:
-        secretKeyRef:
-          name: user-service-secrets
-          key: JWT_EXPIRATION
+      value: "7d"
     - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
       valueFrom:
         secretKeyRef:
