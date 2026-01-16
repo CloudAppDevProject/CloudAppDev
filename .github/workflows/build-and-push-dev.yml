@@ -488,20 +488,11 @@ jobs:
                 VAR_NAME="user_${NAMESPACE}_db_password"
                 RAW_DB_PASSWORD="${!VAR_NAME}"
 
-                echo "VAR_NAME=$VAR_NAME"
-                echo "RAW_DB_PASSWORD=${RAW_DB_PASSWORD}"
-                if [[ -z "$RAW_DB_PASSWORD" ]]; then
-                  echo "❌ ERROR: Expected env variable $VAR_NAME but it is empty or undefined"
-                  exit 1
-                fi
-
-                DB_PASSWORD=$(printf '%q' "$RAW_DB_PASSWORD")
-
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
                 kubectl create secret generic "${SECRET_NAME}" \
-                  --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+                  --from-literal=DB_PASSWORD="$RAW_DB_PASSWORD" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
                   --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                   --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
