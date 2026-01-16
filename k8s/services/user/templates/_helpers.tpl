@@ -55,7 +55,7 @@ Create the name of the service account to use
 */}}
 {{- define "user.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "user.fullname" .) .Values.serviceAccount.name }}
+{{- printf "user-%s-sa" .Values.namespace }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

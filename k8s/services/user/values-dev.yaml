@@ -64,9 +64,6 @@ env:
 
 serviceAccount:
   create: true
-  annotations:
-    iam.gke.io/gcp-service-account: "user-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "user-${namespace}-sa"
 
 service:
   type: ClusterIP
