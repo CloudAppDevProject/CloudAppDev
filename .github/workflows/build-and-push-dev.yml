@@ -488,6 +488,8 @@ jobs:
                 VAR_NAME="user_${NAMESPACE}_db_password"
                 RAW_DB_PASSWORD="${!VAR_NAME}"
 
+                echo "VAR_NAME=$VAR_NAME"
+                echo "RAW_DB_PASSWORD=${RAW_DB_PASSWORD}"
                 if [[ -z "$RAW_DB_PASSWORD" ]]; then
                   echo "❌ ERROR: Expected env variable $VAR_NAME but it is empty or undefined"
                   exit 1
