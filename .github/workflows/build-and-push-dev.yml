@@ -246,6 +246,7 @@ jobs:
               ;;
           esac
 
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -505,7 +506,7 @@ jobs:
               "itinerary-service")
                 SECRET_NAME="itinerary-service-secrets"
 
-  
+
                 VAR_NAME="itinerary_${NAMESPACE}_db_password"
                 DB_PASSWORD="${!VAR_NAME}"
 

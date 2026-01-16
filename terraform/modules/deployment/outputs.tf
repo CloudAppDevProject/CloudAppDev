@@ -9,6 +9,11 @@ output "database_connection_name" {
   value       = module.databases.instance_connection_name
 }
 
+output "database_username" {
+  description = "The username for the Cloud SQL instance"
+  value       = module.databases.user_name
+}
+
 # Storage Outputs
 output "images_bucket_name" {
   description = "The name of the images storage bucket"
