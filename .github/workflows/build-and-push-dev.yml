@@ -543,10 +543,15 @@ jobs:
                   echo "✅ Firestore database UID: ${DB_UID}"
                 fi
 
+                # Build the full MongoDB URI for Firestore MongoDB API
+                MONGODB_URI="mongodb://${DB_UID}.${DB_LOCATION}.firestore.goog:443/${DB_ID}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE"
+                echo "✅ MongoDB URI constructed for Firestore database"
+
                 kubectl create secret generic ${SECRET_NAME} \
                   --from-literal=DB_UID="${DB_UID}" \
                   --from-literal=DB_LOCATION="${DB_LOCATION}" \
                   --from-literal=DB_ID="${DB_ID}" \
+                  --from-literal=MONGODB_URI="${MONGODB_URI}" \
                   --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
                   --from-literal=USER_SERVICE_URL="http://user-service:8080" \
                   --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \

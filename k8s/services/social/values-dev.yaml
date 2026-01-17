@@ -18,23 +18,11 @@ podLabels: {}
 env:
   - name: NODE_ENV
     value: "development"
-  - name: DB_UID
-    valueFrom:
-      secretKeyRef:
-        name: social-service-secrets
-        key: DB_UID
-  - name: DB_LOCATION
-    valueFrom:
-      secretKeyRef:
-        name: social-service-secrets
-        key: DB_LOCATION
-  - name: DB_ID
-    valueFrom:
-      secretKeyRef:
-        name: social-service-secrets
-        key: DB_ID
   - name: MONGODB_URI
-    value: mongodb://$(DB_UID).$(DB_LOCATION).firestore.goog:443/$(DB_ID)?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE
+    valueFrom:
+      secretKeyRef:
+        name: social-service-secrets
+        key: MONGODB_URI 
   - name: ITINERARY_SERVICE_URL
     value: "itinerary-service:8081"
   - name: USER_SERVICE_URL
