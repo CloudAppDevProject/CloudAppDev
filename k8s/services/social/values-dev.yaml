@@ -59,9 +59,6 @@ env:
 
 serviceAccount:
   create: true
-  annotations:
-    iam.gke.io/gcp-service-account: "social-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "social-${namespace}-sa"
 
 service:
   type: ClusterIP

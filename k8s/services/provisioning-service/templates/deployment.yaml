@@ -16,7 +16,7 @@ spec:
         app: provisioning-service
         tier: infrastructure
     spec:
-      serviceAccountName: {{ .Values.serviceAccount.name }}
+      serviceAccountName: {{ include "provisioning.serviceAccountName" . }}
       initContainers:
       - name: init-terraform
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"

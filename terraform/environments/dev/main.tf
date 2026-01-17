@@ -68,6 +68,7 @@ module "app_service_account" {
   project      = var.project_id
   account_id   = "app-sa"
   display_name = "App Service Account - Dev"
+  namespace    = "cloudappdev"
 
   k8s_service_accounts = [
     "cloudappdev-sa",
@@ -84,6 +85,7 @@ module "tenant_service_account" {
   project      = var.project_id
   account_id   = "tenant-default-sa"
   display_name = "Tenant Database access - default"
+  namespace    = "default"
 
   enable_cloudsql = true
 
@@ -103,6 +105,7 @@ module "provisioning_service_account" {
   project      = var.project_id
   account_id   = "provisioning-default-sa"
   display_name = "Provisioning default - Dev"
+  namespace    = "default"
 
   enable_storage         = true
   enable_terraform_admin = true

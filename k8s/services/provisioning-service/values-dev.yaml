@@ -23,7 +23,7 @@ autoscaling:
 
 environment: dev
 
-namespace:
+namespace: default
 
 # Service account with permissions to manage GKE resources
 serviceAccount:

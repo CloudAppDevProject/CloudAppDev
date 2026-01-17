@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "social.name" -}}
+{{- define "provisioning.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "social.fullname" -}}
+{{- define "provisioning.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "social.chart" -}}
+{{- define "provisioning.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "social.labels" -}}
-helm.sh/chart: {{ include "social.chart" . }}
-{{ include "social.selectorLabels" . }}
+{{- define "provisioning.labels" -}}
+helm.sh/chart: {{ include "provisioning.chart" . }}
+{{ include "provisioning.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "social.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "social.name" . }}
+{{- define "provisioning.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "provisioning.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "social.serviceAccountName" -}}
+{{- define "provisioning.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- printf "social-%s-sa" .Values.namespace }}
+{{- printf "provisioning-%s-sa" .Values.namespace }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
