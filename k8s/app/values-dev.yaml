@@ -13,9 +13,6 @@ image:
 
 serviceAccount:
   create: false
-  annotations: 
-    iam.gke.io/gcp-service-account: "app-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "app-sa"
 
 service:
   type: ClusterIP

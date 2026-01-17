@@ -29,13 +29,11 @@ initContainers:
 env:
   - name: NODE_ENV
     value: development
-  - name: DB_PASSWORD
+  - name: DATABASE_URL
     valueFrom:
       secretKeyRef:
         name: itinerary-service-secrets
-        key: DB_PASSWORD
-  - name: DATABASE_URL
-    value: "postgresql://itinerary:$(DB_PASSWORD)@127.0.0.1:5432/itinerary"
+        key: DATABASE_URL
   - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
     valueFrom:
       secretKeyRef:

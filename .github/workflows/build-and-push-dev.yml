@@ -529,14 +529,30 @@ jobs:
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
+                # Fetch Firestore database UID for MongoDB API connection
+                DB_ID="cloudappdev-${NAMESPACE}-social"
+                DB_LOCATION="europe-west1"
+                echo "📡 Fetching Firestore database UID for ${DB_ID}..."
+                DB_UID=$(gcloud firestore databases describe --database="${DB_ID}" --format="value(uid)" 2>/dev/null || echo "")
+
+                if [ -z "$DB_UID" ]; then
+                  echo "⚠️ WARNING: Could not fetch Firestore database UID for ${DB_ID}"
+                  echo "⚠️ Make sure the Firestore database exists and Terraform has been applied"
+                  DB_UID="unknown"
+                else
+                  echo "✅ Firestore database UID: ${DB_UID}"
+                fi
+
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+                  --from-literal=DB_UID="${DB_UID}" \
+                  --from-literal=DB_LOCATION="${DB_LOCATION}" \
+                  --from-literal=DB_ID="${DB_ID}" \
                   --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
                   --from-literal=USER_SERVICE_URL="http://user-service:8080" \
                   --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
                   --from-literal=SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
                   --from-literal=SENDGRID_FROM_NAME="${{ secrets.SENDGRID_FROM_NAME }}" \
-                  --from-literal=NEWSLETTER_MODE="production" \
+                  --from-literal=NEWSLETTER_MODE="sendgrid" \
                   --namespace ${NAMESPACE}
                 ;;
 
