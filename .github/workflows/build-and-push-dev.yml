@@ -349,6 +349,7 @@ jobs:
         with:
           version: 'latest'
 
+
       - name: Set Helm chart path and namespaces
         id: chart
         run: |
