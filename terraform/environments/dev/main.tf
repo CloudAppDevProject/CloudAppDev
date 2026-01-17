@@ -156,7 +156,9 @@ module "main_domain" {
 resource "google_compute_global_address" "main_gateway_ip" {
   name        = "main-gateway-ip"
   description = "Static external IP for main Gateway"
-
+  address_type = "EXTERNAL"
+  ip_version = "IPV4"
+  
   labels = merge(
     local.common_labels,
     {
@@ -171,7 +173,7 @@ resource "kubernetes_manifest" "main_gateway" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "Gateway"
-
+    
     metadata = {
       name      = "main-gateway"
       namespace = "default"
