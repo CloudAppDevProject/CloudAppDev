@@ -13,6 +13,7 @@ output "infrastructure" {
       }
 
       service_accounts = module.free.all_service_accounts
+      service_account_members = module.free.all_service_account_member
     }
 
     standard = {
@@ -27,6 +28,7 @@ output "infrastructure" {
       }
 
       service_accounts = module.standard.all_service_accounts
+      service_account_members = module.standard.all_service_account_member
     }
 
     tenant = {
