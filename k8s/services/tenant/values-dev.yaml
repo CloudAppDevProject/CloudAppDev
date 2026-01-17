@@ -33,7 +33,7 @@ env:
     valueFrom:
       secretKeyRef:
         name: tenant-service-secrets
-        key: MONGODB_URI
+        key: DATABASE_URL
   - name: FREE_TENANT_NAME
     value: "Free Community"
 

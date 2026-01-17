@@ -535,7 +535,7 @@ jobs:
                 DB_LOCATION="europe-west1"
                 echo "📡 Fetching Firestore database UID for ${DB_ID}..."
                 DB_UID=$(gcloud firestore databases describe --database="${DB_ID}" --format="value(uid)" 2>/dev/null || echo "")
-
+                echo "DB_UID=${DB_UID}"
                 if [ -z "$DB_UID" ]; then
                   echo "⚠️ WARNING: Could not fetch Firestore database UID for ${DB_ID}"
                   echo "⚠️ Make sure the Firestore database exists and Terraform has been applied"
