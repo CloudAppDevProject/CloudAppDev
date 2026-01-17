@@ -603,7 +603,7 @@ jobs:
                 ;;
 
               "frontend")
-                SECRET_NAME="cloudappdev-secrets"
+                SECRET_NAME="app-secrets"
 
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
