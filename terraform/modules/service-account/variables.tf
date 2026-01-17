@@ -11,7 +11,6 @@ variable "account_id" {
 variable "namespace" {
   description = "Kubernetes namespace for Workload Identity bindings"
   type        = string
-  default     = "default"
 }
 
 variable "display_name" {

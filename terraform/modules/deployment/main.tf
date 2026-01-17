@@ -61,6 +61,7 @@ module "user_service_account" {
   project      = var.project_id
   account_id   = "user-${var.namespace}-sa"
   display_name = "User Database access - ${var.namespace}"
+  namespace    = var.namespace
 
   enable_cloudsql = true
   enable_storage  = true
@@ -82,6 +83,7 @@ module "itinerary_service_account" {
   project      = var.project_id
   account_id   = "itinerary-${var.namespace}-sa"
   display_name = "Itinerary Database access - ${var.namespace}"
+  namespace    = var.namespace
 
   enable_cloudsql = true
   enable_storage  = true

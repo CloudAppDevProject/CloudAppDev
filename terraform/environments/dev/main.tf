@@ -1,6 +1,3 @@
-resource "google_iam_workload_identity_pool" "dev_pool" {
-  workload_identity_pool_id = var.project_id
-}
 
 # GKE Autopilot Cluster - fully managed node provisioning
 resource "google_container_cluster" "primary" {
@@ -10,11 +7,6 @@ resource "google_container_cluster" "primary" {
   # Enable Autopilot mode - GCP manages nodes automatically
   enable_autopilot = true
   
-  # Workload Identity is automatically enabled in Autopilot
-  workload_identity_config {
-    workload_pool = "${var.project_id}.svc.id.goog"
-  }
-
   # Enable Gateway API for Kubernetes Gateway, HTTPRoute, and GKE HealthCheckPolicy resources
   gateway_api_config {
     channel = "CHANNEL_STANDARD"
