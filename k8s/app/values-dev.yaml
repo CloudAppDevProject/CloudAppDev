@@ -24,7 +24,10 @@ env:
   - name: NODE_ENV
     value: "development"
   - name: APP_MODE
-    value: "HUB"
+    valueFrom: 
+      secretKeyRef:
+        name: app-secrets
+        key: APP_MODE
   - name: GCP_PROJECT_ID
     valueFrom:
       secretKeyRef:
