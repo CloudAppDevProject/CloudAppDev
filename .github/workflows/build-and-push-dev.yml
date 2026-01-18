@@ -590,7 +590,6 @@ jobs:
                   --namespace ${NAMESPACE}
                 ;;
 
-
               "travel-info-service")
                 SECRET_NAME="travel-info-secrets"
 

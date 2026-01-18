@@ -25,6 +25,8 @@ environment: dev
 
 namespace: default
 
+env: 
+  NODE_ENV: "development"
 # Service account with permissions to manage GKE resources
 serviceAccount:
   create: true
