@@ -516,6 +516,7 @@ jobs:
                 ITINERARY_DB_URL="postgresql://itinerary:${encodedPassword}@127.0.0.1:5432/itinerary?schema=public"
                 kubectl create secret generic "${SECRET_NAME}" \
                   --from-literal=DATABASE_URL="$ITINERARY_DB_URL" \
+                  --from-literal=JWT_SECRET="$JWT_SECRET" \
                   --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                   --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                   --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
