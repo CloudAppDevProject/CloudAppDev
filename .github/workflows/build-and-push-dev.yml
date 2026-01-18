@@ -617,10 +617,10 @@ jobs:
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
+                  --from-literal=JWT_SECRET=${JWT_SECRET} \
                   --from-literal=APP_MODE="${APP_MODE}" \
                   --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
-                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
+                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64=${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64} \
                   --namespace ${NAMESPACE}
                 ;;
 
