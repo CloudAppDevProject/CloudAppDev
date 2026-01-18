@@ -1,0 +1,18 @@
+# Default values for tenant-httproute
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+tenant:
+  name: ""
+  domain: ""
+  tier: ""
+
+namespace: ""
+
+gateway:
+  name: "main-gateway"
+  namespace: "default"
+
+backend:
+  serviceName: "app"
+  servicePort: 80

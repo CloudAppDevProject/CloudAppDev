@@ -36,6 +36,13 @@ env:
         key: DATABASE_URL
   - name: FREE_TENANT_NAME
     value: "Free Community"
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: tenant-service-secrets
+        key: JWT_SECRET
+  - name: JWT_EXPIRATION
+    value: "7d" 
 
 serviceAccount:
   create: true

@@ -4,7 +4,6 @@ concurrency:
   group: build-services-dev-${{ github.ref }}
   cancel-in-progress: true
 
-
 on:
   push:
     branches:
@@ -517,6 +516,7 @@ jobs:
                 ITINERARY_DB_URL="postgresql://itinerary:${encodedPassword}@127.0.0.1:5432/itinerary?schema=public"
                 kubectl create secret generic "${SECRET_NAME}" \
                   --from-literal=DATABASE_URL="$ITINERARY_DB_URL" \
+                  --from-literal=JWT_SECRET="$JWT_SECRET" \
                   --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                   --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                   --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
@@ -591,7 +591,6 @@ jobs:
                   --namespace ${NAMESPACE}
                 ;;
 
-
               "travel-info-service")
                 SECRET_NAME="travel-info-secrets"
 
@@ -606,15 +605,22 @@ jobs:
               "frontend")
                 SECRET_NAME="app-secrets"
 
-                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                # Determine APP_MODE based on namespace
+                case "${NAMESPACE}" in
+                  "cloudappdev") APP_MODE="HUB" ;;
+                  "free") APP_MODE="free" ;;
+                  "standard") APP_MODE="standard" ;;
+                  *) APP_MODE="enterprise" ;;  # Enterprise tenants have dedicated namespaces
+                esac
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE} with APP_MODE=${APP_MODE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=API_GATEWAY_URL='api-gateway:80' \
-                  --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
-                  --from-literal=APP_MODE=HUB \
+                  --from-literal=JWT_SECRET=${JWT_SECRET} \
+                  --from-literal=APP_MODE="${APP_MODE}" \
                   --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
-                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
+                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64=${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64} \
                   --namespace ${NAMESPACE}
                 ;;
 

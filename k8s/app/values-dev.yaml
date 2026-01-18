@@ -20,11 +20,14 @@ service:
 
 env:
   - name: API_GATEWAY_URL
-    value: "api-gateway:80"
+    value: "http://api-gateway:80"
   - name: NODE_ENV
     value: "development"
   - name: APP_MODE
-    value: "HUB"
+    valueFrom: 
+      secretKeyRef:
+        name: app-secrets
+        key: APP_MODE
   - name: GCP_PROJECT_ID
     valueFrom:
       secretKeyRef:

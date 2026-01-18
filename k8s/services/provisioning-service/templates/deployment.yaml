@@ -55,7 +55,7 @@ spec:
           protocol: TCP
         env:
         - name: NODE_ENV
-          value: "production"
+          value: {{ .Values.env.NODE_ENV | default "development" | quote }}
         - name: PORT
           value: "{{ .Values.service.targetPort }}"
         - name: ENVIRONMENT
