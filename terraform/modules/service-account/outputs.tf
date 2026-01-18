@@ -13,3 +13,9 @@ output "key" {
   value       = google_service_account_key.sa_key.private_key
   sensitive   = true
 }
+
+output "member" {
+  description = "The IAM member strings for all service account bindings"
+  value       = { for k, v in google_service_account_iam_member.workload_identity : k => v.member }
+}
+

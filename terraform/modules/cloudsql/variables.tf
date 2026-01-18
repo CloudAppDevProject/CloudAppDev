@@ -39,7 +39,6 @@ variable "point_in_time_recovery" {
 variable "namespace" {
   description = "Namespace/environment label for the database (e.g., 'free', 'standard', 'default')"
   type        = string
-  default     = ""
 }
 
 variable "labels" {

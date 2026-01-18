@@ -13,9 +13,6 @@ image:
 
 serviceAccount:
   create: false
-  annotations: 
-    iam.gke.io/gcp-service-account: "app-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "app-sa"
 
 service:
   type: ClusterIP
@@ -23,11 +20,14 @@ service:
 
 env:
   - name: API_GATEWAY_URL
-    value: "api-gateway:80"
+    value: "http://api-gateway:80"
   - name: NODE_ENV
     value: "development"
   - name: APP_MODE
-    value: "HUB"
+    valueFrom: 
+      secretKeyRef:
+        name: app-secrets
+        key: APP_MODE
   - name: GCP_PROJECT_ID
     valueFrom:
       secretKeyRef:

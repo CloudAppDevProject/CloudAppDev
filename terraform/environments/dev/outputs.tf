@@ -3,6 +3,7 @@ output "infrastructure" {
   value = {
     free = {
       databases = {
+        username        = module.free.database_username
         connection_name = module.free.database_connection_name
         social_db_name  = module.free.social_db_name
       }
@@ -12,12 +13,14 @@ output "infrastructure" {
       }
 
       service_accounts = module.free.all_service_accounts
+      service_account_members = module.free.all_service_account_member
     }
 
     standard = {
       databases = {
         connection_name = module.standard.database_connection_name
         social_db_name  = module.standard.social_db_name
+        username        = module.standard.database_username
       }
 
       buckets = {
@@ -25,11 +28,13 @@ output "infrastructure" {
       }
 
       service_accounts = module.standard.all_service_accounts
+      service_account_members = module.standard.all_service_account_member
     }
 
     tenant = {
       databases = {
         connection_name = module.default_databases.instance_connection_name
+        username        = module.default_databases.user_name
       }
 
       service_account = {

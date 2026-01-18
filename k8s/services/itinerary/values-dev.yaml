@@ -18,9 +18,6 @@ podLabels: {}
 initContainers:
   - name: cloud-sql-proxy
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
-    args:
-      - "--port=5432"
-      - "cloudappdev-dev:europe-west1:cloudappdev-${namespace}"
     restartPolicy: Always
     securityContext:
       runAsNonRoot: true
@@ -32,13 +29,11 @@ initContainers:
 env:
   - name: NODE_ENV
     value: development
-  - name: DB_PASSWORD
+  - name: DATABASE_URL
     valueFrom:
       secretKeyRef:
         name: itinerary-service-secrets
-        key: DB_PASSWORD
-  - name: DATABASE_URL
-    value: "postgresql://itinerary:$(DB_PASSWORD)@127.0.0.1:5432/itinerary"
+        key: DATABASE_URL
   - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
     valueFrom:
       secretKeyRef:
@@ -61,12 +56,16 @@ env:
         key: GOOGLE_CLOUD_PROJECT_ID
   - name: FRONTEND_URL
     value: app
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: itinerary-service-secrets
+        key: JWT_SECRET
+  - name: JWT_EXPIRATION
+    value: "7d" 
 
 serviceAccount:
   create: true
-  annotations: 
-    iam.gke.io/gcp-service-account: "itinerary-${namespace}-sa@cloudappdev-dev.iam.gserviceaccount.com"
-  name: "itinerary-${namespace}-sa"
 
 service:
   type: ClusterIP

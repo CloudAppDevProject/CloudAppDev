@@ -1,6 +1,3 @@
-resource "google_iam_workload_identity_pool" "dev_pool" {
-  workload_identity_pool_id = var.project_id
-}
 
 # GKE Autopilot Cluster - fully managed node provisioning
 resource "google_container_cluster" "primary" {
@@ -10,11 +7,6 @@ resource "google_container_cluster" "primary" {
   # Enable Autopilot mode - GCP manages nodes automatically
   enable_autopilot = true
   
-  # Workload Identity is automatically enabled in Autopilot
-  workload_identity_config {
-    workload_pool = "${var.project_id}.svc.id.goog"
-  }
-
   # Enable Gateway API for Kubernetes Gateway, HTTPRoute, and GKE HealthCheckPolicy resources
   gateway_api_config {
     channel = "CHANNEL_STANDARD"
@@ -76,6 +68,7 @@ module "app_service_account" {
   project      = var.project_id
   account_id   = "app-sa"
   display_name = "App Service Account - Dev"
+  namespace    = "cloudappdev"
 
   k8s_service_accounts = [
     "cloudappdev-sa",
@@ -92,6 +85,7 @@ module "tenant_service_account" {
   project      = var.project_id
   account_id   = "tenant-default-sa"
   display_name = "Tenant Database access - default"
+  namespace    = "default"
 
   enable_cloudsql = true
 
@@ -111,6 +105,7 @@ module "provisioning_service_account" {
   project      = var.project_id
   account_id   = "provisioning-default-sa"
   display_name = "Provisioning default - Dev"
+  namespace    = "default"
 
   enable_storage         = true
   enable_terraform_admin = true
@@ -161,7 +156,9 @@ module "main_domain" {
 resource "google_compute_global_address" "main_gateway_ip" {
   name        = "main-gateway-ip"
   description = "Static external IP for main Gateway"
-
+  address_type = "EXTERNAL"
+  ip_version = "IPV4"
+  
   labels = merge(
     local.common_labels,
     {
@@ -176,7 +173,7 @@ resource "kubernetes_manifest" "main_gateway" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "Gateway"
-
+    
     metadata = {
       name      = "main-gateway"
       namespace = "default"

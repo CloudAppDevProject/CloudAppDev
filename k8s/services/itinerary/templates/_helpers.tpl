@@ -55,7 +55,7 @@ Create the name of the service account to use
 */}}
 {{- define "itinerary.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "itinerary.fullname" .) .Values.serviceAccount.name }}
+{{- printf "itinerary-%s-sa" .Values.namespace }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

@@ -129,9 +129,8 @@ resource "google_project_iam_member" "terraform_project_iam_admin" {
 # Workload Identity Bindings for Kubernetes Service Accounts
 resource "google_service_account_iam_member" "workload_identity" {
   for_each = toset(var.k8s_service_accounts)
-
+  
   service_account_id = google_service_account.sa.name
   role               = "roles/iam.workloadIdentityUser"
-  # TODO (): Make namespace configurable
-  member             = "serviceAccount:${var.project}.svc.id.goog[default/${each.value}]"
+  member             = "serviceAccount:${var.project}.svc.id.goog[${var.namespace}/${each.value}]"
 }

@@ -9,46 +9,55 @@ const tiers: {
   description: string;
   features: string[];
   price: string;
+  priceDetails?: string;
   highlighted?: boolean;
 }[] = [
   {
     id: 'free',
     name: 'Free',
-    description: 'Best for trying out the platform',
+    description: 'Best for casual users and hobbyists',
     price: 'Free',
     features: [
-      'Up to 5 users',
-      'Basic itinerary features',
-      'Community support',
+      'Own domain',
+      'Data separation',
       'Shared infrastructure',
+      'Up to 3 routes',
+      '500MB image storage',
+      'Community support',
     ],
   },
   {
     id: 'standard',
     name: 'Standard',
-    description: 'For growing teams',
-    price: 'Contact us',
+    description: 'For power users and frequent travelers',
+    price: '€9.99/mo',
+    priceDetails: 'Base fee + usage-based pricing',
     highlighted: true,
     features: [
-      'Up to 50 users',
-      'All itinerary features',
-      'Email support',
-      'Limited white-labeling',
+      'All Free features',
+      '2GB storage included',
+      '+€0.05 per GB over 2GB',
+      '+€0.10 per 100 API requests',
+      'Customization options',
+      'Higher priority support',
       'Better performance',
     ],
   },
   {
     id: 'enterprise',
     name: 'Enterprise',
-    description: 'For large organizations',
-    price: 'Custom',
+    description: 'For B2B clients and agencies',
+    price: 'From €249/mo',
+    priceDetails: 'Custom quote based on requirements',
     features: [
-      'Unlimited users',
-      'All features included',
+      'Dedicated deployment',
+      'Isolated GKE node pools',
+      'High customization',
+      'Unlimited routes',
+      'Unlimited storage',
       'Priority support',
-      'Full white-labeling',
-      'Dedicated infrastructure',
       'Custom integrations',
+      'SLA guarantee',
     ],
   },
 ];
@@ -130,6 +139,11 @@ export default function PlanPage() {
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-4">
                 {tier.price}
               </p>
+              {tier.priceDetails && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {tier.priceDetails}
+                </p>
+              )}
             </div>
 
             <ul className="space-y-3 mb-6">

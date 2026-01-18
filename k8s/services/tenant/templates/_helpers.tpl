@@ -53,7 +53,7 @@ Create the name of the service account to use
 */}}
 {{- define "tenant.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "tenant.fullname" .) .Values.serviceAccount.name }}
+{{- printf "tenant-%s-sa" .Values.namespace }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

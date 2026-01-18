@@ -4,7 +4,6 @@ concurrency:
   group: build-services-dev-${{ github.ref }}
   cancel-in-progress: true
 
-
 on:
   push:
     branches:
@@ -246,6 +245,7 @@ jobs:
               ;;
           esac
 
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -342,7 +342,6 @@ jobs:
           cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
           location: ${{ secrets.GKE_CLUSTER_LOCATION }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -458,6 +457,7 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
        
         run: |
           echo "Loading GitHub env vars..."
@@ -487,11 +487,11 @@ jobs:
 
                 VAR_NAME="user_${NAMESPACE}_db_password"
                 RAW_DB_PASSWORD="${!VAR_NAME}"
-
+                encodedPassword=$(printf %s "$RAW_DB_PASSWORD" | jq -s -R -r @uri)
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
-                DB_URL="postgresql://users:${RAW_DB_PASSWORD}@127.0.0.1:5432/users"
+                DB_URL="postgresql://users:${encodedPassword}@127.0.0.1:5432/users?schema=public"
                 kubectl create secret generic "${SECRET_NAME}" \
                   --from-literal=DATABASE_URL="$DB_URL" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
@@ -505,16 +505,18 @@ jobs:
               "itinerary-service")
                 SECRET_NAME="itinerary-service-secrets"
 
-  
+
                 VAR_NAME="itinerary_${NAMESPACE}_db_password"
                 DB_PASSWORD="${!VAR_NAME}"
+                encodedPassword=$(printf %s "$DB_PASSWORD" | jq -s -R -r @uri)
 
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
-                ITINERARY_DB_URL="postgresql://itinerary:${DB_PASSWORD}@127.0.0.1:5432/itinerary"
+                ITINERARY_DB_URL="postgresql://itinerary:${encodedPassword}@127.0.0.1:5432/itinerary?schema=public"
                 kubectl create secret generic "${SECRET_NAME}" \
                   --from-literal=DATABASE_URL="$ITINERARY_DB_URL" \
+                  --from-literal=JWT_SECRET="$JWT_SECRET" \
                   --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                   --from-literal=GOOGLE_CLOUD_STORAGE_BUCKET="cloudappdev-${NAMESPACE}-images" \
                   --from-literal=GOOGLE_CLOUD_CREDENTIALS_BASE64="$GCP_SA_KEY" \
@@ -528,14 +530,35 @@ jobs:
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
+                # Fetch Firestore database UID for MongoDB API connection
+                DB_ID="cloudappdev-${NAMESPACE}-social"
+                DB_LOCATION="europe-west1"
+                echo "📡 Fetching Firestore database UID for ${DB_ID}..."
+                DB_UID=$(gcloud firestore databases describe --database="${DB_ID}" --format="value(uid)" 2>/dev/null || echo "")
+               
+                if [ -z "$DB_UID" ]; then
+                  echo "⚠️ WARNING: Could not fetch Firestore database UID for ${DB_ID}"
+                  echo "⚠️ Make sure the Firestore database exists and Terraform has been applied"
+                  exit 1
+                else
+                  echo "✅ Firestore database UID: ${DB_UID}"
+                fi
+
+                # Build the full MongoDB URI for Firestore MongoDB API
+                MONGODB_URI="mongodb://${DB_UID}.${DB_LOCATION}.firestore.goog:443/${DB_ID}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE"
+                echo "✅ MongoDB URI constructed for Firestore database"
+
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+                  --from-literal=DB_UID="${DB_UID}" \
+                  --from-literal=DB_LOCATION="${DB_LOCATION}" \
+                  --from-literal=DB_ID="${DB_ID}" \
+                  --from-literal=MONGODB_URI="${MONGODB_URI}" \
                   --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
                   --from-literal=USER_SERVICE_URL="http://user-service:8080" \
                   --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
                   --from-literal=SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
                   --from-literal=SENDGRID_FROM_NAME="${{ secrets.SENDGRID_FROM_NAME }}" \
-                  --from-literal=NEWSLETTER_MODE="production" \
+                  --from-literal=NEWSLETTER_MODE="sendgrid" \
                   --namespace ${NAMESPACE}
                 ;;
 
@@ -544,11 +567,12 @@ jobs:
 
                 VAR_NAME="tenant_${NAMESPACE}_db_password"
                 DB_PASSWORD="${!VAR_NAME}"
+                encodedPassword=$(printf %s "$DB_PASSWORD" | jq -s -R -r @uri)
 
                 echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
-                TENANT_DB_URL="postgresql://tenant:${DB_PASSWORD}@127.0.0.1:5432/tenant"
+                TENANT_DB_URL="postgresql://tenant:${encodedPassword}@127.0.0.1:5432/tenant?schema=public"
                 kubectl create secret generic ${SECRET_NAME} \
                   --from-literal=DATABASE_URL="$TENANT_DB_URL" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
@@ -574,22 +598,29 @@ jobs:
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=JWT_SECRET="$JWT_SECRET" \
+                  --from-literal=WEATHER_API_KEY="$WEATHER_API_KEY" \
                   --namespace ${NAMESPACE}
                 ;;
 
               "frontend")
-                SECRET_NAME="cloudappdev-secrets"
+                SECRET_NAME="app-secrets"
 
-                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE}"
+                # Determine APP_MODE based on namespace
+                case "${NAMESPACE}" in
+                  "cloudappdev") APP_MODE="HUB" ;;
+                  "free") APP_MODE="free" ;;
+                  "standard") APP_MODE="standard" ;;
+                  *) APP_MODE="enterprise" ;;  # Enterprise tenants have dedicated namespaces
+                esac
+
+                echo "🔄 Recreating secret ${SECRET_NAME} in ${NAMESPACE} with APP_MODE=${APP_MODE}"
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=API_GATEWAY_URL='api-gateway:80' \
-                  --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
-                  --from-literal=APP_MODE=HUB \
+                  --from-literal=JWT_SECRET=${JWT_SECRET} \
+                  --from-literal=APP_MODE="${APP_MODE}" \
                   --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
-                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64='' \
+                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64=${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64} \
                   --namespace ${NAMESPACE}
                 ;;
 

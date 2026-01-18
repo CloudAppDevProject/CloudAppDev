@@ -8,6 +8,11 @@ variable "account_id" {
   type        = string
 }
 
+variable "namespace" {
+  description = "Kubernetes namespace for Workload Identity bindings"
+  type        = string
+}
+
 variable "display_name" {
   description = "Display name for the service account"
   type        = string

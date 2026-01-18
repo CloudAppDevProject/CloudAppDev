@@ -9,6 +9,10 @@ locals {
   gateway_name = "${local.resource_prefix}-gateway"
 }
 
+data "google_compute_global_address" "main_gateway_ip" {
+  name = "main-gateway-ip"
+}
+
 # DNS Authorization for Certificate Manager
 resource "google_certificate_manager_dns_authorization" "domain" {
   name        = "${local.resource_prefix}-dns-auth"
@@ -73,3 +77,12 @@ resource "google_certificate_manager_certificate_map_entry" "domain" {
 
 # Note: Gateway resources have been moved to the environment's main.tf
 # This module now only handles SSL certificates and DNS validation
+# Cloudflare DNS A record pointing to the main Gateway IP
+resource "cloudflare_dns_record" "main_gateway" {
+  zone_id = var.cloudflare_zone_id
+  name    = local.actual_domain
+  content = data.google_compute_global_address.main_gateway_ip.address
+  type    = "A"
+  ttl     = 300
+  proxied = false
+}

@@ -9,6 +9,11 @@ output "database_connection_name" {
   value       = module.databases.instance_connection_name
 }
 
+output "database_username" {
+  description = "The username for the Cloud SQL instance"
+  value       = module.databases.user_name
+}
+
 # Storage Outputs
 output "images_bucket_name" {
   description = "The name of the images storage bucket"
@@ -32,6 +37,11 @@ output "user_service_account_email" {
   value       = module.user_service_account.email
 }
 
+output "user_service_account_member" {
+  description = "IAM member string of the user service account"
+  value       = module.user_service_account.member
+}
+
 output "itinerary_service_account_email" {
   description = "Email of the itinerary service account"
   value       = module.itinerary_service_account.email
@@ -43,5 +53,14 @@ output "all_service_accounts" {
     social    = module.social_service_account.email
     user      = module.user_service_account.email
     itinerary = module.itinerary_service_account.email
+  }
+}
+
+output "all_service_account_member" {
+  description = "IAM member string of the user service account"
+  value       = {
+    social    = module.social_service_account.member
+    user      = module.user_service_account.member
+    itinerary = module.itinerary_service_account.member
   }
 }

@@ -3,6 +3,9 @@ FROM node:20-alpine AS base
 WORKDIR /app
 COPY package.json package-lock.json ./
 
+# Print DATABASE_URL for debugging
+RUN echo "DATABASE_URL=$DATABASE_URL"
+
 # Build stage
 FROM base AS build
 RUN npm ci 
@@ -14,7 +17,7 @@ RUN npm prune --production
 # Production stage
 FROM node:20-alpine AS production
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
 
 COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
@@ -25,4 +28,4 @@ COPY --from=build --chown=nestjs:nodejs /app/prisma ./prisma
 USER nestjs
 EXPOSE 8080
 # Apply Prisma migrations on container startup
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "echo DATABASE_URL=$DATABASE_URL; npx prisma migrate deploy && node dist/main"]
