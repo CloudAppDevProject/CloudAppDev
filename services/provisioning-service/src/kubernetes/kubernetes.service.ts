@@ -471,8 +471,9 @@ export class KubernetesService {
   }
 
   /**
-   * Deploys HTTPRoute for free/standard tier tenants
-   * Uses the existing app Helm chart to create a tenant-specific HTTPRoute
+   * Deploy HTTPRoute for free/standard tier tenants
+   * These tenants share namespace infrastructure
+   * Uses the minimal tenant-httproute Helm chart
    */
   async deploySharedTierHTTPRoute(
     tenantName: string,
@@ -488,19 +489,17 @@ export class KubernetesService {
     );
 
     try {
-      // Deploy only the HTTPRoute using the app Helm chart
-      // We create a minimal deployment that only generates HTTPRoute resources
+      // Deploy HTTPRoute using the minimal tenant-httproute Helm chart
       const { stdout, stderr } = await execAsync(
-        `helm upgrade --install ${releaseName} /k8s/app ` +
+        `helm upgrade --install ${releaseName} /k8s/tenant-httproute ` +
+          `--set tenant.name=${tenantName} ` +
+          `--set tenant.domain=${domain} ` +
+          `--set tenant.tier=${tier} ` +
           `--set namespace=${namespace} ` +
-          `--set api.hostname=${domain} ` +
-          `--set httpsRoute.enabled=true ` +
-          `--set httpsRoute.rules[0].matches[0].path.type=PathPrefix ` +
-          `--set httpsRoute.rules[0].matches[0].path.value=/ ` +
-          `--set httpRoute.enabled=false ` +
-          `--set image.repository=dummy ` +
-          `--set image.tag=dummy ` +
-          `--set replicaCount=0 ` +
+          `--set gateway.name=main-gateway ` +
+          `--set gateway.namespace=default ` +
+          `--set backend.serviceName=app ` +
+          `--set backend.servicePort=80 ` +
           `--namespace ${namespace} ` +
           `--wait --timeout 2m`,
         {
@@ -510,6 +509,7 @@ export class KubernetesService {
       );
 
       this.logger.log(`HTTPRoute deployed successfully for ${tenantName}`);
+      this.logger.debug(`Helm output: ${stdout.substring(0, 500)}`);
 
       if (stderr && stderr.trim()) {
         this.logger.warn(`Helm warnings: ${stderr.substring(0, 500)}`);
