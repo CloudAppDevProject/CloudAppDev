@@ -178,8 +178,7 @@ export class KubernetesService {
       FIREBASE_SERVICE_ACCOUNT_JSON_BASE64:
         tenantSecrets.firebase_service_account || '',
       JWT_SECRET:
-        tenantSecrets.jwt_secret ||
-        `${tenantName}-jwt-secret-${Date.now()}`,
+        tenantSecrets.jwt_secret || `${tenantName}-jwt-secret-${Date.now()}`,
       JWT_EXPIRATION: '7d',
       NODE_ENV: environment === 'prod' ? 'production' : 'development',
       GOOGLE_CLOUD_PROJECT_ID: projectId,
@@ -245,7 +244,10 @@ export class KubernetesService {
         }
 
         const secretArgs = Object.entries(secret.data)
-          .filter(([_, value]) => value !== '' && value !== undefined && value !== null)
+          .filter(
+            ([_, value]) =>
+              value !== '' && value !== undefined && value !== null,
+          )
           .map(([key, value]) => `--from-literal=${key}=${String(value)}`)
           .join(' ');
 
@@ -261,7 +263,10 @@ export class KubernetesService {
           `Created secret ${secret.name} in namespace ${namespace}`,
         );
       } catch (err) {
-        this.logger.error(`Failed to create secret ${secret.name}:`, err.message);
+        this.logger.error(
+          `Failed to create secret ${secret.name}:`,
+          err.message,
+        );
         throw err;
       }
     }
@@ -375,14 +380,14 @@ export class KubernetesService {
         `--set-string initContainers[0].args[0]=--port=5432`,
         `--set-string initContainers[0].args[1]=${terraformOutputs.database_connection_name}`,
       );
-      
+
       // Service Account with Workload Identity
       setFlags.push(
         `--set serviceAccount.create=true`,
         `--set serviceAccount.name=user-service-sa`,
         `--set serviceAccount.annotations.iam\\.gke\\.io/gcp-service-account=${terraformOutputs.user_service_account_email}`,
       );
-      
+
       // Environment variables
       setFlags.push(
         `--set env[0].name=TENANT_NAME`,
@@ -398,14 +403,14 @@ export class KubernetesService {
         `--set-string initContainers[0].args[0]=--port=5432`,
         `--set-string initContainers[0].args[1]=${terraformOutputs.database_connection_name}`,
       );
-      
+
       // Service Account with Workload Identity
       setFlags.push(
         `--set serviceAccount.create=true`,
         `--set serviceAccount.name=itinerary-service-sa`,
         `--set serviceAccount.annotations.iam\\.gke\\.io/gcp-service-account=${terraformOutputs.itinerary_service_account_email}`,
       );
-      
+
       // Environment variables
       setFlags.push(
         `--set env[0].name=TENANT_NAME`,
@@ -420,7 +425,7 @@ export class KubernetesService {
         `--set serviceAccount.name=social-service-sa`,
         `--set serviceAccount.annotations.iam\\.gke\\.io/gcp-service-account=${terraformOutputs.social_service_account_email}`,
       );
-      
+
       // Environment variables
       setFlags.push(
         `--set env[0].name=TENANT_NAME`,
@@ -440,7 +445,7 @@ export class KubernetesService {
         `--set serviceNamespaces.travelInfo=default`,
         `--set serviceNamespaces.tenant=default`,
       );
-      
+
       // Environment variables
       setFlags.push(
         `--set env[0].name=TENANT_NAME`,
@@ -463,5 +468,64 @@ export class KubernetesService {
     }
 
     return setFlags.join(' ');
+  }
+
+  /**
+   * Deploys HTTPRoute for free/standard tier tenants
+   * Uses the existing app Helm chart to create a tenant-specific HTTPRoute
+   */
+  async deploySharedTierHTTPRoute(
+    tenantName: string,
+    tier: string,
+    environment: string,
+  ): Promise<void> {
+    const namespace = tier; // 'free' or 'standard'
+    const domain = `${tenantName}.cloudappdev.site`;
+    const releaseName = `${tenantName}-httproute`;
+
+    this.logger.log(
+      `Deploying HTTPRoute for ${tier} tier tenant: ${tenantName} -> ${domain}`,
+    );
+
+    try {
+      // Deploy only the HTTPRoute using the app Helm chart
+      // We create a minimal deployment that only generates HTTPRoute resources
+      const { stdout, stderr } = await execAsync(
+        `helm upgrade --install ${releaseName} /k8s/app ` +
+          `--set namespace=${namespace} ` +
+          `--set api.hostname=${domain} ` +
+          `--set httpsRoute.enabled=true ` +
+          `--set httpsRoute.rules[0].matches[0].path.type=PathPrefix ` +
+          `--set httpsRoute.rules[0].matches[0].path.value=/ ` +
+          `--set httpRoute.enabled=false ` +
+          `--set image.repository=dummy ` +
+          `--set image.tag=dummy ` +
+          `--set replicaCount=0 ` +
+          `--namespace ${namespace} ` +
+          `--wait --timeout 2m`,
+        {
+          timeout: 120000,
+          maxBuffer: 5 * 1024 * 1024,
+        },
+      );
+
+      this.logger.log(`HTTPRoute deployed successfully for ${tenantName}`);
+
+      if (stderr && stderr.trim()) {
+        this.logger.warn(`Helm warnings: ${stderr.substring(0, 500)}`);
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to deploy HTTPRoute for ${tenantName}:`,
+        err.message,
+      );
+      if (err.stderr) {
+        this.logger.error(`Helm stderr: ${err.stderr.substring(0, 1000)}`);
+      }
+      if (err.stdout) {
+        this.logger.error(`Helm stdout: ${err.stdout.substring(0, 1000)}`);
+      }
+      throw err;
+    }
   }
 }

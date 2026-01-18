@@ -29,9 +29,7 @@ export class TenantService {
     environment = environment || 'dev';
 
     // Sanitize tenant name (only alphanumeric and hyphens)
-    const sanitizedName = tenantName
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-');
+    const sanitizedName = tenantName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
     this.logger.log(
       `[Provision Request] Tenant: ${sanitizedName}, Tier: ${tier}, Env: ${environment}`,
@@ -53,6 +51,7 @@ export class TenantService {
       let deploymentResult: any = undefined;
 
       if (tier === TenantTier.ENTERPRISE) {
+        // Enterprise: Full dedicated namespace deployment
         try {
           const terraformOutputs =
             await this.terraformService.getTerraformOutputsForTenant(
@@ -84,12 +83,43 @@ export class TenantService {
               'Infrastructure was provisioned but Kubernetes deployment failed. Manual intervention required.',
           });
         }
+      } else {
+        // Free/Standard: Deploy HTTPRoute for shared infrastructure
+        try {
+          await this.kubernetesService.deploySharedTierHTTPRoute(
+            sanitizedName,
+            tier,
+            environment,
+          );
+
+          deploymentResult = {
+            type: 'shared-infrastructure',
+            httproute: `${sanitizedName}-httproute deployed to ${tier} namespace`,
+            domain: `https://${sanitizedName}.cloudappdev.site`,
+          };
+        } catch (routeErr) {
+          this.logger.error('[HTTPRoute Deployment Error]', routeErr);
+
+          throw new InternalServerErrorException({
+            success: false,
+            tenantId,
+            tenantName: sanitizedName,
+            tier,
+            error: 'Failed to deploy HTTPRoute after Terraform provisioning',
+            terraform: terraformResult,
+            routing: {
+              message: routeErr.message,
+              details: routeErr.stack,
+            },
+            message:
+              'Certificate was provisioned but HTTPRoute deployment failed. Manual intervention required.',
+          });
+        }
       }
 
       // Success response
       const domain = this.getDomainForTenant(sanitizedName, tier);
-      const namespace =
-        tier === TenantTier.ENTERPRISE ? sanitizedName : tier;
+      const namespace = tier === TenantTier.ENTERPRISE ? sanitizedName : tier;
 
       return {
         success: true,
