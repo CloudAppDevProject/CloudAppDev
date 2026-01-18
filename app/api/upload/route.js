@@ -11,6 +11,7 @@ export async function POST(request) {
   try {
     const { searchParams } = new URL(request.url);
     const service = searchParams.get('service') || 'itinerary';
+    const authHeader = request.headers.get('authorization');
 
     if (!service || !['user', 'itinerary'].includes(service)) {
       return NextResponse.json(
@@ -30,6 +31,7 @@ export async function POST(request) {
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
+      headers: authHeader ? { Authorization: authHeader } : undefined,
       // Note: Don't set Content-Type header - let fetch set it automatically for multipart/form-data
     });
 

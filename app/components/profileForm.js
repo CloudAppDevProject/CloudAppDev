@@ -17,7 +17,10 @@ const isGs = (u) => typeof u === "string" && /^gs:\/\//i.test(u);
 /** Get signed URL from User Service through Next.js proxy */
 const getSignedUrl = async (url) => {
   try {
-    const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=user`);
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=user`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     if (!resp.ok) throw new Error("signing failed");
     const data = await resp.json();
     const signed = data?.url;

@@ -163,6 +163,7 @@ class BaseAPIUser(HttpUser):
     """Base class with common functionality for all user types"""
     abstract = True
     user_id = None
+    access_token = None
     test_email = None
     test_password = "LoadTest123"
     max_retries = 3
@@ -185,10 +186,19 @@ class BaseAPIUser(HttpUser):
                 
                 if response.status_code == 201:
                     data = safe_json_parse(response, "Registration")
-                    if data and data.get("user") and data.get("user").get("id"):
-                        self.user_id = data.get("user").get("id")
-                        shared_state.user_ids.append(self.user_id)
-                        return True
+                    if data:
+                        # Extract user ID - handle both response formats
+                        user_id = data.get("user", {}).get("id") or data.get("id")
+                        # Extract access token
+                        self.access_token = data.get("access_token")
+                        
+                        if user_id:
+                            self.user_id = user_id
+                            shared_state.user_ids.append(self.user_id)
+                            return True
+                        else:
+                            retry_count += 1
+                            time.sleep(2)
                     else:
                         retry_count += 1
                         time.sleep(2)
@@ -242,6 +252,12 @@ class BaseAPIUser(HttpUser):
         if self.available_itinerary_ids:
             return random.choice(self.available_itinerary_ids)
         return None
+    
+    def get_auth_headers(self):
+        """Get Authorization headers with JWT token"""
+        if self.access_token:
+            return {"Authorization": f"Bearer {self.access_token}"}
+        return {}
 
 # ============================================================================
 # NEW USER JOURNEY (20% of traffic)
@@ -326,7 +342,7 @@ class NewUserJourney(TaskSet):
                 self.client.post("/api/likes", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id
-                }, name="Journey: Like Itinerary")
+                }, headers=self.user.get_auth_headers(), name="Journey: Like Itinerary")
     
 
     @task(1)
@@ -359,7 +375,7 @@ class NewUserJourney(TaskSet):
                     "images": []
                 }
             ]
-        }, name="Journey: Create First Itinerary")
+        }, headers=self.user.get_auth_headers(), name="Journey: Create First Itinerary")
         
         # Add new itinerary to available IDs
         if response.status_code == 201:
@@ -405,7 +421,7 @@ class NewUserJourney(TaskSet):
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id,
                     "text": random.choice(comments)
-                }, name="Journey: Add Comment")
+                }, headers=self.user.get_auth_headers(), name="Journey: Add Comment")
 
 # ============================================================================
 # ACTIVE USER JOURNEY (30% of traffic)
@@ -460,7 +476,7 @@ class ActiveUserJourney(TaskSet):
                 self.client.post("/api/likes", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id
-                }, name="Journey: Like")
+                }, headers=self.user.get_auth_headers(), name="Journey: Like")
                 time.sleep(random.uniform(0.2, 0.8))
 
     @task(3)
@@ -511,7 +527,7 @@ class ActiveUserJourney(TaskSet):
             "detail_desc": "Planning an incredible journey!",
             "userId": self.user.user_id,
             "locations": locations
-        }, name="Journey: Create Itinerary")
+        }, headers=self.user.get_auth_headers(), name="Journey: Create Itinerary")
         
         # Add new itinerary to available IDs
         if response.status_code == 201:
@@ -562,7 +578,7 @@ class ActiveUserJourney(TaskSet):
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id,
                     "text": random.choice(comments)
-                }, name="Journey: Add Comment")
+                }, headers=self.user.get_auth_headers(), name="Journey: Add Comment")
 
 # ============================================================================
 # CASUAL BROWSER JOURNEY (50% of traffic)
@@ -829,26 +845,23 @@ def on_test_stop(environment, **kwargs):
                 f.write(f"  Avg Response Time: {stat.avg_response_time:.2f}ms\n")
                 f.write(f"  Min/Max: {stat.min_response_time:.2f}ms / {stat.max_response_time:.2f}ms\n")
         
-        # Threshold analysis for report
-        if SHAPE_ENV == 'lifetime':
-            p95 = stats.total.get_response_time_percentile(0.95)
-            failure_rate = (stats.total.num_failures / max(stats.total.num_requests, 1)) * 100
-            
-            f.write("\n\nONCE-IN-A-LIFETIME THRESHOLD ANALYSIS\n")
-            f.write("="*80 + "\n")
-            f.write(f"P95 Response Time: {p95:.2f}ms\n")
-            f.write(f"Failure Rate: {failure_rate:.2f}%\n\n")
-            
-            f.write("Thresholds:\n")
-            f.write("  - Without Degradation: p95 < 500ms, error rate < 1%\n")
-            f.write("  - With Degradation: p95 < 2000ms, error rate < 5%\n")
-            f.write("  - Failure: p95 >= 2000ms or error rate >= 5%\n\n")
-            
-            if p95 < 500 and failure_rate < 1:
-                f.write("RESULT: System performed WITHOUT DEGRADATION\n")
-            elif p95 < 2000 and failure_rate < 5:
-                f.write("RESULT: System performed WITH DEGRADATION\n")
-            else:
-                f.write("RESULT: System reached FAILURE THRESHOLD\n")
+        failure_rate = (stats.total.num_failures / max(stats.total.num_requests, 1)) * 100
+        
+        f.write("\n\nONCE-IN-A-LIFETIME THRESHOLD ANALYSIS\n")
+        f.write("="*80 + "\n")
+        f.write(f"P95 Response Time: {p95:.2f}ms\n")
+        f.write(f"Failure Rate: {failure_rate:.2f}%\n\n")
+        
+        f.write("Thresholds:\n")
+        f.write("  - Without Degradation: p95 < 500ms, error rate < 1%\n")
+        f.write("  - With Degradation: p95 < 2000ms, error rate < 5%\n")
+        f.write("  - Failure: p95 >= 2000ms or error rate >= 5%\n\n")
+        
+        if p95 < 500 and failure_rate < 1:
+            f.write("RESULT: System performed WITHOUT DEGRADATION\n")
+        elif p95 < 2000 and failure_rate < 5:
+            f.write("RESULT: System performed WITH DEGRADATION\n")
+        else:
+            f.write("RESULT: System reached FAILURE THRESHOLD\n")
     
     print(f"Detailed report saved to: {report_file}")

@@ -2,8 +2,11 @@
 Locust Load Testing for CloudAppDev Microservices Architecture
 ================================================================
 
-This load test file is designed for the microservices architecture with server-side proxy routes.
-All requests go through the Next.js frontend proxy routes (http://localhost:3000).
+SIMPLIFIED VERSION: 5-Minute Scaling Test
+
+This load test file is designed for quick smoke testing and load profile validation.
+Ramps up from 10 to 500 users over 4 minutes, then maintains peak for 1 minute.
+Total test duration: 5 minutes.
 
 Architecture:
 - Next.js Frontend with Proxy Routes on port 3000 (/api/*)
@@ -20,33 +23,19 @@ Proxy Routes:
 - /api/comments - Social comments
 - /api/likes - Social likes
 
-Requirements for Milestone 2 Performance Testing:
-
-5.1 Periodic Workload (2 scenarios):
-- Scenario A: 100 concurrent users (peak) / 10 users (low demand) - cycling pattern
-- Scenario B: 1000 concurrent users (peak) / 20 users (low demand) - cycling pattern
-
-5.2 Once-in-a-lifetime Workload:
-- Start with 10 base users, constantly add new users at a given growth rate
-- Determine: no degradation threshold, with degradation threshold, failure threshold
+Quick Test Profile:
+- Duration: 5 minutes
+- Users: 10 → 500 (4-minute ramp)
+- Peak: 500 users for 1 minute
+- Spawn Rate: 100 users/second (aggressive scaling)
 
 Usage:
 ------
-# Standard load test (use with PowerShell script for specific scenarios)
-# IMPORTANT: Use http://localhost:3000 (Next.js frontend), NOT http://localhost:8000
+# Standard load test with default simple 5-minute profile
 locust -f locust/locustfile_microservices.py --host=http://localhost:3000
 
-# Periodic workload - Scenario A (100/10 users) - uses PeriodicShapeA
-LOCUST_SHAPE=periodic_a locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --headless
-
-# Periodic workload - Scenario B (1000/20 users) - uses PeriodicShapeB
-LOCUST_SHAPE=periodic_b locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --headless
-
-# Once-in-a-lifetime (continuous growth from 10 users)
-LOCUST_SHAPE=lifetime locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --headless
-
-# Manual mode (no shape, use --users and --spawn-rate)
-locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --users 100 --spawn-rate 10
+# Headless mode for automated testing
+locust -f locust/locustfile_microservices.py --host=http://localhost:3000 --headless
 """
 
 from locust import HttpUser, task, between, events, TaskSet, LoadTestShape
@@ -63,149 +52,39 @@ import math
 # LOAD TEST SHAPES FOR DIFFERENT SCENARIOS
 # ============================================================================
 
-class PeriodicShapeA(LoadTestShape):
+class SimpleScalingShape(LoadTestShape):
     """
-    Periodic Workload - Scenario A: 100 peak / 10 low demand
+    Simplified Load Test - 5 Minute Scaling Test
     
-    Pattern: Low(10) -> Ramp up -> Peak(100) -> Ramp down -> Low(10) -> repeat
-    Total duration: ~15 minutes with 2 full cycles
+    Pattern: Starts with 5 users, ramps up to 100 users over 4 minutes, then peak for 1 minute
+    Total duration: 5 minutes
+    Spawn rate: 5 users per second (conservative for local Docker)
+    
+    Perfect for local Docker environments with resource constraints
     """
     
     # Configuration
+    base_users = 5
     peak_users = 100
-    low_users = 10
-    cycle_duration = 420  # 7 minutes per cycle
-    ramp_time = 60  # 1 minute to ramp up/down
-    peak_duration = 180  # 3 minutes at peak
-    low_duration = 120  # 2 minutes at low
-    total_cycles = 2
+    ramp_duration = 240  # 4 minutes to ramp up
+    peak_duration = 60   # 1 minute at peak
+    spawn_rate = 5       # 5 users per second (conservative)
     
     def tick(self):
         run_time = self.get_run_time()
-        total_duration = self.cycle_duration * self.total_cycles
+        total_duration = self.ramp_duration + self.peak_duration
         
         if run_time > total_duration:
-            return None  # Stop test
+            return None  # Stop test after 5 minutes
         
-        # Calculate position in cycle
-        cycle_position = run_time % self.cycle_duration
-        
-        if cycle_position < self.low_duration:
-            # Low demand phase
-            return (self.low_users, self.low_users)  # (users, spawn_rate)
-        
-        elif cycle_position < self.low_duration + self.ramp_time:
-            # Ramping up to peak
-            progress = (cycle_position - self.low_duration) / self.ramp_time
-            users = int(self.low_users + (self.peak_users - self.low_users) * progress)
-            return (users, 10)  # spawn rate of 10/s
-        
-        elif cycle_position < self.low_duration + self.ramp_time + self.peak_duration:
-            # Peak phase
-            return (self.peak_users, self.peak_users)
-        
-        elif cycle_position < self.low_duration + self.ramp_time + self.peak_duration + self.ramp_time:
-            # Ramping down to low
-            ramp_down_start = self.low_duration + self.ramp_time + self.peak_duration
-            progress = (cycle_position - ramp_down_start) / self.ramp_time
-            users = int(self.peak_users - (self.peak_users - self.low_users) * progress)
-            return (users, 10)
-        
+        if run_time < self.ramp_duration:
+            # Ramp up phase (4 minutes)
+            progress = run_time / self.ramp_duration
+            users = int(self.base_users + (self.peak_users - self.base_users) * progress)
+            return (users, self.spawn_rate)
         else:
-            # Back to low (end of cycle)
-            return (self.low_users, self.low_users)
-
-
-class PeriodicShapeB(LoadTestShape):
-    """
-    Periodic Workload - Scenario B: 1000 peak / 20 low demand
-    
-    Pattern: Low(20) -> Ramp up -> Peak(1000) -> Ramp down -> Low(20) -> repeat
-    Total duration: ~30 minutes with 2 full cycles
-    """
-    
-    # Configuration
-    peak_users = 1000
-    low_users = 20
-    cycle_duration = 900  # 15 minutes per cycle
-    ramp_time = 120  # 2 minutes to ramp up/down (slower for more users)
-    peak_duration = 420  # 7 minutes at peak
-    low_duration = 240  # 4 minutes at low
-    total_cycles = 2
-    
-    def tick(self):
-        run_time = self.get_run_time()
-        total_duration = self.cycle_duration * self.total_cycles
-        
-        if run_time > total_duration:
-            return None  # Stop test
-        
-        # Calculate position in cycle
-        cycle_position = run_time % self.cycle_duration
-        
-        if cycle_position < self.low_duration:
-            # Low demand phase
-            return (self.low_users, self.low_users)
-        
-        elif cycle_position < self.low_duration + self.ramp_time:
-            # Ramping up to peak
-            progress = (cycle_position - self.low_duration) / self.ramp_time
-            users = int(self.low_users + (self.peak_users - self.low_users) * progress)
-            return (users, 50)  # spawn rate of 50/s for faster ramp
-        
-        elif cycle_position < self.low_duration + self.ramp_time + self.peak_duration:
-            # Peak phase
-            return (self.peak_users, self.peak_users)
-        
-        elif cycle_position < self.low_duration + self.ramp_time + self.peak_duration + self.ramp_time:
-            # Ramping down to low
-            ramp_down_start = self.low_duration + self.ramp_time + self.peak_duration
-            progress = (cycle_position - ramp_down_start) / self.ramp_time
-            users = int(self.peak_users - (self.peak_users - self.low_users) * progress)
-            return (users, 50)
-        
-        else:
-            # Back to low (end of cycle)
-            return (self.low_users, self.low_users)
-
-
-class OnceInALifetimeShape(LoadTestShape):
-    """
-    Once-in-a-Lifetime Workload - Continuous Growth
-    
-    Pattern: Start with 10 users, constantly add users at a steady rate
-    Goal: Find the breaking point - when the application fails
-    
-    Growth rate: Configurable users per minute (default: 20 users/minute)
-    Max duration: 30 minutes (will reach ~610 users with default rate)
-    
-    The test records metrics to determine:
-    - Without degradation: response time p95 < 500ms, error rate < 1%
-    - With degradation: response time p95 < 2000ms, error rate < 5%
-    - Failure: response time p95 > 5000ms or error rate > 10%
-    """
-    
-    # Configuration - can be overridden via environment variables
-    base_users = 10
-    growth_rate = float(os.getenv('GROWTH_RATE', '20'))  # users per minute
-    max_users = int(os.getenv('MAX_USERS', '3000'))  # safety limit
-    max_duration = int(os.getenv('MAX_DURATION', '1800'))  # 30 minutes default
-    spawn_rate = 10  # users per second when adding
-    
-    def tick(self):
-        run_time = self.get_run_time()
-        
-        if run_time > self.max_duration:
-            return None  # Stop test after max duration
-        
-        # Calculate target users: base + (growth_rate * minutes elapsed)
-        minutes_elapsed = run_time / 60
-        target_users = int(self.base_users + (self.growth_rate * minutes_elapsed))
-        
-        # Cap at max users
-        target_users = min(target_users, self.max_users)
-        
-        return (target_users, self.spawn_rate)
+            # Peak phase (1 minute)
+            return (self.peak_users, self.spawn_rate)
 
 
 # ============================================================================
@@ -264,6 +143,13 @@ class BaseAPIUser(HttpUser):
     test_password = "LoadTest123"
     max_retries = 3
     available_itinerary_ids = []
+    access_token = None
+    
+    # Increase timeouts for local Docker environment
+    wait_time = between(1, 3)
+    
+    # Connection pool settings for local environment
+    connection_timeout = 30  # 30 second timeout for connections
     
     def register_user(self):
         """Register a new user via proxy route"""
@@ -274,43 +160,66 @@ class BaseAPIUser(HttpUser):
 
             try:
                 # POST /api/auth/register - Server-side proxy to User Service
-                response = self.client.post("/api/auth/register", json={
-                    "name": name,
-                    "email": self.test_email,
-                    "password": self.test_password
-                }, timeout=10, name="User Registration")
-                
-                if response.status_code == 201:
-                    data = safe_json_parse(response, "Registration")
-                    if data:
-                        # Handle nested response structure: {user: {id: ...}} or {id: ...}
-                        user_id = None
-                        if "user" in data and isinstance(data.get("user"), dict):
-                            user_id = data["user"].get("id")
-                        elif "id" in data:
-                            user_id = data.get("id")
+                with self.client.post(
+                    "/api/auth/register",
+                    json={
+                        "name": name,
+                        "email": self.test_email,
+                        "password": self.test_password
+                    },
+                    headers={"Content-Type": "application/json"},
+                    timeout=30,
+                    name="User Registration",
+                    catch_response=True
+                ) as response:
+                    # Accept both 200 and 201 as success (backend may vary)
+                    if response.status_code in [200, 201]:
+                        try:
+                            data = response.json()
+                            # Extract JWT token from response
+                            if "access_token" in data:
+                                self.access_token = data["access_token"]
+                            
+                            # Handle nested response structure: {access_token: "...", user: {id: ...}}
+                            user_id = None
+                            if "user" in data and isinstance(data.get("user"), dict):
+                                user_id = data["user"].get("id")
+                            elif "id" in data:
+                                user_id = data.get("id")
 
-                        if user_id:
-                            self.user_id = user_id
-                            shared_state.user_ids.append(self.user_id)
-                            return True
-                        else:
+                            if user_id:
+                                self.user_id = user_id
+                                shared_state.user_ids.append(self.user_id)
+                                response.success()
+                                return True
+                            else:
+                                response.failure(f"No user ID in response: {data}")
+                                retry_count += 1
+                                time.sleep(2)
+                        except ValueError as e:
+                            response.failure(f"JSON parse error: {str(e)}")
                             retry_count += 1
                             time.sleep(2)
                     else:
+                        response.failure(f"Registration failed with status {response.status_code}: {response.text}")
                         retry_count += 1
                         time.sleep(2)
-                else:
-                    retry_count += 1
-                    time.sleep(2)
             except Exception as e:
+                print(f"Registration exception: {str(e)}")
                 retry_count += 1
                 time.sleep(2)
         
         return self.user_id is not None
     
+    def get_auth_headers(self):
+        """Get authorization headers with JWT token"""
+        headers = {"Content-Type": "application/json"}
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+        return headers
+    
     def _fetch_available_itineraries(self):
-        """Fetch list of available itinerary IDs"""
+        """Fetch list of available itinerary IDs with retry logic"""
         current_time = time.time()
 
         # Use cached IDs if recently fetched
@@ -318,30 +227,41 @@ class BaseAPIUser(HttpUser):
             self.available_itinerary_ids = shared_state.itinerary_ids.copy()
             return
 
-        try:
-            # GET /api/itineraries - Server-side proxy to Itinerary Service
-            with self.client.get("/api/itineraries?page=1&limit=100",
-                                catch_response=True,
-                                name="Fetch Available Itineraries") as response:
-                if response.status_code == 200:
-                    data = safe_json_parse(response, "Fetch Itineraries")
-                    if data:
-                        # Handle both list response and paginated response {data: [...], pagination: {...}}
-                        itineraries = data
-                        if isinstance(data, dict) and 'data' in data:
-                            itineraries = data['data']
+        # Retry fetching if failed
+        max_fetch_attempts = 3
+        for attempt in range(max_fetch_attempts):
+            try:
+                # GET /api/itineraries - Server-side proxy to Itinerary Service
+                with self.client.get("/api/itineraries?page=1&limit=100",
+                                    headers=self.get_auth_headers(),
+                                    timeout=30,
+                                    catch_response=True,
+                                    name="Fetch Available Itineraries") as response:
+                    if response.status_code == 200:
+                        try:
+                            data = response.json()
+                            # Handle both list response and paginated response {data: [...], pagination: {...}}
+                            itineraries = data
+                            if isinstance(data, dict) and 'data' in data:
+                                itineraries = data['data']
 
-                        if isinstance(itineraries, list):
-                            ids = [item['id'] for item in itineraries if 'id' in item]
-                            if ids:
-                                self.available_itinerary_ids = ids
-                                shared_state.itinerary_ids = ids
-                                shared_state.last_fetch = current_time
-                    response.success()
-                else:
-                    response.failure(f"Failed to fetch: {response.status_code}")
-        except Exception as e:
-            pass
+                            if isinstance(itineraries, list) and len(itineraries) > 0:
+                                ids = [item['id'] for item in itineraries if 'id' in item]
+                                if ids:
+                                    self.available_itinerary_ids = ids
+                                    shared_state.itinerary_ids = ids
+                                    shared_state.last_fetch = current_time
+                                    response.success()
+                                    return
+                            response.failure(f"No valid itineraries in response")
+                        except ValueError as e:
+                            response.failure(f"JSON parse error: {str(e)}")
+                    else:
+                        response.failure(f"Failed to fetch: {response.status_code}")
+            except Exception as e:
+                if attempt < max_fetch_attempts - 1:
+                    time.sleep(1)  # Wait before retry
+                continue
     
     def get_random_itinerary_id(self):
         """Get a random itinerary ID from available ones"""
@@ -363,10 +283,22 @@ class NewUserJourney(TaskSet):
     """
     
     def on_start(self):
-        """Initialize new user"""
-        if not self.user.register_user():
-            self.interrupt()
-        self.user._fetch_available_itineraries()
+        """Initialize new user - with retry and better error handling"""
+        max_init_attempts = 3
+        for attempt in range(max_init_attempts):
+            if self.user.register_user():
+                # Wait a bit after successful registration before fetching
+                time.sleep(random.uniform(0.5, 1.5))
+                self.user._fetch_available_itineraries()
+                return
+            else:
+                if attempt < max_init_attempts - 1:
+                    print(f"[NewUserJourney] Registration failed, retry {attempt + 1}/{max_init_attempts}")
+                    time.sleep(2)
+        
+        # If registration failed after all attempts, interrupt this user
+        print(f"[NewUserJourney] Registration failed after {max_init_attempts} attempts, interrupting user")
+        self.interrupt()
     
     
     def browse_popular_itineraries(self):
@@ -380,6 +312,7 @@ class NewUserJourney(TaskSet):
         # GET /api/itineraries?page=X&limit=Y - Server-side proxy
         response = self.client.get(
             f"/api/itineraries?page={page}&limit={limit}",
+            headers=self.user.get_auth_headers(),
             name="Journey: Browse Popular"
         )
 
@@ -407,6 +340,7 @@ class NewUserJourney(TaskSet):
         # GET /api/itineraries?search=X - Server-side proxy
         self.client.get(
             f"/api/itineraries?search={quote(search_term)}",
+            headers=self.user.get_auth_headers(),
             name="Journey: Search Destination"
         )
         time.sleep(random.uniform(0.5, 2))
@@ -422,6 +356,7 @@ class NewUserJourney(TaskSet):
             # GET /api/itineraries/:id - Server-side proxy
             response = self.client.get(
                 f"/api/itineraries?id={itinerary_id}",
+                headers=self.user.get_auth_headers(),
                 name="Journey: View Details"
             )
             time.sleep(random.uniform(1, 3))  # User reads itinerary
@@ -429,10 +364,15 @@ class NewUserJourney(TaskSet):
             # Like the itinerary (50% chance)
             if response.status_code == 200 and random.random() < 0.5:
                 # POST /api/likes - Server-side proxy
-                self.client.post("/api/likes", json={
-                    "userId": self.user.user_id,
-                    "itineraryId": itinerary_id
-                }, name="Journey: Like Itinerary")
+                self.client.post(
+                    "/api/likes",
+                    json={
+                        "userId": self.user.user_id,
+                        "itineraryId": itinerary_id
+                    },
+                    headers={"Content-Type": "application/json"},
+                    name="Journey: Like Itinerary"
+                )
     
     
     def create_first_itinerary(self):
@@ -464,7 +404,7 @@ class NewUserJourney(TaskSet):
                     "images": []
                 }
             ]
-        }, name="Journey: Create First Itinerary")
+        }, headers=self.user.get_auth_headers(), name="Journey: Create First Itinerary")
         
         # Add new itinerary to available IDs
         if response.status_code == 201:
@@ -491,6 +431,7 @@ class NewUserJourney(TaskSet):
             # GET /api/comments - Server-side proxy
             self.client.get(
                 f"/api/comments?itineraryId={itinerary_id}",
+                headers=self.user.get_auth_headers(),
                 name="Journey: View Comments"
             )
             time.sleep(random.uniform(0.5, 1.5))
@@ -506,11 +447,16 @@ class NewUserJourney(TaskSet):
                 ]
 
                 # POST /api/comments - Server-side proxy
-                self.client.post("/api/comments", json={
-                    "userId": self.user.user_id,
-                    "itineraryId": itinerary_id,
-                    "text": random.choice(comments)
-                }, name="Journey: Add Comment")
+                self.client.post(
+                    "/api/comments",
+                    json={
+                        "userId": self.user.user_id,
+                        "itineraryId": itinerary_id,
+                        "text": random.choice(comments)
+                    },
+                    headers={"Content-Type": "application/json"},
+                    name="Journey: Add Comment"
+                )
 
 # ============================================================================
 # ACTIVE USER JOURNEY (30% of traffic)
@@ -523,10 +469,22 @@ class ActiveUserJourney(TaskSet):
     """
     
     def on_start(self):
-        """Initialize active user"""
-        if not self.user.register_user():
-            self.interrupt()
-        self.user._fetch_available_itineraries()
+        """Initialize active user - with retry and better error handling"""
+        max_init_attempts = 3
+        for attempt in range(max_init_attempts):
+            if self.user.register_user():
+                # Wait a bit after successful registration before fetching
+                time.sleep(random.uniform(0.5, 1.5))
+                self.user._fetch_available_itineraries()
+                return
+            else:
+                if attempt < max_init_attempts - 1:
+                    print(f"[ActiveUserJourney] Registration failed, retry {attempt + 1}/{max_init_attempts}")
+                    time.sleep(2)
+        
+        # If registration failed after all attempts, interrupt this user
+        print(f"[ActiveUserJourney] Registration failed after {max_init_attempts} attempts, interrupting user")
+        self.interrupt()
     
     
     def browse_and_engage(self):
@@ -538,6 +496,7 @@ class ActiveUserJourney(TaskSet):
         # GET /api/itineraries - Server-side proxy
         response = self.client.get(
             f"/api/itineraries?page={page}&limit=20",
+            headers=self.user.get_auth_headers(),
             name="Journey: Browse Feed"
         )
 
@@ -562,10 +521,15 @@ class ActiveUserJourney(TaskSet):
             itinerary_id = self.user.get_random_itinerary_id()
             if itinerary_id:
                 # POST /api/likes - Server-side proxy
-                self.client.post("/api/likes", json={
-                    "userId": self.user.user_id,
-                    "itineraryId": itinerary_id
-                }, name="Journey: Like")
+                self.client.post(
+                    "/api/likes",
+                    json={
+                        "userId": self.user.user_id,
+                        "itineraryId": itinerary_id
+                    },
+                    headers={"Content-Type": "application/json"},
+                    name="Journey: Like"
+                )
                 time.sleep(random.uniform(0.2, 0.8))
     
     
@@ -577,6 +541,7 @@ class ActiveUserJourney(TaskSet):
         # GET /api/itineraries?userId=X - Server-side proxy
         self.client.get(
             f"/api/itineraries?userId={self.user.user_id}",
+            headers=self.user.get_auth_headers(),
             name="Journey: My Itineraries"
         )
     
@@ -616,7 +581,7 @@ class ActiveUserJourney(TaskSet):
             "detail_desc": "Planning an incredible journey!",
             "userId": self.user.user_id,
             "locations": locations
-        }, name="Journey: Create Itinerary")
+        }, headers=self.user.get_auth_headers(), name="Journey: Create Itinerary")
         
         # Add new itinerary to available IDs
         if response.status_code == 201:
@@ -641,6 +606,7 @@ class ActiveUserJourney(TaskSet):
             # GET /api/itineraries/:id - Server-side proxy
             response = self.client.get(
                 f"/api/itineraries?id={itinerary_id}",
+                headers=self.user.get_auth_headers(),
                 name="Journey: View Detail"
             )
             time.sleep(random.uniform(1, 2))
@@ -648,6 +614,7 @@ class ActiveUserJourney(TaskSet):
             # GET /api/comments - Server-side proxy
             self.client.get(
                 f"/api/comments?itineraryId={itinerary_id}",
+                headers=self.user.get_auth_headers(),
                 name="Journey: View Comments"
             )
             time.sleep(random.uniform(0.5, 1))
@@ -663,11 +630,16 @@ class ActiveUserJourney(TaskSet):
                 ]
 
                 # POST /api/comments - Server-side proxy
-                self.client.post("/api/comments", json={
-                    "userId": self.user.user_id,
-                    "itineraryId": itinerary_id,
-                    "text": random.choice(comments)
-                }, name="Journey: Add Comment")
+                self.client.post(
+                    "/api/comments",
+                    json={
+                        "userId": self.user.user_id,
+                        "itineraryId": itinerary_id,
+                        "text": random.choice(comments)
+                    },
+                    headers={"Content-Type": "application/json"},
+                    name="Journey: Add Comment"
+                )
 
 # ============================================================================
 # CASUAL BROWSER JOURNEY (50% of traffic)
@@ -676,23 +648,42 @@ class ActiveUserJourney(TaskSet):
 class CasualBrowserJourney(TaskSet):
     """
     Represents a casual visitor who browses without necessarily engaging deeply.
-    Typical flow: Quick Browse -> Search -> View Popular -> Maybe Register
+    Typical flow: Quick Register -> Browse -> Search -> View Popular
+    Note: Now registers immediately due to backend requiring authentication
     """
     
     def on_start(self):
-        """Casual browsers start without registration"""
-        self.user.user_id = None
+        """Casual browsers now register to access protected routes"""
+        max_init_attempts = 3
+        for attempt in range(max_init_attempts):
+            if self.user.register_user():
+                # Wait a bit after successful registration before fetching
+                time.sleep(random.uniform(0.3, 1.0))
+                self.user._fetch_available_itineraries()
+                self.is_registered = True
+                return
+            else:
+                if attempt < max_init_attempts - 1:
+                    print(f"[CasualBrowserJourney] Registration failed, retry {attempt + 1}/{max_init_attempts}")
+                    time.sleep(2)
+        
+        # If registration failed after all attempts, interrupt this user
+        print(f"[CasualBrowserJourney] Registration failed after {max_init_attempts} attempts, interrupting user")
         self.is_registered = False
-        self.user._fetch_available_itineraries()
+        self.interrupt()
     
     
     def quick_browse(self):
         """Quick browse through itineraries"""
+        if not self.user.user_id:
+            return
+            
         page = random.randint(1, 3)
 
         # GET /api/itineraries - Server-side proxy
         response = self.client.get(
             f"/api/itineraries?page={page}&limit=10",
+            headers=self.user.get_auth_headers(),
             name="Journey: Quick Browse"
         )
 
@@ -714,6 +705,9 @@ class CasualBrowserJourney(TaskSet):
     
     def search_destinations(self):
         """Search for destinations"""
+        if not self.user.user_id:
+            return
+            
         popular_destinations = [
             "Paris", "Tokyo", "New York", "London", "Bali",
             "Barcelona", "Rome", "Dubai", "Sydney"
@@ -723,6 +717,7 @@ class CasualBrowserJourney(TaskSet):
         # GET /api/itineraries?search=X - Server-side proxy
         self.client.get(
             f"/api/itineraries?search={quote(search_term)}",
+            headers=self.user.get_auth_headers(),
             name="Journey: Search"
         )
         time.sleep(random.uniform(0.5, 1.5))
@@ -730,43 +725,38 @@ class CasualBrowserJourney(TaskSet):
     
     def view_popular_itineraries(self):
         """View popular itineraries"""
+        if not self.user.user_id:
+            return
+            
         itinerary_id = self.user.get_random_itinerary_id()
         if itinerary_id:
             # GET /api/itineraries/:id - Server-side proxy
             self.client.get(
                 f"/api/itineraries?id={itinerary_id}",
+                headers=self.user.get_auth_headers(),
                 name="Journey: View Popular"
             )
             time.sleep(random.uniform(1, 3))
     
     
-    def maybe_register(self):
-        """20% chance to convert to registered user"""
-        if not self.is_registered and random.random() < 0.2:
-            if self.user.register_user():
-                self.is_registered = True
-
 # Populate task dictionaries (explicit task weights required for Locust to collect all tasks)
 NewUserJourney.tasks = {
-    NewUserJourney.browse_popular_itineraries: 3,
+    NewUserJourney.browse_popular_itineraries: 4,
     NewUserJourney.search_destinations: 2,
-    NewUserJourney.view_itinerary_details: 2,
-    NewUserJourney.create_first_itinerary: 1,
+    NewUserJourney.view_itinerary_details: 3,
     NewUserJourney.view_and_comment: 1,
 }
 
 ActiveUserJourney.tasks = {
-    ActiveUserJourney.browse_and_engage: 4,
+    ActiveUserJourney.browse_and_engage: 5,
     ActiveUserJourney.check_my_itineraries: 3,
-    ActiveUserJourney.create_new_itinerary: 2,
-    ActiveUserJourney.view_and_comment: 3,
+    ActiveUserJourney.view_and_comment: 2,
 }
 
 CasualBrowserJourney.tasks = {
     CasualBrowserJourney.quick_browse: 5,
     CasualBrowserJourney.search_destinations: 3,
     CasualBrowserJourney.view_popular_itineraries: 2,
-    CasualBrowserJourney.maybe_register: 1,
 }
 
 # ============================================================================
@@ -775,19 +765,19 @@ CasualBrowserJourney.tasks = {
 
 class NewUserWorkload(BaseAPIUser):
     """New users exploring the platform (20% of traffic)"""
-    wait_time = between(1, 4)
+    wait_time = between(2, 5)  # Longer wait between requests
     tasks = [NewUserJourney]
     weight = 2
 
 class ActiveUserWorkload(BaseAPIUser):
     """Active users regularly using platform (30% of traffic)"""
-    wait_time = between(1, 3)
+    wait_time = between(2, 4)  # Longer wait between requests
     tasks = [ActiveUserJourney]
     weight = 3
 
 class CasualBrowserWorkload(BaseAPIUser):
     """Casual browsers (50% of traffic)"""
-    wait_time = between(0.5, 2)
+    wait_time = between(1, 3)  # Longer wait between requests
     tasks = [CasualBrowserJourney]
     weight = 5
 
@@ -796,21 +786,13 @@ class CasualBrowserWorkload(BaseAPIUser):
 # ============================================================================
 
 # Select shape based on environment variable
-SHAPE_ENV = os.getenv('LOCUST_SHAPE', '').lower()
+SHAPE_ENV = os.getenv('LOCUST_SHAPE', 'simple').lower()
 
-if SHAPE_ENV == 'periodic_a':
-    class TestShape(PeriodicShapeA):
-        """Active shape for Periodic Scenario A"""
+if SHAPE_ENV == 'simple':
+    class TestShape(SimpleScalingShape):
+        """Active shape for Simple 5-Minute Scaling Test"""
         pass
-elif SHAPE_ENV == 'periodic_b':
-    class TestShape(PeriodicShapeB):
-        """Active shape for Periodic Scenario B"""
-        pass
-elif SHAPE_ENV == 'lifetime':
-    class TestShape(OnceInALifetimeShape):
-        """Active shape for Once-in-a-Lifetime test"""
-        pass
-# If no shape specified, Locust uses manual --users and --spawn-rate
+# If no shape specified, Locust uses simple 5-minute test by default
 
 # ============================================================================
 # REPORTING HOOKS
@@ -836,7 +818,7 @@ def on_request(request_type, name, response_time, response_length, response, con
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """Called when the load test starts"""
-    shape_name = SHAPE_ENV if SHAPE_ENV else "Manual (--users/--spawn-rate)"
+    shape_name = SHAPE_ENV if SHAPE_ENV else "Simple 5-Min Scaling"
     
     print("\n" + "="*80)
     print("MICROSERVICES LOAD TEST STARTED")
@@ -849,18 +831,14 @@ def on_test_start(environment, **kwargs):
     print(f"  - Itinerary Service: /api/v1/itineraries")
     print(f"  - Social Service: /api/v1/social/comments, /api/v1/social/likes")
     
-    if SHAPE_ENV == 'periodic_a':
-        print(f"\nPeriodic Scenario A: 100 peak / 10 low users")
-        print(f"  - 2 full cycles, ~14 minutes total")
-    elif SHAPE_ENV == 'periodic_b':
-        print(f"\nPeriodic Scenario B: 1000 peak / 20 low users")
-        print(f"  - 2 full cycles, ~30 minutes total")
-    elif SHAPE_ENV == 'lifetime':
-        growth_rate = os.getenv('GROWTH_RATE', '20')
-        max_users = os.getenv('MAX_USERS', '3000')
-        print(f"\nOnce-in-a-Lifetime: Continuous growth")
-        print(f"  - Base: 10 users, Growth: {growth_rate} users/min")
-        print(f"  - Max: {max_users} users, Duration: 30 min")
+    if SHAPE_ENV == 'simple':
+        print(f"\nSimple 5-Minute Scaling Test (LOCAL DOCKER OPTIMIZED)")
+        print(f"  - Duration: 5 minutes")
+        print(f"  - Start: 5 users")
+        print(f"  - Peak: 100 users")
+        print(f"  - Ramp: 4 minutes (5 users/sec - conservative)")
+        print(f"  - Peak Duration: 1 minute")
+        print(f"  - Optimized for local Docker with resource constraints")
     
     print("="*80 + "\n")
 
@@ -924,8 +902,18 @@ def on_test_stop(environment, **kwargs):
         f.write("="*80 + "\n")
         f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Target Host: {environment.host}\n")
-        f.write(f"Test Shape: {SHAPE_ENV if SHAPE_ENV else 'Manual'}\n")
+        f.write(f"Test Shape: {SHAPE_ENV if SHAPE_ENV else 'Simple'}\n")
         f.write(f"Architecture: Microservices with API Gateway\n\n")
+        
+        if SHAPE_ENV == 'simple':
+            f.write("TEST CONFIGURATION: Simple 5-Minute Scaling\n")
+            f.write("-"*80 + "\n")
+            f.write("Duration: 5 minutes\n")
+            f.write("Start Users: 10\n")
+            f.write("Peak Users: 500\n")
+            f.write("Ramp Duration: 4 minutes\n")
+            f.write("Peak Duration: 1 minute\n")
+            f.write("Spawn Rate: 100 users/sec\n\n")
         
         f.write("SUMMARY STATISTICS\n")
         f.write("-"*80 + "\n")
@@ -958,26 +946,4 @@ def on_test_stop(environment, **kwargs):
                 f.write(f"  Avg Response Time: {stat.avg_response_time:.2f}ms\n")
                 f.write(f"  Min/Max: {stat.min_response_time:.2f}ms / {stat.max_response_time:.2f}ms\n")
         
-        # Threshold analysis for report
-        if SHAPE_ENV == 'lifetime':
-            p95 = stats.total.get_response_time_percentile(0.95)
-            failure_rate = (stats.total.num_failures / max(stats.total.num_requests, 1)) * 100
-            
-            f.write("\n\nONCE-IN-A-LIFETIME THRESHOLD ANALYSIS\n")
-            f.write("="*80 + "\n")
-            f.write(f"P95 Response Time: {p95:.2f}ms\n")
-            f.write(f"Failure Rate: {failure_rate:.2f}%\n\n")
-            
-            f.write("Thresholds:\n")
-            f.write("  - Without Degradation: p95 < 500ms, error rate < 1%\n")
-            f.write("  - With Degradation: p95 < 2000ms, error rate < 5%\n")
-            f.write("  - Failure: p95 >= 2000ms or error rate >= 5%\n\n")
-            
-            if p95 < 500 and failure_rate < 1:
-                f.write("RESULT: System performed WITHOUT DEGRADATION\n")
-            elif p95 < 2000 and failure_rate < 5:
-                f.write("RESULT: System performed WITH DEGRADATION\n")
-            else:
-                f.write("RESULT: System reached FAILURE THRESHOLD\n")
-    
     print(f"Detailed report saved to: {report_file}")

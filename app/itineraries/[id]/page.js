@@ -296,7 +296,10 @@ export default function ItineraryDetail() {
                   updatedLoc.images.map(async (url) => {
                     if (url.startsWith("gs://")) {
                       try {
-                        const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=itinerary`);
+                        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+                        const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=itinerary`, {
+                          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                        });
                         if (resp.ok) {
                           const { url: signedUrl } = await resp.json();
                           return signedUrl;

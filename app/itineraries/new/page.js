@@ -47,7 +47,10 @@ export default function NewItinerary() {
   /** Get signed URL from Itinerary Service through Next.js proxy */
   const getSignedUrl = async (url) => {
     try {
-      const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=itinerary`);
+      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+      const resp = await fetch(`/api/signed-url?path=${encodeURIComponent(url)}&service=itinerary`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       if (!resp.ok) throw new Error("signing failed");
       const data = await resp.json();
       const signed = data?.url;

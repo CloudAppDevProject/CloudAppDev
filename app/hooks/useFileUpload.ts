@@ -51,6 +51,13 @@ export const useFileUpload = (service: ServiceType = 'user') => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
+      // Read auth token from browser storage so uploads stay authorized
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (!token) {
+        reject(new Error('Missing auth token'));
+        return;
+      }
+
       // Track upload progress
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -85,6 +92,7 @@ export const useFileUpload = (service: ServiceType = 'user') => {
       const uploadEndpoint = `/api/upload?service=${targetService}`;
 
       xhr.open("POST", uploadEndpoint);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       xhr.timeout = 120000; // 2 minute timeout
       xhr.send(formData);
     });
