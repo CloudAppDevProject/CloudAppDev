@@ -617,7 +617,6 @@ jobs:
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=API_GATEWAY_URL='api-gateway:80' \
                   --from-literal=JWT_SECRET=c2VjcmV0X2tleV9mb3Jfand0 \
                   --from-literal=APP_MODE="${APP_MODE}" \
                   --from-literal=GCP_PROJECT_ID=cloudappdev-dev \

@@ -20,7 +20,7 @@ service:
 
 env:
   - name: API_GATEWAY_URL
-    value: "api-gateway:80"
+    value: "http://api-gateway:80"
   - name: NODE_ENV
     value: "development"
   - name: APP_MODE
