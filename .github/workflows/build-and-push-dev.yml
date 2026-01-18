@@ -601,6 +601,7 @@ jobs:
                   --namespace ${NAMESPACE}
                 ;;
 
+
               "frontend")
                 SECRET_NAME="app-secrets"
 
