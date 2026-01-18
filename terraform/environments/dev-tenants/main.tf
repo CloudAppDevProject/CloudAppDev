@@ -43,7 +43,7 @@ module "tenant_domain" {
   for_each = local.all_tenants
 
   project_id         = var.project_id
-  hostname           = "cloudappdev.site"
+  hostname           = "dev.cloudappdev.site"
   certificate_map_id = data.google_certificate_manager_certificate_map.main.name
   cloudflare_zone_id = var.cloudflare_zone_id
   tenant_name        = each.key

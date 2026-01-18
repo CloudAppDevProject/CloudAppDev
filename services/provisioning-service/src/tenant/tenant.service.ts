@@ -148,7 +148,7 @@ export class TenantService {
    * Gets the domain URL for a tenant based on tier
    */
   private getDomainForTenant(tenantName: string, tier: string): string {
-    const hostname = 'cloudappdev.site';
+    const hostname = 'dev.cloudappdev.site';
     return `https://${tenantName}.${hostname}`;
   }
 }
