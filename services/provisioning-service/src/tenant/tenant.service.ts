@@ -68,6 +68,22 @@ export class TenantService {
         } catch (deployErr) {
           this.logger.error('[K8s Deployment Error]', deployErr);
 
+          // Rollback: Remove tenant from tfvars since deployment failed
+          try {
+            await this.terraformService.removeTenantFromTfvars(
+              sanitizedName,
+              environment,
+            );
+            this.logger.log(
+              `Removed ${sanitizedName} from tfvars after deployment failure`,
+            );
+          } catch (rollbackErr) {
+            this.logger.error(
+              'Failed to remove tenant from tfvars during rollback',
+              rollbackErr,
+            );
+          }
+
           throw new InternalServerErrorException({
             success: false,
             tenantId,
@@ -80,7 +96,7 @@ export class TenantService {
               details: deployErr.stack,
             },
             message:
-              'Infrastructure was provisioned but Kubernetes deployment failed. Manual intervention required.',
+              'Infrastructure was provisioned but Kubernetes deployment failed. Tenant entry removed from tfvars.',
           });
         }
       } else {
@@ -100,6 +116,22 @@ export class TenantService {
         } catch (routeErr) {
           this.logger.error('[HTTPRoute Deployment Error]', routeErr);
 
+          // Rollback: Remove tenant from tfvars since routing failed
+          try {
+            await this.terraformService.removeTenantFromTfvars(
+              sanitizedName,
+              environment,
+            );
+            this.logger.log(
+              `Removed ${sanitizedName} from tfvars after HTTPRoute failure`,
+            );
+          } catch (rollbackErr) {
+            this.logger.error(
+              'Failed to remove tenant from tfvars during rollback',
+              rollbackErr,
+            );
+          }
+
           throw new InternalServerErrorException({
             success: false,
             tenantId,
@@ -112,7 +144,7 @@ export class TenantService {
               details: routeErr.stack,
             },
             message:
-              'Certificate was provisioned but HTTPRoute deployment failed. Manual intervention required.',
+              'Certificate was provisioned but HTTPRoute deployment failed. Tenant entry removed from tfvars.',
           });
         }
       }
