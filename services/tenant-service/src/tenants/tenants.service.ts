@@ -172,6 +172,7 @@ export class TenantsService {
       process.env.PROVISIONING_SERVICE_URL || 'http://provisioning-service:8090';
     const environment = process.env.ENVIRONMENT || 'dev';
 
+    this.logger.log(`Provisioning service URL: ${provisioningServiceUrl}`);
     this.logger.log(
       `Triggering provisioning for tenant ${tenantUuid} (${tenantName}, ${tier})`,
     );
