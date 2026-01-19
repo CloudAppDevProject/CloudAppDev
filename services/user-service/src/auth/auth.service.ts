@@ -22,6 +22,27 @@ export class AuthService {
     const tenantServiceUrl =
       process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
 
+    // Resolve tenant UUID from namespace (subdomain) if provided
+    let subdomainTenantUuid: string | null = null;
+    if (loginDto.tenantNamespace) {
+      try {
+        this.logger.log(`[AUTH] Resolving tenant UUID for subdomain namespace: ${loginDto.tenantNamespace}`);
+        const tenantResponse = await firstValueFrom(
+          this.httpService.get(`${tenantServiceUrl}/api/v1/tenants/namespace/${encodeURIComponent(loginDto.tenantNamespace)}`),
+        );
+        subdomainTenantUuid = tenantResponse.data?.uuid || null;
+        if (subdomainTenantUuid) {
+          this.logger.log(`[AUTH] Resolved subdomain namespace '${loginDto.tenantNamespace}' to tenant UUID: ${subdomainTenantUuid}`);
+        } else {
+          this.logger.warn(`[AUTH] Tenant namespace '${loginDto.tenantNamespace}' not found`);
+          throw new UnauthorizedException(`Tenant not found for this subdomain`);
+        }
+      } catch (error) {
+        this.logger.error(`[AUTH] Error resolving tenant namespace '${loginDto.tenantNamespace}': ${error.message}`);
+        throw new UnauthorizedException(`Unable to verify tenant for this subdomain`);
+      }
+    }
+
     // Step 1: Try User table first
     try {
       let user = await this.usersService.validatePassword(
@@ -59,11 +80,18 @@ export class AuthService {
               }
             }
 
+            // Validate tenant match if subdomain is provided
+            const effectiveTenantUuid = user.tenantUuid || tenantUuidFromCheck;
+            if (subdomainTenantUuid && effectiveTenantUuid !== subdomainTenantUuid) {
+              this.logger.warn(`[AUTH] Tenant mismatch for admin: User belongs to tenant ${effectiveTenantUuid} but tried to login on subdomain for tenant ${subdomainTenantUuid}`);
+              throw new UnauthorizedException('Tenant-Administrator ist nicht für diese Domain berechtigt. Bitte verwenden Sie die korrekte Subdomain.');
+            }
+
             const payload = {
               sub: user.id,
               userId: user.id,
               email: user.email,
-              tenantUuid: user.tenantUuid || tenantUuidFromCheck,
+              tenantUuid: effectiveTenantUuid,
               loginType: 'tenant_admin',
             };
 
@@ -78,6 +106,12 @@ export class AuthService {
         }
 
         // Normal user login fallback
+        // Validate tenant match if subdomain is provided
+        if (subdomainTenantUuid && user.tenantUuid !== subdomainTenantUuid) {
+          this.logger.warn(`[AUTH] Tenant mismatch: User belongs to tenant ${user.tenantUuid} but tried to login on subdomain for tenant ${subdomainTenantUuid}`);
+          throw new UnauthorizedException('Benutzer ist nicht unter dieser Domain registriert. Bitte verwenden Sie die korrekte Subdomain für Ihren Tenant.');
+        }
+
         const payload = {
           sub: user.id,
           userId: user.id,
@@ -93,6 +127,12 @@ export class AuthService {
         };
       }
     } catch (error) {
+      // Re-throw UnauthorizedException for tenant mismatch (don't fall back to tenant login)
+      if (error instanceof UnauthorizedException && 
+          (error.message.includes('nicht unter dieser Domain registriert') || 
+           error.message.includes('nicht für diese Domain berechtigt'))) {
+        throw error;
+      }
       // User login failed, continue to try tenant login
       this.logger.log(`[AUTH] User login failed, trying tenant login: ${error.message}`);
     }
@@ -156,11 +196,19 @@ export class AuthService {
 
           // If we have a user now, switch login to user JWT (so downstream calls see a user token)
           if (user) {
+            const effectiveUserTenantUuid = user.tenantUuid || tenant.uuid;
+            
+            // Validate tenant match if subdomain is provided
+            if (subdomainTenantUuid && effectiveUserTenantUuid !== subdomainTenantUuid) {
+              this.logger.warn(`[AUTH] Tenant mismatch for tenant-to-user switch: User belongs to tenant ${effectiveUserTenantUuid} but tried to login on subdomain for tenant ${subdomainTenantUuid}`);
+              throw new UnauthorizedException('Benutzer ist nicht unter dieser Domain registriert. Bitte verwenden Sie die korrekte Subdomain für Ihren Tenant.');
+            }
+
             const payload = {
               sub: user.id,
               userId: user.id,
               email: user.email,
-              tenantUuid: user.tenantUuid || tenant.uuid,
+              tenantUuid: effectiveUserTenantUuid,
               loginType: 'user',
             };
 
@@ -175,6 +223,12 @@ export class AuthService {
         }
 
         // Fallback: return tenant admin token if we couldn't create/switch to a user
+        // Validate tenant match if subdomain is provided
+        if (subdomainTenantUuid && tenant.uuid !== subdomainTenantUuid) {
+          this.logger.warn(`[AUTH] Tenant mismatch for tenant admin fallback: Tenant ${tenant.uuid} tried to login on subdomain for tenant ${subdomainTenantUuid}`);
+          throw new UnauthorizedException('Tenant ist nicht unter dieser Domain registriert. Bitte verwenden Sie die korrekte Subdomain.');
+        }
+
         return {
           access_token,
           user: {

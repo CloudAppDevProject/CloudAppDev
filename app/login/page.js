@@ -32,7 +32,32 @@ export default function Login() {
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Login failed");
+        // Provide user-friendly error messages
+        let errorMessage = "Login fehlgeschlagen";
+        
+        if (errData.message) {
+          if (Array.isArray(errData.message)) {
+            errorMessage = errData.message.join(', ');
+          } else if (errData.message.includes('nicht unter dieser Domain registriert')) {
+            // Backend already provides German message
+            errorMessage = errData.message;
+          } else if (errData.message.includes('nicht für diese Domain berechtigt')) {
+            // Backend already provides German message for admin
+            errorMessage = errData.message;
+          } else if (errData.message === 'Invalid credentials') {
+            errorMessage = 'Ungültige E-Mail oder Passwort.';
+          } else if (errData.message.includes('Tenant not found')) {
+            errorMessage = 'Der angeforderte Tenant wurde nicht gefunden.';
+          } else if (errData.message.includes('Unable to verify tenant')) {
+            errorMessage = 'Die Domain konnte nicht verifiziert werden. Bitte überprüfen Sie die URL.';
+          } else {
+            errorMessage = errData.message;
+          }
+        } else if (errData.error) {
+          errorMessage = errData.error;
+        }
+        
+        throw new Error(errorMessage);
       }
       // Token aus Response extrahieren und als Cookie setzen
       const data = await res.json();

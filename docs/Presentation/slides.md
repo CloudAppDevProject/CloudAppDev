@@ -5,19 +5,17 @@ class: text-center
 highlighter: shiki
 lineNumbers: false
 info: |
-  ## CloudAppDev - Milestone 2
-  Microservices Architecture auf Google Kubernetes Engine
+  ## CloudAppDev - Milestone 3
+  Production-Grade SaaS
 drawings:
   persist: false
 transition: slide-left
-title: CloudAppDev - Milestone 2
+title: CloudAppDev - Milestone 3
 mdc: true
 ---
 
-# CloudAppDev
-## Milestone 2: Microservices & Kubernetes
-
-From Monolith to Distributed Architecture
+# CloudAppDev - Milestone 3
+## Production-Grade SaaS
 
 <div class="absolute bottom-10 left-10 text-sm opacity-75">
   <div>Simon Driescher, Samuel Behrmann, Simon Blaser</div>
@@ -25,694 +23,307 @@ From Monolith to Distributed Architecture
 
 ---
 
-# System Context
+# From M2 to M3
+
+<div class="grid grid-cols-3 gap-4 mt-8 text-left text-sm">
+
+<div class="bg-[#13121b] border border-[#2a2837] rounded-lg p-4 text-slate-200/80">
+  <div class="text-base font-semibold mb-1">M1: Monolith</div>
+  <ul class="space-y-1 leading-relaxed">
+    <li>Cloud Run</li>
+    <li>Single instance</li>
+  </ul>
+</div>
+
+<div class="bg-[#13121b] border border-[#2a2837] rounded-lg p-4 text-slate-200/80">
+  <div class="text-base font-semibold mb-1">M2: Microservices</div>
+  <ul class="space-y-1 leading-relaxed">
+    <li>GKE + 5 services</li>
+    <li>Shared infrastructure</li>
+  </ul>
+</div>
+
+<div class="bg-[#1f1d2e] border-2 border-[#c4a7e7] rounded-lg p-5 shadow-[0_10px_40px_rgba(196,167,231,0.2)]">
+  <div class="text-base font-semibold text-[#c4a7e7] mb-1">M3: SaaS</div>
+  <ul class="space-y-1 leading-relaxed">
+    <li>Multi-Tenancy</li>
+    <li>Auto-Provisioning</li>
+    <li>Financial Model</li>
+    <li>Infrastructure</li>
+  </ul>
+</div>
+
+</div>
+
+<div v-click class="grid grid-cols-3 gap-4 mt-8">
+
+<div style="background-color: #1f1d2e; border: 2px solid #f6c177; padding: 1rem; border-radius: 0.5rem;">
+<div style="color: #f6c177; font-weight: bold; margin-bottom: 0.5rem;">FREE</div>
+<div style="font-size: 0.8em; color: #908caa;">
+Shared namespace<br/>
+3 routes, 500MB storage<br/>
+Best Effort<br/>
+€0/month
+</div>
+</div>
+
+<div style="background-color: #1f1d2e; border: 2px solid #9ccfd8; padding: 1rem; border-radius: 0.5rem;">
+<div style="color: #9ccfd8; font-weight: bold; margin-bottom: 0.5rem;">STANDARD</div>
+<div style="font-size: 0.8em; color: #908caa;">
+Shared namespace<br/>
+Higher priority support<br/>
+99.5% SLA<br/>
+€9,99/month + usage
+</div>
+</div>
+
+<div style="background-color: #1f1d2e; border: 2px solid #eb6f92; padding: 1rem; border-radius: 0.5rem;">
+<div style="color: #eb6f92; font-weight: bold; margin-bottom: 0.5rem;">ENTERPRISE</div>
+<div style="font-size: 0.8em; color: #908caa;">
+Dedicated namespace<br/>
+Dedicated infrastructure<br/>
+99.99% SLA<br/>
+€249+/month custom
+</div>
+</div>
+
+</div>
+
+---
+
+# Tenant Registration
 
 <div class="flex justify-center items-center h-full">
-  <img src="/system-context-diagram.drawio.svg" alt="System Context Diagram" class="max-h-96" />
+  <img src="./org_register.png" alt="Organization registration page" class="max-h-[50vh] w-auto rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.35)]" />
 </div>
 
 ---
 
-# System Context & Features
+# New Services (M3)
 
-<div>
+<div style="margin-top: 3rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
 
-### Core Features
+<div style="background-color: #1f1d2e; border-left: 4px solid #c4a7e7; padding: 1.5rem; border-radius: 0.25rem;">
 
-✈️ **User Management** - Registration, profiles, avatars
+**Tenant Service** (8084)
+- Registration & login
+- Namespace validation
+- JWT auth (bcrypt)
+- Manage tenant metadata
 
-🗺️ **Itinerary Management** - CRUD operations, multi-location trips
+Stack: NestJS + PostgreSQL
 
-🔍 **Search & Discovery** - Find trips by destination, keywords
+</div>
 
-💬 **Social Interaction** - Likes, comments, engagement
+<div style="background-color: #1f1d2e; border-left: 4px solid #f6c177; padding: 1.5rem; border-radius: 0.25rem;">
 
-📍 \*NEW\* **Interactive Maps** - Leaflet integration, location selection
+**Provisioning Service**
+- Infrastructure orchestration
+- Terraform runner
+- K8s namespace deployer
+- Domain + SSL provisioning
 
-📧 \*NEW\* **Personalized Newsletter** - Interest-based recommendations
+Stack: NestJS + Terraform + K8s
 
-🌤️ \*NEW\* **Weather Insights** - Forecasts, warnings, travel advice
+</div>
 
 </div>
 
 ---
 
-# Evolution: Monolith → Microservices
-
-<div class="grid grid-cols-2 gap-8 mt-8">
-
-<div>
-
-### Milestone 1 (Monolith)
-
-- Next.js Fullstack Application
-- PostgreSQL + MongoDB
-- Cloud Run (PaaS)
-- Compute Engine (IaaS)
-
-</div>
-
-<div>
-
-### Milestone 2 (Microservices)
-
-- 5 specific services
-- PostgreSQL (User + Itinerary)
-- MongoDB (Social Service)
-- Google Kubernetes Engine (GKE)
-
-</div>
-
-</div>
-
-<div class="absolute bottom-10 right-10 flex gap-4 items-center">
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/kubernetes/kubernetes-plain.svg" class="w-16 h-16" alt="Kubernetes" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg" class="w-16 h-16" alt="PostgreSQL" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" class="w-16 h-16" alt="MongoDB" />
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/googlecloud/googlecloud-original.svg" class="w-16 h-16" alt="Google Cloud" />
-</div>
-
----
-layout: center
-class: text-center
----
-
-# Microservices Architecture
-
-<div class="mt-8 text-xl">
-Domain-Driven Design with clear Service-Boundaries
-</div>
-
----
-
-# Domain Model
+# Registration & Provisioning Flow
 
 <div class="flex justify-center items-center h-full">
-  <img src="/domain-model.drawio.svg" alt="Domain Model" class="max-h-96" />
+  <div style="background-color: #ffffff; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 10px 40px rgba(0,0,0,0.35);">
+    <img src="./registration.drawio.svg" alt="Registration and Provisioning Flow" class="max-h-[75vh] w-auto" />
+  </div>
 </div>
 
 ---
 
-# Repository Structure
+# Two-Level Authentication
 
-<div class="grid grid-cols-2 gap-8 mt-2">
-
-<div>
-
-### Monorepo Organization
+<div style="margin-top: 2rem; font-size: 0.9em;">
 
 ```
-/app            - Next.js Frontend
-/services       - Backend Microservices
-  ├── user-service
-  ├── itinerary-service
-  ├── social-service
-  ├── travel-info-service
-  └── seeder
-/nginx          - API Gateway Config
-/k8s            - Kubernetes Manifests
-/terraform      - IaC for GCP
-/locust         - Performance Tests
-/seed-data      - Initial Dataset
+Level 1: Tenant Auth (Port 8084)
+  Email + Password → JWT(tenant_id, tier)
+       ↓
+Level 2: User Auth (Per-Tenant)
+  User credentials → JWT(tenant_id, user_id)
+  Namespace enforcement on all requests
 ```
 
-</div>
+<div style="margin-top: 2rem; color: #c4a7e7;">
 
-<div>
-
-### Technology Stack
-
-**Frontend:**
-- Next.js 15.5.4 + React 19.1.0
-- PrimeReact 10.9.7 UI Components
-- Tailwind CSS 4
-
-**Backend:**
-- NestJs
-- Prisma 6.19.0 ORM
-- Mongoose 8.8.4 ODM
-
-**External Services:**
-- SendGrid Email API
-- Weather APIs
+**Key Enforcements:**
+- Cross-tenant access blocked
+- Database queries filtered by tenant
+- Namespace-based data isolation
 
 </div>
 
-</div>
-
----
-
-# Service Übersicht
-
-<div class="grid grid-cols-2 gap-6 mt-6">
-
-<div class="p-4 rounded-lg" style="background-color: #1f1d2e; border: 2px solid #eb6f92;">
-<div class="text-lg font-bold mb-2" style="color: #eb6f92;">User Service (Port 8080)</div>
-<div class="text-sm" style="color: #908caa;">
-- User Registration & Management<br/>
-- NestJS + Prisma + PostgreSQL
-</div>
-</div>
-
-<div class="p-4 rounded-lg" style="background-color: #1f1d2e; border: 2px solid #9ccfd8;">
-<div class="text-lg font-bold mb-2" style="color: #9ccfd8;">Itinerary Service (Port 8081)</div>
-<div class="text-sm" style="color: #908caa;">
-- Travel Route CRUD Operations<br/>
-- NestJS + Prisma + PostgreSQL
-</div>
-</div>
-
-<div class="p-4 rounded-lg" style="background-color: #1f1d2e; border: 2px solid #c4a7e7;">
-<div class="text-lg font-bold mb-2" style="color: #c4a7e7;">Social Service (Port 8082)</div>
-<div class="text-sm" style="color: #908caa;">
-- Likes & Comments System<br/>
-- Newsletter Subscriptions<br/>
-- NestJS + Mongoose + MongoDB
-</div>
-</div>
-
-<div class="p-4 rounded-lg" style="background-color: #1f1d2e; border: 2px solid #f6c177;">
-<div class="text-lg font-bold mb-2" style="color: #f6c177;">Travel Info Service (Port 8083)</div>
-<div class="text-sm" style="color: #908caa;">
-- Weather Data Integration<br/>
-- Travel Warnings & Safety Info<br/>
-- NestJS + Axios
-</div>
-</div>
-
-</div>
-
-<div class="p-4 rounded-lg mt-6 mx-auto" style="max-width: 600px; background-color: #1f1d2e; border: 2px solid #31748f;">
-<div class="text-lg font-bold mb-2 text-center" style="color: #31748f;">API Gateway (Nginx Port 80)</div>
-<div class="text-sm text-center" style="color: #908caa;">Routing, Load Balancing, 50MB Upload Support, TLS Termination</div>
 </div>
 
 ---
 
 <div class="flex justify-center items-center h-full">
-  <img src="/Micro-Architektur.drawio.svg" alt="Microservices Architecture" class="max-h-full" />
+  <img src="/microservice_architecture.drawio.svg" alt="Microservices Architecture" class="max-h-full" />
 </div>
+
 
 ---
 
-# API Gateway Configuration
+# Security Highlights
 
-<div class="grid grid-cols-2 gap-8 mt-6">
+<div class="mt-6 grid grid-cols-2 gap-4 text-left text-sm">
 
-<div class="max-h-96 overflow-auto">
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4">
+    <div class="text-[#9ccfd8] font-semibold mb-2">Implemented (M3)</div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>JWT-based tenant + user auth</li>
+      <li>Per-request tenant scoping enforced in APIs</li>
+      <li>No secrets checked into repo (env/secret refs)</li>
+    </ul>
+  </div>
 
-```nginx
-# Upstream Service Definitions
-upstream user_service {
-  server user-service:8080;
-}
-upstream itinerary_service {
-  server itinerary-service:8081;
-}
-upstream social_service {
-  server social-service:8082;
-}
-upstream travel_info_service {
-  server travel-info-service:8083;
-}
-server {
-  listen 8000;
-  location /api/v1/users {
-    proxy_pass http://user_service;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-  }
-  location /api/v1/itineraries {
-    proxy_pass http://itinerary_service;
-  }
-  location /api/v1/social {
-    proxy_pass http://social_service;
-  }
-  location /api/v1/travel-info {
-    proxy_pass http://travel_info_service;
-  }
-}
-```
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4">
+    <div class="text-[#f6c177] font-semibold mb-2">Isolation</div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>Namespaces per tier; dedicated namespaces for Enterprise</li>
+      <li>Service-to-service calls gated by tenant context</li>
+      <li>Gateway blocks cross-tenant access paths</li>
+    </ul>
+  </div>
 
-</div>
-
-<div>
-
-### Features
-
-- Single endpoint for the frontend
-- Lightweight proxy
-
-</div>
-
-</div>
-
----
-layout: center
-class: text-center
----
-
-# Performance Testing
-
-<div class="mt-8 text-xl">
-Locust Framework mit realistischen Workloads
-</div>
-
----
-
-# Test Setup & Data Initialization
-
-<div class="grid grid-cols-2 gap-8 mt-6">
-
-<div>
-
-### Seed Data
-
-**Database:**
-- 10 diverse users
-- 18 itineraries across 6 continents
-- 4 comments, 11 likes
-
-
-
-
-</div>
-
-<div>
-
-### User Behavior
-
-**Casual (50%)**
-- Browse, search, view itineraries
-
-**Active (30%)**
-- Browse, like, create itineraries, comment
-
-**New (20%)**
-- Register, explore, create first trip
-
-</div>
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4">
+    <div class="text-[#eb6f92] font-semibold mb-2">Reliability & Secrets</div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>HTTPS termination at gateway/ingress</li>
+      <li>K8s secrets for service creds; rotation playbook WIP</li>
+      <li>Health checks + alerts wired into CI/CD</li>
+    </ul>
+  </div>
 
 </div>
 
 ---
 
-# Scenario A: 100 Peak / 10 Low Users
+# Financial Model (Dynamic Pricing)
 
-<div class="grid grid-cols-2 gap-8 mt-6">
+<div class="mt-6 grid grid-cols-3 gap-4 text-left text-sm">
 
-<div>
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4 shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
+    <div class="text-[#f6c177] text-lg font-semibold mb-1">Free</div>
+    <div class="text-2xl font-bold text-slate-100 mb-2">€0<span class="text-sm text-slate-400">/month</span></div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>Limits: 3 routes, 500MB</li>
+      <li>Cost: ~€5/tenant</li>
+      <li class="text-[#f6c177] font-medium">Margin: Negative</li>
+      <li class="text-slate-400">Acquisition & upsell</li>
+    </ul>
+  </div>
 
-### Load Pattern
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4 shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
+    <div class="text-[#9ccfd8] text-lg font-semibold mb-1">Standard</div>
+    <div class="text-2xl font-bold text-slate-100 mb-2">€9,99<span class="text-sm text-slate-400">/month</span></div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>+ €0.05/GB (>2GB)</li>
+      <li>+ €0.10 per 100 API calls</li>
+      <li>Cost: ~€30/tenant</li>
+      <li class="text-[#9ccfd8] font-medium">Margin: ~70% (volume)</li>
+    </ul>
+  </div>
 
-```
-Users
-100 ┤     ████████████           ████████████
-    │    ╱            ╲         ╱            ╲
- 50 ┤   ╱              ╲       ╱              ╲
-    │  ╱                ╲     ╱                ╲
- 10 ┼══                  ═════                  ═══
-    └───────────────────────────────────────────→ Time
-    0    3m   5m    8m  10m  12m  14m
-        [Cycle 1]         [Cycle 2]
-```
-
-**Duration:** ~14 minutes (2 cycles)
-- Low: 2min @ 10 users
-- Ramp up: 1min → 100 users
-- Peak: 3min @ 100 users
-- Ramp down: 1min → 10 users
-
-</div>
-
-<div>
-
-### Performance Metrics
-
-**Actual Test Results:**
-
-<div style="font-size: 0.90em;">
-
-| Metric | Value |
-|--------|-------|
-| Total Requests | 20,151 |
-| Throughput | 24 RPS |
-| Response Times (Median) | 56ms |
-| Response Times (p95) | 170ms |
-| Failure Rate | 0.24% (49 failures) |
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4 shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
+    <div class="text-[#eb6f92] text-lg font-semibold mb-1">Enterprise</div>
+    <div class="text-2xl font-bold text-slate-100 mb-2">€249+<span class="text-sm text-slate-400">/month</span></div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>Dedicated infra + SLOs</li>
+      <li>Custom features & routing</li>
+      <li>Cost: ~€150+/tenant</li>
+      <li class="text-[#eb6f92] font-medium">Margin: 30-50% (strategic)</li>
+    </ul>
+  </div>
 
 </div>
 
-
-
-
-</div>
-
-</div>
-
----
-
-# Scenario B: 1000 Peak / 20 Low Users
-
-<div class="grid grid-cols-2 gap-8 mt-6">
-
-<div>
-
-### Load Pattern
-
-```
-Users
-1000 ┤      ██████████████████        ██████████████████
-     │     ╱                  ╲      ╱                  ╲
- 500 ┤    ╱                    ╲    ╱                    ╲
-     │   ╱                      ╲  ╱                      ╲
-  20 ┼═══                        ══                        ═══
-     └────────────────────────────────────────────────────→ Time
-     0     4m    6m     13m  15m   19m   21m    28m  30m
-          [Cycle 1]                [Cycle 2]
-```
-
-**Duration:** ~30 minutes (2 cycles)
-- Low: 4min @ 20 users
-- Ramp up: 2min → 1000 users
-- Peak: 7min @ 1000 users
-- Ramp down: 2min → 20 users
-
-</div>
-
-<div>
-
-### Performance Metrics
-
-**Actual Test Results:**
-
-<div style="font-size: 0.90em;">
-
-| Metric | Value |
-|--------|-------|
-| Total Requests | 346,821 |
-| Throughput | 192.67 RPS (sustained) |
-| Response Times (Median) | 290ms |
-| Response Times (p95) | 4,200ms |
-| Failure Rate | 0.88% (3,044 failures) |
-
-</div>
-
-
-
-
-
-
-
-</div>
-
+<div class="mt-4 grid grid-cols-3 gap-3 text-xs text-left text-slate-200/90">
+  <div class="bg-[#0e0d14]/70 border border-[#2a2837] rounded-md p-3">
+    <div class="text-[#c4a7e7] font-semibold mb-1">Infra Baseline</div>
+    <div>€103,39/month</div>
+    <div class="text-slate-400">GKE, storage, secrets, monitoring</div>
+  </div>
+  <div class="bg-[#0e0d14]/70 border border-[#2a2837] rounded-md p-3">
+    <div class="text-[#c4a7e7] font-semibold mb-1">Profit Target</div>
+    <div>€415+/month (75% margin)</div>
+    <div class="text-slate-400">Break-even @ 6× Standard</div>
+  </div>
+  <div class="bg-[#0e0d14]/70 border border-[#2a2837] rounded-md p-3">
+    <div class="text-[#c4a7e7] font-semibold mb-1">Telemetry</div>
+    <div>Per-tenant usage metered</div>
+    <div class="text-slate-400">Pipeline → billing & alerts</div>
+  </div>
 </div>
 
 ---
 
-# Once-in-a-Lifetime Workload
+# Continuous Delivery
 
-<div class="grid grid-cols-2 gap-8 h-full">
+<div class="mt-6 grid grid-cols-2 gap-4 text-left text-sm">
 
-<div>
-<img src="/users_lifetime.png" alt="User Growth Over Time" style="width: auto; height: 95%; display: block; margin: 0 auto;">
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4 shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
+    <div class="text-[#9ccfd8] font-semibold mb-2">develop → Dev/Staging</div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>Paths-filtered: build only changed services (matrix)</li>
+      <li>Docker build & push to Artifact Registry</li>
+      <li>Helm deploy per changed service to dev namespaces</li>
+      <li>Secrets pulled from GCP Secret Manager during deploy</li>
+      <li>Version tags: latest + 0.0.x + sha</li>
+    </ul>
+  </div>
+
+  <div class="bg-[#1f1d2e] border border-[#2a2837] rounded-lg p-4 shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
+    <div class="text-[#f6c177] font-semibold mb-2">Tags → Prod Images</div>
+    <ul class="space-y-1 text-slate-300/90 leading-relaxed">
+      <li>Git tag push builds all services (no diffs)</li>
+      <li>Images tagged latest + semver + sha</li>
+      <li>No automated prod deploy in workflow (manual step)</li>
+      <li>Summary advises updating manifests/Helm values</li>
+    </ul>
+  </div>
+
 </div>
 
-<div class="flex flex-col justify-center">
-
-## Critical Findings
-
-- Error emergence: ~**1,800 concurrent users**
-- Linear error growth (0.45-0.65% per 100 users added)
-- Root Cause: Prisma connection pool exhaustion in Itinerary Service pods
-
+<div class="mt-4 grid grid-cols-3 gap-3 text-xs text-left text-slate-200/90">
+  <div class="bg-[#0e0d14]/70 border border-[#2a2837] rounded-md p-3">
+    <div class="text-[#c4a7e7] font-semibold mb-1">IaC</div>
+    <div>Terraform + versioned K8s manifests</div>
+    <div class="text-slate-400">State per env; secrets via GCP Secret Manager</div>
+  </div>
+  <div class="bg-[#0e0d14]/70 border border-[#2a2837] rounded-md p-3">
+    <div class="text-[#c4a7e7] font-semibold mb-1">Selective CI</div>
+    <div>Service diffs drive dev builds/deploy scope</div>
+    <div class="text-slate-400">Prod always builds all on tag</div>
+  </div>
+  <div class="bg-[#0e0d14]/70 border border-[#2a2837] rounded-md p-3">
+    <div class="text-[#c4a7e7] font-semibold mb-1">Deploy Notes</div>
+    <div>Dev: Helm per service to mapped namespaces</div>
+    <div class="text-slate-400">Prod: manual deploy after images built</div>
+  </div>
 </div>
 
-</div>
+
+
 
 ---
 
-# Performance Thresholds
+# Thank You!
 
-<div class="grid grid-cols-3 gap-6 mt-12">
-
-<div class="p-6 rounded-lg" style="background-color: #1f1d2e; border: 3px solid #9ccfd8;">
-<div class="text-2xl font-bold mb-4 text-center" style="color: #9ccfd8;">No Degradation</div>
-<div class="text-sm" style="color: #908caa;">
-<strong>Load:</strong> ~1,770 users<br/>
-<strong>Criteria:</strong> p95 9-10s, error < 0.03%<br/>
-<strong>Status:</strong> All services healthy<br/>
-<strong>Throughput:</strong> ~2,100 req/sec
-</div>
-</div>
-
-<div class="p-6 rounded-lg" style="background-color: #1f1d2e; border: 3px solid #f6c177;">
-<div class="text-2xl font-bold mb-4 text-center" style="color: #f6c177;">With Degradation</div>
-<div class="text-sm" style="color: #908caa;">
-<strong>Load:</strong> 1,800-2,500 users<br/>
-<strong>Criteria:</strong> p95 10-12s, error 0.03-5.9%<br/>
-<strong>Pool Status:</strong> Approaching exhaustion<br/>
-<strong>Status:</strong> Functional but slower
-</div>
-</div>
-
-<div class="p-6 rounded-lg" style="background-color: #1f1d2e; border: 3px solid #eb6f92;">
-<div class="text-2xl font-bold mb-4 text-center" style="color: #eb6f92;">Failure</div>
-<div class="text-sm" style="color: #908caa;">
-<strong>Load:</strong> 2,500+ users<br/>
-<strong>Criteria:</strong> p95 ≥ 12s OR error ≥ 5.9%<br/>
-<strong>Connection Pool:</strong> Exhausted<br/>
-<strong>Status:</strong> Cascading timeouts
-</div>
-</div>
-
-</div>
-
-<div class="mt-12 text-center" style="color: #908caa;">
-System exhibits <strong style="color: #c4a7e7;">graceful degradation</strong> — casual browsing degrades first, existing reads remain responsive
-</div>
-
----
-
-# Runtime Overview
-
-<div class="mt-8">
-
-**Live Application:** [CloudAppDev.site](https://cloudappdev.site)
-
-</div>
-
-<div class="grid grid-cols-2 gap-6 mt-8">
-
-<div>
-
-### Infrastructure Links
-
-🔧 [GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?project=oceanic-citadel-474512-c1)
-
-🌐 [GKE Gateways](https://console.cloud.google.com/kubernetes/gateways?project=oceanic-citadel-474512-c1)
-
-🗄️ [Cloud SQL Instances](https://console.cloud.google.com/sql/instances?project=oceanic-citadel-474512-c1)
-
-🔥 [Firestore Databases](https://console.cloud.google.com/firestore/databases?project=oceanic-citadel-474512-c1)
-
-</div>
-
-<div>
-
-### Architecture Highlights
-
-- **5 Microservices** on GKE Autopilot
-- **2 PostgreSQL** instances (Users, Itineraries)
-- **1 MongoDB** instance (Social data)
-- **Nginx Gateway** for routing
-- **Google Cloud Storage** for images
-- **SendGrid API** for newsletters
-
-</div>
-
-</div>
-
----
-
-# Deployment Automation
-
-<div class="grid grid-cols-2 gap-8 mt-6">
-
-<div>
-
-### CI/CD Pipeline
-
-```bash
-# Build & Push Container Images
-docker build -t gcr.io/$PROJECT/user-service \
-  ./services/user-service
-docker push gcr.io/$PROJECT/user-service
-
-# Deploy to Kubernetes
-kubectl apply -f k8s/app-deployment.yaml
-kubectl apply -f k8s/app-service.yaml
-kubectl apply -f k8s/gateway.yaml
-
-# Verify Deployment
-kubectl rollout status deployment/user-service
-kubectl get pods -l app=user-service
-```
-
-**Rolling Updates:**
-- Zero-downtime deployment
-- Gradual replica replacement
-- Automatic rollback on failure
-
-</div>
-
-<div>
-
-### Health Checks
-
-```yaml
-# Liveness & Readiness Probes
-apiVersion: apps/v1
-kind: Deployment
-spec:
-  template:
-    spec:
-      containers:
-      - name: user-service
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-```
-
-**Monitoring:**
-- Pod restart counts
-- Service availability
-- Request latency (p50, p95, p99)
-
-</div>
-
-</div>
-
----
-
-# DevOps: Infrastructure as Code
-
-<div class="grid grid-cols-2 gap-8 mt-8">
-
-<div>
-
-### Terraform (GCP Resources)
-
-**Managed Services:**
-- Cloud SQL (PostgreSQL 16)
-- Firestore (NoSQL)
-- Cloud Storage Buckets
-- Service Accounts & IAM Roles
-
-```hcl
-resource "google_sql_database_instance" "users" {
-  database_version = "POSTGRES_16"
-  region           = "europe-west1"
-  
-  settings {
-    tier = "db-custom-2-8192"
-    backup_configuration {
-      enabled = true
-    }
-  }
-}
-```
-
-</div>
-
-<div>
-
-### Kubernetes
-
-**Cluster Resources:**
-- External & Internal Gateways
-- HTTP Routes
-- Service Health Checks
-- GKE Service Accounts
-
-**Per Microservice:**
-1. Deployment (service code)
-2. Kubernetes Service (networking)
-3. Horizontal Pod Autoscaler
-4. Secrets (env vars, keys, tokens)
-
-</div>
-
-</div>
-
----
-
-# Key Learnings
-
-<div class="grid grid-cols-2 gap-8 mt-8">
-
-<div>
-
-#### Architectural Benefits
-
-✅ **Service Isolation**
-- Independent deployment & scaling
-- Technology flexibility per service
-- Fault isolation (cascading failures prevented)
-
-✅ **Scalability**
-- Horizontal pod autoscaling
-- Targeted resource allocation
-- Cost-efficient compute usage
-
-✅ **Maintainability**
-- Clear domain boundaries
-- Easier testing & debugging
-
-</div>
-
-<div>
-
-#### Operational Complexity
-
-⚠️ **Distributed System Challenges**
-- Network latency overhead
-- Service discovery requirements
-- Complex debugging across services
-
-⚠️ **Database Bottlenecks**
-- Connection pool exhaustion @ ~1,800 concurrent users
-- PgBouncer connection pooling (200+ connections) required
-- Query optimization needed for heavy operations (browse, search)
-
-⚠️ **Infrastructure Management**
-- Kubernetes learning curve
-- Monitoring & observability critical
-
-</div>
-
-</div>
-
----
-layout: end
-class: text-center
----
-
-# Vielen Dank!
-
-**CloudAppDev Milestone 2**
+**CloudAppDev Milestone 3**
 
 <div class="mt-12 text-sm opacity-75">
-Microservices Architecture | Google Kubernetes Engine | Locust Performance Testing<br/>
-Express.js + Prisma | PostgreSQL 16 + MongoDB | Nginx API Gateway
+Production-Grade SaaS | Multi-Tenancy | Continuous Delivery<br/>
+Automated Provisioning | Financial Analytics | Enterprise Security<br/>
+NestJS + Prisma | PostgreSQL 16 + MongoDB | Google Kubernetes Engine
 </div>

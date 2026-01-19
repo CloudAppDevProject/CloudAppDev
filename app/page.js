@@ -21,6 +21,12 @@ export default function MyItinerariesPage() {
     page: 1,
   });
 
+  // Check APP_MODE and itinerary limit for FREE mode
+  const APP_MODE = process.env.APP_MODE || 'FREE';
+  const isFreeMode = APP_MODE.toUpperCase() === 'FREE';
+  const MAX_FREE_ITINERARIES = 3;
+  const hasReachedLimit = isFreeMode && totalRecords >= MAX_FREE_ITINERARIES;
+
   // --- Check auth and redirect to login if needed ---
   useEffect(() => {
     if (userLoading) return;
@@ -145,12 +151,19 @@ export default function MyItinerariesPage() {
     <div className="max-w-6xl mx-auto p-6 font-sans">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">My Itineraries</h1>
-        <button
-          onClick={handleAddNew}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-        >
-          + Add New
-        </button>
+        {!hasReachedLimit ? (
+          <button
+            onClick={handleAddNew}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            + Add New
+          </button>
+        ) : (
+          <div className="text-sm text-gray-600 bg-yellow-50 border border-yellow-200 px-4 py-2 rounded-md">
+            <strong>Free Plan Limit:</strong> You have reached the maximum of {MAX_FREE_ITINERARIES} itineraries. 
+            Upgrade to create more!
+          </div>
+        )}
       </div>
 
       <ItineraryTable
