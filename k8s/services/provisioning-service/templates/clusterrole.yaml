@@ -26,8 +26,28 @@ rules:
     resources: ["services"]
     verbs: ["get", "list", "watch"]
   
-  # Namespaces (to check if namespace exists before deploying)
+  # Namespaces (to create and manage tenant namespaces)
   - apiGroups: [""]
     resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Pods (for deployment management and troubleshooting)
+  - apiGroups: [""]
+    resources: ["pods"]
     verbs: ["get", "list", "watch"]
+  
+  # Deployments (for Helm chart deployments)
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # ServiceAccounts (for creating tenant service accounts)
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # RoleBindings and Roles (for tenant RBAC)
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 {{- end }}
