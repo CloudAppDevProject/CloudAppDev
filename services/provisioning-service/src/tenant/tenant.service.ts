@@ -106,6 +106,13 @@ export class TenantService {
               environment,
               terraformOutputs,
             );
+
+          await this.kubernetesService.deploySharedTierHTTPRoute(
+            sanitizedName,
+            tier,
+            environment,
+          );
+          
         } catch (deployErr) {
           this.logger.error(
             `[K8s Deployment Error] ${deployErr.message}`,

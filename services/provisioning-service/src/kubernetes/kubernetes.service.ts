@@ -486,8 +486,8 @@ export class KubernetesService {
     tier: string,
     environment: string,
   ): Promise<void> {
-    const namespace = tier; // 'free' or 'standard'
-    const domain = `${tenantName}.dev.cloudappdev.site`;
+    const namespace = tenantName;
+    const domain = `${tenantName}.${environment}.cloudappdev.site`;
     const releaseName = `${tenantName}-httproute`;
 
     this.logger.log(
