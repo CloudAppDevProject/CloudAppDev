@@ -463,10 +463,7 @@ export class KubernetesService {
 
       // Environment variables
       setFlags.push(
-        `--set env[0].name=TENANT_NAME`,
-        `--set env[0].value=${tenantName}`,
-        `--set env[1].name=TENANT_NAMESPACE`,
-        `--set env[1].value=${tenantName}`,
+        `--set-json extraEnv='[{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"}]'`,
       );
     } else if (serviceName === 'social-service') {
       // Service Account with Workload Identity
@@ -478,12 +475,7 @@ export class KubernetesService {
 
       // Environment variables
       setFlags.push(
-        `--set env[0].name=TENANT_NAME`,
-        `--set env[0].value=${tenantName}`,
-        `--set env[1].name=TENANT_NAMESPACE`,
-        `--set env[1].value=${tenantName}`,
-        `--set env[2].name=FIRESTORE_DATABASE_ID`,
-        `--set env[2].value=${terraformOutputs.social_db_name}`,
+        `--set-json extraEnv='[{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"},{"name":"FIRESTORE_DATABASE_ID","value":"${terraformOutputs.social_db_name}"}]'`,
       );
     } else if (serviceName === 'gateway') {
       // Gateway tenant routing
@@ -498,22 +490,12 @@ export class KubernetesService {
 
       // Environment variables
       setFlags.push(
-        `--set env[0].name=TENANT_NAME`,
-        `--set env[0].value=${tenantName}`,
-        `--set env[1].name=TENANT_NAMESPACE`,
-        `--set env[1].value=${tenantName}`,
+        `--set-json extraEnv='[{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"}]'`,
       );
     } else if (serviceName === 'app') {
       // Frontend environment variables
       setFlags.push(
-        `--set env[0].name=API_GATEWAY_URL`,
-        `--set env[0].value=http://gateway.${tenantName}.svc.cluster.local:80`,
-        `--set env[1].name=NEXT_PUBLIC_TENANT_NAME`,
-        `--set env[1].value=${tenantName}`,
-        `--set env[2].name=TENANT_NAME`,
-        `--set env[2].value=${tenantName}`,
-        `--set env[3].name=TENANT_NAMESPACE`,
-        `--set env[3].value=${tenantName}`,
+        `--set-json extraEnv='[{"name":"API_GATEWAY_URL","value":"http://gateway.${tenantName}.svc.cluster.local:80"},{"name":"NEXT_PUBLIC_TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"}]'`,
       );
     }
 

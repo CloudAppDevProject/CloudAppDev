@@ -27,6 +27,10 @@ spec:
           env:
             {{- toYaml . | nindent 10 }}
           {{- end }}
+          {{- with .Values.extraEnv }}
+          env:
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
