@@ -186,14 +186,14 @@ export class KubernetesService {
       ...baseSecrets,
       DATABASE_URL: `postgresql://users:${tenantSecrets.database_users_password}@127.0.0.1:5432/users`,
       GOOGLE_CLOUD_STORAGE_BUCKET: `cloudappdev-${tenantName}-images`,
-      GOOGLE_CLOUD_CREDENTIALS_BASE64: tenantSecrets.user_service_account,
+      GOOGLE_CLOUD_CREDENTIALS_BASE64: process.env.GCP_SERVICE_ACCOUNT_KEY,
     };
 
     const itinerarySecrets = {
       ...baseSecrets,
       DATABASE_URL: `postgresql://itinerary:${tenantSecrets.database_itinerary_password}@127.0.0.1:5432/itinerary`,
       GOOGLE_CLOUD_STORAGE_BUCKET: `cloudappdev-${tenantName}-images`,
-      GOOGLE_CLOUD_CREDENTIALS_BASE64: tenantSecrets.itinerary_service_account,
+      GOOGLE_CLOUD_CREDENTIALS_BASE64: process.env.GCP_SERVICE_ACCOUNT_KEY,
     };
 
     const mongodbUri = `mongodb://${firestoreDbUid}.${region}.firestore.goog:443/${firestoreDbId}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE`;
@@ -352,29 +352,14 @@ export class KubernetesService {
         environment,
       );
 
-      const userServiceAccount = await this.getServiceAccountKeyFromTerraform(
-        tenantName,
-        'user',
-        environment,
-      );
-
       const itineraryDbPassword = await this.getSecretFromGSM(
         `${tenantName}-itinerary-password`,
         environment,
       );
 
-      const itineraryServiceAccount =
-        await this.getServiceAccountKeyFromTerraform(
-          tenantName,
-          'itinerary',
-          environment,
-        );
-
       return {
         database_users_password: usersDbPassword,
-        user_service_account: userServiceAccount,
         database_itinerary_password: itineraryDbPassword,
-        itinerary_service_account: itineraryServiceAccount,
         firebase_service_account: firebaseAccount,
       };
     } catch (err) {
@@ -458,45 +443,6 @@ export class KubernetesService {
       );
     }
   }
-
-  /**
-   * Retrieves the GCP service account key (base64) for a tenant's service
-   * from Terraform state outputs
-   */
-  private async getServiceAccountKeyFromTerraform(
-    tenantName: string,
-    serviceName: 'user' | 'itinerary' | 'social',
-    environment: string,
-  ): Promise<string> {
-    this.logger.log(
-      `Retrieving ${serviceName} service account key for tenant ${tenantName}`,
-    );
-
-    try {
-      const terraformDir = `/terraform/environments/${environment}-tenants`;
-      const outputName = `${serviceName}_service_account_key`;
-
-      const { stdout } = await execAsync(
-        `cd ${terraformDir} && terraform output -json | jq -r '.enterprise_deployments_keys.value["${tenantName}"]["${outputName}"]'`,
-        { timeout: 30000 },
-      );
-
-      const key = stdout.trim();
-      if (!key || key === 'null') {
-        throw new Error(`Service account key not found in Terraform outputs`);
-      }
-
-      return key;
-    } catch (err) {
-      this.logger.error(
-        `Failed to retrieve ${serviceName} service account key for ${tenantName}: ${err.message}`,
-      );
-      throw new Error(
-        `Cannot retrieve service account key for ${serviceName}-service: ${err.message}`,
-      );
-    }
-  }
-
   /**
    * Generates Helm --set flags for service-specific overrides
    * Only sets the necessary tenant-specific values
