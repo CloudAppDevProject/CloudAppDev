@@ -79,7 +79,7 @@ export class KubernetesService {
         helmRelease: 'social-service',
       },
       { name: 'app', path: '/k8s/app', helmRelease: 'app' },
-      { name: 'gateway', path: '/k8s/gateway', helmRelease: 'gateway' },
+      { name: 'api-gateway', path: '/k8s/gateway', helmRelease: 'api-gateway' },
     ];
 
     const deployResults: DeploymentResult[] = [];
@@ -99,7 +99,6 @@ export class KubernetesService {
             `-f ${service.path}/values-${environment}.yaml ` +
             `${setFlags} ` +
             `--namespace ${namespace} ` +
-            `--wait --timeout 10m`+
             `--set fullnameOverride=${service.helmRelease} `,
           {
             timeout: 600000,
@@ -209,12 +208,10 @@ export class KubernetesService {
       SENDGRID_FROM_EMAIL: `team@${tenantName}.dev.cloudappdev.site`,
       SENDGRID_FROM_NAME: `${tenantName} Team`,
       NEWSLETTER_MODE: 'sendgrid',
-      FRONTEND_URL: `https://${tenantName}.dev.cloudappdev.site`,
     };
 
     const appSecrets = {
       ...baseSecrets,
-      API_GATEWAY_URL: `http://gateway.${namespace}.svc.cluster.local:80`,
       APP_MODE: 'ENTERPRISE',
       GCP_MONITORING_CREDENTIALS_BASE64:
         process.env.GCP_MONITORING_CREDENTIALS_BASE64 || '',
@@ -347,7 +344,7 @@ export class KubernetesService {
     this.logger.log(`Retrieving secrets for tenant ${tenantName}`);
 
     try {
-      const firebaseAccount = await this.getSecretFromGSM(
+      const firebaseAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || await this.getSecretFromGSM(
         `firebase_service_account`,
         environment,
       );
