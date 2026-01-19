@@ -21,13 +21,48 @@ rules:
     resources: ["configmaps"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   
-  # Services (for HTTPRoute backend references)
+  # Services (for HTTPRoute backend references AND service creation)
   - apiGroups: [""]
     resources: ["services"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   
-  # Namespaces (to check if namespace exists before deploying)
+  # Namespaces (to create and manage tenant namespaces)
   - apiGroups: [""]
     resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # Pods (for deployment management and troubleshooting)
+  - apiGroups: [""]
+    resources: ["pods"]
     verbs: ["get", "list", "watch"]
+  
+  # Deployments (for Helm chart deployments)
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # ServiceAccounts (for creating tenant service accounts)
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # RoleBindings and Roles (for tenant RBAC)
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # HorizontalPodAutoscalers (for Helm deployments with HPA)
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # CronJobs (for newsletter and scheduled tasks)
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # HealthCheckPolicies (GKE-specific health checks)
+  - apiGroups: ["networking.gke.io"]
+    resources: ["healthcheckpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 {{- end }}

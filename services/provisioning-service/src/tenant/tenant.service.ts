@@ -35,6 +35,8 @@ export class TenantService {
       `[Provision Request] Tenant: ${sanitizedName}, Tier: ${tier}, Env: ${environment}`,
     );
 
+    let tenantAddedToTfvars = false;
+
     try {
       // Step 1: Update tenants.tfvars with new tenant
       await this.terraformService.addTenantToTfvars(
@@ -42,10 +44,49 @@ export class TenantService {
         tier,
         environment,
       );
+      tenantAddedToTfvars = true;
 
       // Step 2: Run Terraform apply
-      const terraformResult =
-        await this.terraformService.runTerraformApply(environment);
+      let terraformResult;
+      try {
+        terraformResult =
+          await this.terraformService.runTerraformApply(environment);
+      } catch (terraformErr) {
+        this.logger.error(
+          `[Terraform Apply Error] ${terraformErr.message}`,
+          terraformErr.stack || terraformErr,
+        );
+
+        // Rollback: Remove tenant from tfvars since Terraform failed
+        try {
+          await this.terraformService.removeTenantFromTfvars(
+            sanitizedName,
+            environment,
+          );
+          this.logger.log(
+            `Removed ${sanitizedName} from tfvars after Terraform failure`,
+          );
+        } catch (rollbackErr) {
+          this.logger.error(
+            `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+            rollbackErr.stack || rollbackErr,
+          );
+        }
+
+        throw new InternalServerErrorException({
+          success: false,
+          tenantId,
+          tenantName: sanitizedName,
+          tier,
+          error: 'Terraform provisioning failed',
+          terraform: {
+            message: terraformErr.message,
+            details: terraformErr.stack,
+          },
+          message:
+            'Infrastructure provisioning failed. Tenant entry removed from tfvars.',
+        });
+      }
 
       // Step 3: For enterprise, trigger Kubernetes deployment
       let deploymentResult: any = undefined;
@@ -66,7 +107,26 @@ export class TenantService {
               terraformOutputs,
             );
         } catch (deployErr) {
-          this.logger.error('[K8s Deployment Error]', deployErr);
+          this.logger.error(
+            `[K8s Deployment Error] ${deployErr.message}`,
+            deployErr.stack || deployErr,
+          );
+
+          // Rollback: Remove tenant from tfvars since deployment failed
+          try {
+            await this.terraformService.removeTenantFromTfvars(
+              sanitizedName,
+              environment,
+            );
+            this.logger.log(
+              `Removed ${sanitizedName} from tfvars after deployment failure`,
+            );
+          } catch (rollbackErr) {
+            this.logger.error(
+              `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+              rollbackErr.stack || rollbackErr,
+            );
+          }
 
           throw new InternalServerErrorException({
             success: false,
@@ -80,7 +140,7 @@ export class TenantService {
               details: deployErr.stack,
             },
             message:
-              'Infrastructure was provisioned but Kubernetes deployment failed. Manual intervention required.',
+              'Infrastructure was provisioned but Kubernetes deployment failed. Tenant entry removed from tfvars.',
           });
         }
       } else {
@@ -98,7 +158,26 @@ export class TenantService {
             domain: `https://${sanitizedName}.cloudappdev.site`,
           };
         } catch (routeErr) {
-          this.logger.error('[HTTPRoute Deployment Error]', routeErr);
+          this.logger.error(
+            `[HTTPRoute Deployment Error] ${routeErr.message}`,
+            routeErr.stack || routeErr,
+          );
+
+          // Rollback: Remove tenant from tfvars since routing failed
+          try {
+            await this.terraformService.removeTenantFromTfvars(
+              sanitizedName,
+              environment,
+            );
+            this.logger.log(
+              `Removed ${sanitizedName} from tfvars after HTTPRoute failure`,
+            );
+          } catch (rollbackErr) {
+            this.logger.error(
+              `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+              rollbackErr.stack || rollbackErr,
+            );
+          }
 
           throw new InternalServerErrorException({
             success: false,
@@ -112,7 +191,7 @@ export class TenantService {
               details: routeErr.stack,
             },
             message:
-              'Certificate was provisioned but HTTPRoute deployment failed. Manual intervention required.',
+              'Certificate was provisioned but HTTPRoute deployment failed. Tenant entry removed from tfvars.',
           });
         }
       }
@@ -135,11 +214,42 @@ export class TenantService {
         message: 'Infrastructure provisioned successfully',
       };
     } catch (error) {
-      this.logger.error('[Provision Error]', error);
+      this.logger.error(
+        `[Provision Error] ${error.message}`,
+        error.stack || error,
+      );
+
+      // If this is already a formatted error from inner catches, just rethrow
+      if (error instanceof InternalServerErrorException) {
+        throw error;
+      }
+
+      // Otherwise, this is an unexpected error - try to clean up if we added to tfvars
+      if (tenantAddedToTfvars) {
+        try {
+          await this.terraformService.removeTenantFromTfvars(
+            sanitizedName,
+            environment,
+          );
+          this.logger.log(
+            `Removed ${sanitizedName} from tfvars after unexpected error`,
+          );
+        } catch (rollbackErr) {
+          this.logger.error(
+            `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+            rollbackErr.stack || rollbackErr,
+          );
+        }
+      }
+
       throw new InternalServerErrorException({
         success: false,
+        tenantId,
+        tenantName: sanitizedName,
+        tier,
         error: error.message,
         details: error.stack,
+        message: 'Unexpected error during provisioning. Cleanup attempted.',
       });
     }
   }

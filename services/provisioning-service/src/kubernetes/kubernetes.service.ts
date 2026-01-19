@@ -48,12 +48,10 @@ export class KubernetesService {
     );
 
     // Create namespace if not exists
-    try {
-      await execAsync(`kubectl create namespace ${namespace}`);
-      this.logger.log(`Created namespace ${namespace}`);
-    } catch (err) {
-      this.logger.log(`Namespace ${namespace} already exists`);
-    }
+    await this.ensureNamespaceExists(namespace);
+
+    // Wait a moment for namespace to be fully ready
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Create Kubernetes secrets
     await this.createKubernetesSecrets(
@@ -248,7 +246,12 @@ export class KubernetesService {
             ([_, value]) =>
               value !== '' && value !== undefined && value !== null,
           )
-          .map(([key, value]) => `--from-literal=${key}=${String(value)}`)
+          .map(([key, value]) => {
+            // Encode special characters for URI resolution and shell safety
+            const stringValue = String(value);
+            const encodedValue = encodeURI(stringValue).replace(/'/g, "'\\''");
+            return `--from-literal='${key}=${encodedValue}'`;
+          })
           .join(' ');
 
         await execAsync(
@@ -284,6 +287,53 @@ export class KubernetesService {
       return true;
     } catch (err) {
       return false;
+    }
+  }
+
+  /**
+   * Ensures namespace exists and is ready
+   */
+  private async ensureNamespaceExists(namespace: string): Promise<void> {
+    try {
+      // Check if namespace exists
+      await execAsync(`kubectl get namespace ${namespace}`);
+      this.logger.log(`Namespace ${namespace} already exists`);
+      return;
+    } catch (err) {
+      // Namespace doesn't exist, create it
+      this.logger.log(`Creating namespace ${namespace}...`);
+      try {
+        await execAsync(`kubectl create namespace ${namespace}`);
+        this.logger.log(`Successfully created namespace ${namespace}`);
+
+        // Wait for namespace to be fully ready
+        let retries = 10;
+        while (retries > 0) {
+          try {
+            const { stdout } = await execAsync(
+              `kubectl get namespace ${namespace} -o jsonpath='{.status.phase}'`,
+            );
+            if (stdout.includes('Active')) {
+              this.logger.log(`Namespace ${namespace} is active and ready`);
+              return;
+            }
+          } catch (checkErr) {
+            // Continue waiting
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          retries--;
+        }
+
+        // Final verification
+        await execAsync(`kubectl get namespace ${namespace}`);
+      } catch (createErr) {
+        this.logger.error(
+          `Failed to create namespace ${namespace}: ${createErr.message}`,
+        );
+        throw new Error(
+          `Cannot create namespace ${namespace}: ${createErr.message}`,
+        );
+      }
     }
   }
 

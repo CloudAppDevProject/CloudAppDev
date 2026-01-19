@@ -155,22 +155,71 @@ tenants = []
 
       this.logger.log('Init completed, starting apply...');
 
-      const { stdout, stderr } = await execAsync(
-        'terraform apply -auto-approve -input=false -lock-timeout=2m -var-file=terraform.tfvars -var-file=tenants.tfvars',
-        {
-          cwd: workDir,
-          timeout: 1200000,
-          maxBuffer: 10 * 1024 * 1024,
-        },
-      );
+      // Retry logic for lock conflicts
+      let lastError: Error | null = null;
+      const maxRetries = 2;
 
-      this.logger.log('Apply completed successfully');
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const { stdout, stderr } = await execAsync(
+            'terraform apply -auto-approve -input=false -lock-timeout=10m -var-file=terraform.tfvars -var-file=tenants.tfvars',
+            {
+              cwd: workDir,
+              timeout: 1200000,
+              maxBuffer: 10 * 1024 * 1024,
+            },
+          );
 
-      return {
-        success: true,
-        output: stdout,
-        errors: stderr,
-      };
+          this.logger.log('Apply completed successfully');
+
+          return {
+            success: true,
+            output: stdout,
+            errors: stderr,
+          };
+        } catch (applyError: any) {
+          lastError = applyError;
+
+          // Check if it's a lock error
+          if (
+            applyError.message?.includes('Error acquiring the state lock') &&
+            attempt < maxRetries
+          ) {
+            this.logger.warn(
+              `Lock conflict detected on attempt ${attempt}/${maxRetries}. Extracting lock ID...`,
+            );
+
+            // Try to extract lock ID from error message
+            const lockIdMatch = applyError.message.match(/ID:\s+(\d+)/);
+            if (lockIdMatch) {
+              const lockId = lockIdMatch[1];
+              this.logger.warn(
+                `Attempting to force-unlock stale lock: ${lockId}`,
+              );
+
+              try {
+                await execAsync(`terraform force-unlock -force ${lockId}`, {
+                  cwd: workDir,
+                });
+                this.logger.log('Successfully released stale lock, retrying...');
+                // Wait a bit before retry
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                continue; // Retry the apply
+              } catch (unlockError) {
+                this.logger.error(
+                  'Failed to force-unlock:',
+                  unlockError.message,
+                );
+              }
+            }
+          }
+
+          // If not a lock error or last attempt, throw
+          throw applyError;
+        }
+      }
+
+      throw lastError;
     } catch (error) {
       this.logger.error('Error during apply:', error.message);
       throw error;
