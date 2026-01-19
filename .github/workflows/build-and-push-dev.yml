@@ -459,6 +459,9 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
        
         run: |
           echo "Loading GitHub env vars..."
@@ -556,9 +559,9 @@ jobs:
                   --from-literal=MONGODB_URI="${MONGODB_URI}" \
                   --from-literal=ITINERARY_SERVICE_URL="http://itinerary-service:8081" \
                   --from-literal=USER_SERVICE_URL="http://user-service:8080" \
-                  --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
-                  --from-literal=SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
-                  --from-literal=SENDGRID_FROM_NAME="${{ secrets.SENDGRID_FROM_NAME }}" \
+                  --from-literal=SENDGRID_API_KEY="${SENDGRID_API_KEY}" \
+                  --from-literal=SENDGRID_FROM_EMAIL="${SENDGRID_FROM_EMAIL}" \
+                  --from-literal=SENDGRID_FROM_NAME="${SENDGRID_FROM_NAME}" \
                   --from-literal=NEWSLETTER_MODE="sendgrid" \
                   --namespace ${NAMESPACE}
                 ;;
@@ -589,6 +592,8 @@ jobs:
 
                 kubectl create secret generic ${SECRET_NAME} \
                   --from-literal=GCP_SERVICE_ACCOUNT_KEY="$GCP_SA_KEY" \
+                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64="$GCP_SA_KEY" \
+                  --from-literal=SENDGRID_API_KEY="${SENDGRID_API_KEY}" \
                   --namespace ${NAMESPACE}
                 ;;
 
@@ -618,10 +623,10 @@ jobs:
                 kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE} --ignore-not-found
 
                 kubectl create secret generic ${SECRET_NAME} \
-                  --from-literal=JWT_SECRET=${JWT_SECRET} \
+                  --from-literal=JWT_SECRET="$JWT_SECRET" \
                   --from-literal=APP_MODE="${APP_MODE}" \
                   --from-literal=GCP_PROJECT_ID=cloudappdev-dev \
-                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64=${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64} \
+                  --from-literal=GCP_MONITORING_CREDENTIALS_BASE64="$GCP_SA_KEY" \
                   --namespace ${NAMESPACE}
                 ;;
 
