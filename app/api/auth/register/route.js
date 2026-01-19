@@ -54,7 +54,25 @@ function extractTenantNamespace(host) {
  */
 export async function POST(request) {
   try {
-    const body = await request.json();
+    // Ensure request body exists and is valid
+    let body;
+    try {
+      const text = await request.text();
+      if (!text || text.trim() === '') {
+        console.error('[API /auth/register] Error: Empty request body');
+        return NextResponse.json(
+          { message: 'Request body is empty' },
+          { status: 400 }
+        );
+      }
+      body = JSON.parse(text);
+    } catch (parseError) {
+      console.error('[API /auth/register] Error: Invalid JSON in request body', parseError.message);
+      return NextResponse.json(
+        { message: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
 
     // Validate required fields
     if (!body.email || !body.password || !body.name) {
@@ -107,7 +125,7 @@ export async function POST(request) {
     return NextResponse.json({
       access_token: data.access_token,
       user: data.user
-    }, { status: 200 });
+    }, { status: 201 });
 
   } catch (error) {
     console.error('[API /auth/register] Error:', error);

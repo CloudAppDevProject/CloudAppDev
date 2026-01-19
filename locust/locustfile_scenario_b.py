@@ -176,6 +176,7 @@ class BaseAPIUser(HttpUser):
     test_password = "LoadTest123"
     max_retries = 3
     available_itinerary_ids = []
+    access_token = None
     
     def register_user(self):
         """Register a new user via proxy route"""
@@ -194,13 +195,20 @@ class BaseAPIUser(HttpUser):
                 
                 if response.status_code == 201:
                     data = safe_json_parse(response, "Registration")
-                    if data and data.get("user") and data.get("user").get("id"):
-                        self.user_id = data.get("user").get("id")
-                        shared_state.user_ids.append(self.user_id)
-                        return True
-                    else:
-                        retry_count += 1
-                        time.sleep(2)
+                    if data:
+                        # Extract access token
+                        self.access_token = data.get("access_token")
+                        
+                        # Extract user ID with fallback
+                        user_data = data.get("user", {})
+                        self.user_id = user_data.get("id") or data.get("id")
+                        
+                        if self.user_id:
+                            shared_state.user_ids.append(self.user_id)
+                            return True
+                    
+                    retry_count += 1
+                    time.sleep(2)
                 else:
                     retry_count += 1
                     time.sleep(2)
@@ -209,6 +217,12 @@ class BaseAPIUser(HttpUser):
                 time.sleep(2)
         
         return self.user_id is not None
+    
+    def get_auth_headers(self):
+        """Return Authorization header with JWT token if available"""
+        if self.access_token:
+            return {"Authorization": f"Bearer {self.access_token}"}
+        return {}
     
     def _fetch_available_itineraries(self):
         """Fetch list of available itinerary IDs"""
@@ -334,7 +348,7 @@ class NewUserJourney(TaskSet):
                 self.client.post("/api/likes", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id
-                }, name="Journey: Like Itinerary")
+                }, headers=self.user.get_auth_headers(), name="Journey: Like Itinerary")
     
 
     @task(1)
@@ -368,7 +382,7 @@ class NewUserJourney(TaskSet):
                     "images": []
                 }
             ]
-        }, name="Journey: Create First Itinerary")
+        }, headers=self.user.get_auth_headers(), name="Journey: Create First Itinerary")
         
         # Add new itinerary to available IDs
         if response.status_code == 201:
@@ -414,7 +428,7 @@ class NewUserJourney(TaskSet):
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id,
                     "text": random.choice(comments)
-                }, name="Journey: Add Comment")
+                }, headers=self.user.get_auth_headers(), name="Journey: Add Comment")
 
 
 # ============================================================================
@@ -470,7 +484,7 @@ class ActiveUserJourney(TaskSet):
                 self.client.post("/api/likes", json={
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id
-                }, name="Journey: Like")
+                }, headers=self.user.get_auth_headers(), name="Journey: Like")
                 time.sleep(random.uniform(0.2, 0.8))
 
     @task(3)
@@ -522,7 +536,7 @@ class ActiveUserJourney(TaskSet):
             "detail_desc": "Planning an incredible journey!",
             "userId": self.user.user_id,
             "locations": locations
-        }, name="Journey: Create Itinerary")
+        }, headers=self.user.get_auth_headers(), name="Journey: Create Itinerary")
         
         # Add new itinerary to available IDs
         if response.status_code == 201:
@@ -574,7 +588,7 @@ class ActiveUserJourney(TaskSet):
                     "userId": self.user.user_id,
                     "itineraryId": itinerary_id,
                     "text": random.choice(comments)
-                }, name="Journey: Add Comment")
+                }, headers=self.user.get_auth_headers(), name="Journey: Add Comment")
 
 # ============================================================================
 # CASUAL BROWSER JOURNEY (50% of traffic)

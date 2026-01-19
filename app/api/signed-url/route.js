@@ -12,6 +12,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const path = searchParams.get('path');
     const service = searchParams.get('service') || 'itinerary';
+    const authHeader = request.headers.get('authorization');
 
     if (!path) {
       return NextResponse.json(
@@ -24,7 +25,9 @@ export async function GET(request) {
     const endpoint = service === 'user' ? 'users' : 'itineraries';
     const url = `${API_GATEWAY_URL}/api/v1/${endpoint}/signed-url?path=${encodeURIComponent(path)}`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: authHeader ? { Authorization: authHeader } : undefined,
+    });
     const data = await response.json();
 
     return NextResponse.json(data, { status: response.status });
