@@ -54,21 +54,21 @@ import math
 
 class SimpleScalingShape(LoadTestShape):
     """
-    Simplified Load Test - 5 Minute Scaling Test
+    Firebase-Optimized Load Test - 1000 Users with Rate Limiting
     
-    Pattern: Starts with 5 users, ramps up to 100 users over 4 minutes, then peak for 1 minute
-    Total duration: 5 minutes
-    Spawn rate: 5 users per second (conservative for local Docker)
+    Pattern: Starts with 10 users, ramps up to 1000 users over 5 minutes, then peak for 2 minutes
+    Total duration: 7 minutes
+    Spawn rate: 3 users per second (Firebase rate-limit friendly)
     
-    Perfect for local Docker environments with resource constraints
+    Optimized for Firebase authentication bottlenecks (400 reg/min limit)
     """
     
     # Configuration
-    base_users = 5
-    peak_users = 100
-    ramp_duration = 240  # 4 minutes to ramp up
-    peak_duration = 60   # 1 minute at peak
-    spawn_rate = 5       # 5 users per second (conservative)
+    base_users = 10
+    peak_users = 1000
+    ramp_duration = 300  # 5 minutes for Firebase-friendly ramp up
+    peak_duration = 120  # 2 minutes at peak
+    spawn_rate = 3       # 3 users per second (~180 users/min - below Firebase limits)
     
     def tick(self):
         run_time = self.get_run_time()
@@ -146,17 +146,21 @@ class BaseAPIUser(HttpUser):
     access_token = None
     
     # Increase timeouts for local Docker environment
-    wait_time = between(1, 3)
+    wait_time = between(2, 5)  # Longer wait times to reduce connection pressure
     
-    # Connection pool settings for local environment
-    connection_timeout = 30  # 30 second timeout for connections
+    # Connection pool settings for Firebase rate limits
+    connection_timeout = 60  # 60 second timeout for connections
+    network_timeout = 60.0
     
     def register_user(self):
-        """Register a new user via proxy route"""
+        """Register a new user via proxy route with Firebase-friendly delays"""
         retry_count = 0
         while self.user_id is None and retry_count < self.max_retries:
             self.test_email = random_email()
             name = random_name()
+            
+            # Add Firebase-friendly staggered delay to prevent rate limiting
+            time.sleep(random.uniform(1.5, 3.5))
 
             try:
                 # POST /api/auth/register - Server-side proxy to User Service
@@ -168,7 +172,7 @@ class BaseAPIUser(HttpUser):
                         "password": self.test_password
                     },
                     headers={"Content-Type": "application/json"},
-                    timeout=30,
+                    timeout=60,
                     name="User Registration",
                     catch_response=True
                 ) as response:
@@ -203,11 +207,11 @@ class BaseAPIUser(HttpUser):
                     else:
                         response.failure(f"Registration failed with status {response.status_code}: {response.text}")
                         retry_count += 1
-                        time.sleep(2)
+                        time.sleep(random.uniform(3, 6))  # Longer backoff for Firebase
             except Exception as e:
                 print(f"Registration exception: {str(e)}")
                 retry_count += 1
-                time.sleep(2)
+                time.sleep(random.uniform(3, 6))  # Longer backoff for Firebase
         
         return self.user_id is not None
     
@@ -219,7 +223,7 @@ class BaseAPIUser(HttpUser):
         return headers
     
     def _fetch_available_itineraries(self):
-        """Fetch list of available itinerary IDs with retry logic"""
+        """Fetch list of available itinerary IDs with robust retry logic"""
         current_time = time.time()
 
         # Use cached IDs if recently fetched
@@ -227,14 +231,16 @@ class BaseAPIUser(HttpUser):
             self.available_itinerary_ids = shared_state.itinerary_ids.copy()
             return
 
-        # Retry fetching if failed
-        max_fetch_attempts = 3
+        # Retry fetching with exponential backoff
+        max_fetch_attempts = 5
+        backoff_delay = 1
+        
         for attempt in range(max_fetch_attempts):
             try:
                 # GET /api/itineraries - Server-side proxy to Itinerary Service
                 with self.client.get("/api/itineraries?page=1&limit=100",
                                     headers=self.get_auth_headers(),
-                                    timeout=30,
+                                    timeout=45,
                                     catch_response=True,
                                     name="Fetch Available Itineraries") as response:
                     if response.status_code == 200:
@@ -258,9 +264,17 @@ class BaseAPIUser(HttpUser):
                             response.failure(f"JSON parse error: {str(e)}")
                     else:
                         response.failure(f"Failed to fetch: {response.status_code}")
+                        
+                    # Exponential backoff before retry
+                    if attempt < max_fetch_attempts - 1:
+                        time.sleep(backoff_delay)
+                        backoff_delay *= 2
+                        
             except Exception as e:
+                print(f"Fetch itineraries error (attempt {attempt+1}/{max_fetch_attempts}): {str(e)}")
                 if attempt < max_fetch_attempts - 1:
-                    time.sleep(1)  # Wait before retry
+                    time.sleep(backoff_delay)
+                    backoff_delay *= 2
                 continue
     
     def get_random_itinerary_id(self):

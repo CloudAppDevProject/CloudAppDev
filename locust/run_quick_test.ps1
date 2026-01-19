@@ -2,15 +2,15 @@
 
 <#
 .SYNOPSIS
-    Quick 5-Minute Load Test for CloudAppDev Microservices
+    Extreme Load Test - 1000 Users Stress Test for CloudAppDev Microservices
     
 .DESCRIPTION
-    Runs a simplified load test that:
-    - Ramps up from 10 to 500 users over 4 minutes
-    - Maintains 500 users for 1 minute
-    - Total duration: 5 minutes
+    Runs an extreme stress load test that:
+    - Ramps up from 20 to 1000 users over 90 seconds
+    - Maintains 1000 users for 2 minutes
+    - Total duration: 3.5 minutes
     
-    Perfect for quick smoke testing and load profile validation
+    Maximum intensity testing for system bottleneck identification
     
 .EXAMPLE
     .\run_quick_test.ps1
@@ -35,15 +35,19 @@ $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $reportFile = "$LogDir/quick_test_$timestamp.html"
 
 Write-Host "`n$('='*80)"
-Write-Host "CLOUDAPPDEV QUICK LOAD TEST"
+Write-Host "CLOUDAPPDEV FIREBASE-OPTIMIZED LOAD TEST"
 Write-Host "$('='*80)"
 Write-Host "Target: $TargetHost"
-Write-Host "Test Profile: Simple 5-Minute Scaling"
-Write-Host "  - Start: 5 users"
-Write-Host "  - Peak: 100 users"
-Write-Host "  - Ramp: 4 minutes (5 users/sec)"
-Write-Host "  - Peak Duration: 1 minute"
-Write-Host "  - Total: 5 minutes"
+Write-Host "Test Profile: 1000 Users - Firebase Rate-Limit Friendly"
+Write-Host "  - Start: 10 users"
+Write-Host "  - Peak: 1000 users"
+Write-Host "  - Ramp: 5 minutes (3 users/sec = ~180/min)"
+Write-Host "  - Peak Duration: 2 minutes"
+Write-Host "  - Total: 7 minutes"
+Write-Host "  - Registration: 1.5-3.5s delays + 60s timeout"
+Write-Host "  - Fetch Retries: 5 attempts with exponential backoff"
+Write-Host "$('='*80)"
+Write-Host "Firebase Rate Limit: ~400 registrations/min (below limit)"
 Write-Host "$('='*80)`n"
 
 # Build locust command
