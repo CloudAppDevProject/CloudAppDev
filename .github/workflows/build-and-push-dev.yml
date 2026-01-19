@@ -576,7 +576,7 @@ jobs:
                 kubectl create secret generic ${SECRET_NAME} \
                   --from-literal=DATABASE_URL="$TENANT_DB_URL" \
                   --from-literal=JWT_SECRET="$JWT_SECRET" \
-                  --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8080" \
+                  --from-literal=PROVISIONING_SERVICE_URL="http://provisioning-service:8090" \
                   --namespace ${NAMESPACE}
                 ;;
 

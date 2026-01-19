@@ -126,7 +126,7 @@ export class TenantsService {
       dto.password,
     );
 
-    // Create tenant
+    // Create tenant with pending provisioning status
     const tenant = await this.prisma.tenant.create({
       data: {
         name: dto.name,
@@ -134,10 +134,20 @@ export class TenantsService {
         password: hashedPassword,
         namespace: dto.namespace.toLowerCase(),
         tier: dto.tier,
+        provisioningStatus: 'pending',
       },
     });
 
     this.logger.log(`Tenant registered successfully: ${tenant.uuid}`);
+
+    // Trigger infrastructure provisioning asynchronously
+    this.triggerProvisioning(tenant.uuid, tenant.namespace, tenant.tier).catch(
+      (error) => {
+        this.logger.error(
+          `Background provisioning failed for tenant ${tenant.uuid}: ${error.message}`,
+        );
+      },
+    );
 
     return {
       uuid: tenant.uuid,
@@ -145,7 +155,92 @@ export class TenantsService {
       email: tenant.email,
       namespace: tenant.namespace,
       tier: tenant.tier,
+      provisioningStatus: tenant.provisioningStatus,
     };
+  }
+
+  /**
+   * Triggers infrastructure provisioning for a tenant
+   * This is called asynchronously after tenant registration
+   */
+  private async triggerProvisioning(
+    tenantUuid: string,
+    tenantName: string,
+    tier: string,
+  ): Promise<void> {
+    const provisioningServiceUrl =
+      process.env.PROVISIONING_SERVICE_URL || 'http://provisioning-service:8080';
+    const environment = process.env.ENVIRONMENT || 'dev';
+
+    this.logger.log(
+      `Triggering provisioning for tenant ${tenantUuid} (${tenantName}, ${tier})`,
+    );
+
+    // Update status to provisioning
+    await this.prisma.tenant.update({
+      where: { uuid: tenantUuid },
+      data: { provisioningStatus: 'provisioning' },
+    });
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${provisioningServiceUrl}/provision-tenant`,
+          {
+            tenantId: tenantUuid,
+            tenantName: tenantName,
+            tier: tier,
+            environment: environment,
+          },
+          {
+            timeout: 1800000, // 30 minutes timeout for provisioning
+          },
+        ),
+      );
+
+      const provisioningResult = response.data;
+
+      if (provisioningResult.success) {
+        // Update tenant with provisioned domain and status
+        await this.prisma.tenant.update({
+          where: { uuid: tenantUuid },
+          data: {
+            provisioningStatus: 'provisioned',
+            domain: provisioningResult.domain,
+            provisioningError: null,
+          },
+        });
+
+        this.logger.log(
+          `Provisioning completed for tenant ${tenantUuid}: ${provisioningResult.domain}`,
+        );
+      } else {
+        throw new Error(
+          provisioningResult.message || 'Provisioning returned unsuccessful',
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Unknown provisioning error';
+
+      this.logger.error(
+        `Provisioning failed for tenant ${tenantUuid}: ${errorMessage}`,
+      );
+
+      // Update tenant with failed status
+      await this.prisma.tenant.update({
+        where: { uuid: tenantUuid },
+        data: {
+          provisioningStatus: 'failed',
+          provisioningError: errorMessage,
+        },
+      });
+
+      throw error;
+    }
   }
 
   async create(dto: CreateTenantDto) {
