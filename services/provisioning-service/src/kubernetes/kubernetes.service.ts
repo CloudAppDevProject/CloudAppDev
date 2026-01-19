@@ -57,7 +57,6 @@ export class KubernetesService {
     await this.createKubernetesSecrets(
       namespace,
       tenantName,
-      terraformOutputs,
       environment,
     );
 
@@ -155,7 +154,6 @@ export class KubernetesService {
   private async createKubernetesSecrets(
     namespace: string,
     tenantName: string,
-    terraformOutputs: any,
     environment: string,
   ): Promise<void> {
     this.logger.log(`Creating secrets in namespace ${namespace}`);
@@ -177,9 +175,12 @@ export class KubernetesService {
       GCP_PROJECT_ID: projectId,
     };
 
-    const firestoreDatabaseId = terraformOutputs.social_db_name
-      .split('/')
-      .pop();
+    // Fetch Firestore database UID using gcloud
+    const firestoreDbId = `cloudappdev-${tenantName}-social`;
+    const firestoreDbUid = await this.getFirestoreDatabaseUid(
+      firestoreDbId,
+      projectId,
+    );
 
     const userSecrets = {
       ...baseSecrets,
@@ -195,7 +196,7 @@ export class KubernetesService {
       GOOGLE_CLOUD_CREDENTIALS_BASE64: tenantSecrets.itinerary_service_account,
     };
 
-    const mongodbUri = `mongodb://${firestoreDatabaseId}.${region}.firestore.goog:443/${firestoreDatabaseId}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE`;
+    const mongodbUri = `mongodb://${firestoreDbUid}.${region}.firestore.goog:443/${firestoreDbId}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE`;
 
     const socialSecrets = {
       ...baseSecrets,
@@ -427,6 +428,38 @@ export class KubernetesService {
   }
 
   /**
+   * Retrieves the Firestore database UID using gcloud CLI
+   */
+  private async getFirestoreDatabaseUid(
+    databaseId: string,
+    projectId: string,
+  ): Promise<string> {
+    this.logger.log(`Fetching Firestore database UID for ${databaseId}`);
+
+    try {
+      const { stdout } = await execAsync(
+        `gcloud firestore databases describe --database="${databaseId}" --project="${projectId}" --format="value(uid)"`,
+        { timeout: 30000 },
+      );
+
+      const uid = stdout.trim();
+      if (!uid) {
+        throw new Error(`Firestore database UID not found for ${databaseId}`);
+      }
+
+      this.logger.log(`Firestore database UID: ${uid}`);
+      return uid;
+    } catch (err) {
+      this.logger.error(
+        `Failed to fetch Firestore database UID for ${databaseId}: ${err.message}`,
+      );
+      throw new Error(
+        `Cannot retrieve Firestore database UID: ${err.message}. Make sure the Firestore database exists and Terraform has been applied.`,
+      );
+    }
+  }
+
+  /**
    * Retrieves the GCP service account key (base64) for a tenant's service
    * from Terraform state outputs
    */
@@ -444,7 +477,7 @@ export class KubernetesService {
       const outputName = `${serviceName}_service_account_key`;
 
       const { stdout } = await execAsync(
-        `cd ${terraformDir} && terraform output -json | jq -r '.enterprise_deployments.value["${tenantName}"]["${outputName}"]'`,
+        `cd ${terraformDir} && terraform output -json | jq -r '.enterprise_deployments_keys.value["${tenantName}"]["${outputName}"]'`,
         { timeout: 30000 },
       );
 
