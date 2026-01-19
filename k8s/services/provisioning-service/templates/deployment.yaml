@@ -1,19 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: provisioning-service
+  namespace: {{ .Values.namespace }}
+  name: {{ include "provisioning.fullname" . }}
   labels:
-    app: provisioning-service
+    {{- include "provisioning.labels" . | nindent 4 }}
     tier: infrastructure
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: provisioning-service
+      {{- include "provisioning.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: provisioning-service
+        {{- include "provisioning.labels" . | nindent 8 }}
         tier: infrastructure
     spec:
       serviceAccountName: {{ include "provisioning.serviceAccountName" . }}
