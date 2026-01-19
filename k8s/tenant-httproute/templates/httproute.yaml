@@ -1,22 +1,62 @@
+{{- if .Values.httpRoute.enabled -}}
+# HTTP to HTTPS Redirect Route
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ .Values.tenant.name }}-httproute
+  name: {{ .Values.tenant.name }}-http-redirect
   namespace: {{ .Values.namespace }}
   labels:
     tenant: {{ .Values.tenant.name }}
     tier: {{ .Values.tenant.tier }}
+  {{- with .Values.httpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   parentRefs:
   - name: {{ .Values.gateway.name }}
     namespace: {{ .Values.gateway.namespace }}
+    sectionName: http
   hostnames:
   - {{ .Values.tenant.domain }}
   rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /
-    backendRefs:
-    - name: {{ .Values.backend.serviceName }}
-      port: {{ .Values.backend.servicePort }}
+    {{- range .Values.httpRoute.rules }}
+    {{- with .filters }}
+    - filters:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- end }}
+{{- end }}
+---
+{{- if .Values.httpsRoute.enabled -}}
+# HTTPS Route
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.tenant.name }}-https
+  namespace: {{ .Values.namespace }}
+  labels:
+    tenant: {{ .Values.tenant.name }}
+    tier: {{ .Values.tenant.tier }}
+  {{- with .Values.httpsRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+  - name: {{ .Values.gateway.name }}
+    namespace: {{ .Values.gateway.namespace }}
+    sectionName: https
+  hostnames:
+  - {{ .Values.tenant.domain }}
+  rules:
+    {{- range .Values.httpsRoute.rules }}
+    {{- with .matches }}
+    - matches:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
+      backendRefs:
+      - name: {{ $.Values.backend.serviceName }}
+        port: {{ $.Values.backend.servicePort }}
+    {{- end }}
+{{- end }}

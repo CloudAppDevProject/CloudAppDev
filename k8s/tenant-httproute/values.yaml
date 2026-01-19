@@ -16,3 +16,24 @@ gateway:
 backend:
   serviceName: "app"
   servicePort: 80
+
+# HTTP Route (redirect to HTTPS)
+httpRoute:
+  enabled: true
+  annotations: {}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+
+# HTTPS Route
+httpsRoute:
+  enabled: true
+  annotations: {}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
