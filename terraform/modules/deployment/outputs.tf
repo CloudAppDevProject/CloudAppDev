@@ -64,3 +64,21 @@ output "all_service_account_member" {
     itinerary = module.itinerary_service_account.member
   }
 }
+
+output "user_service_account_key" {
+  description = "Base64 encoded key for user service account"
+  value       = module.user_service_account.key
+  sensitive   = true
+}
+
+output "itinerary_service_account_key" {
+  description = "Base64 encoded key for itinerary service account"
+  value       = module.itinerary_service_account.key
+  sensitive   = true
+}
+
+output "social_service_account_key" {
+  description = "Base64 encoded key for social service account"
+  value       = module.social_service_account.key
+  sensitive   = true
+}

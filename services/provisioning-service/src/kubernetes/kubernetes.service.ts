@@ -175,11 +175,10 @@ export class KubernetesService {
     const baseSecrets = {
       FIREBASE_SERVICE_ACCOUNT_JSON_BASE64:
         tenantSecrets.firebase_service_account || '',
-      JWT_SECRET:
-        tenantSecrets.jwt_secret || `${tenantName}-jwt-secret-${Date.now()}`,
+      JWT_SECRET: `${tenantName}-jwt-secret`,
       JWT_EXPIRATION: '7d',
       NODE_ENV: environment === 'prod' ? 'production' : 'development',
-      GOOGLE_CLOUD_PROJECT_ID: projectId,
+      GCP_PROJECT_ID: projectId,
     };
 
     const firestoreDatabaseId = terraformOutputs.social_db_name
@@ -188,16 +187,16 @@ export class KubernetesService {
 
     const userSecrets = {
       ...baseSecrets,
-      DATABASE_URL: `postgresql://postgres@localhost:5432/users`,
-      GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
-      GOOGLE_CLOUD_CREDENTIALS_BASE64: '',
+      DATABASE_URL: `postgresql://users:${tenantSecrets.database_users_password}@127.0.0.1:5432/users`,
+      GOOGLE_CLOUD_STORAGE_BUCKET: `cloudappdev-${tenantName}-images`,
+      GOOGLE_CLOUD_CREDENTIALS_BASE64: tenantSecrets.user_service_account,
     };
 
     const itinerarySecrets = {
       ...baseSecrets,
-      DATABASE_URL: `postgresql://postgres@localhost:5432/itineraries`,
-      GOOGLE_CLOUD_STORAGE_BUCKET: terraformOutputs.images_bucket_name,
-      GOOGLE_CLOUD_CREDENTIALS_BASE64: '',
+      DATABASE_URL: `postgresql://itinerary:${tenantSecrets.database_itinerary_password}@127.0.0.1:5432/itinerary`,
+      GOOGLE_CLOUD_STORAGE_BUCKET: `cloudappdev-${tenantName}-images`,
+      GOOGLE_CLOUD_CREDENTIALS_BASE64: tenantSecrets.itinerary_service_account,
     };
 
     const mongodbUri = `mongodb://${firestoreDatabaseId}.${region}.firestore.goog:443/${firestoreDatabaseId}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE`;
@@ -207,17 +206,20 @@ export class KubernetesService {
       MONGODB_URI: mongodbUri,
       USER_SERVICE_URL: `http://user-service.${namespace}.svc.cluster.local:8080`,
       ITINERARY_SERVICE_URL: `http://itinerary-service.${namespace}.svc.cluster.local:8081`,
-      SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
-      SENDGRID_FROM_EMAIL:
-        process.env.SENDGRID_FROM_EMAIL ||
-        `team@${tenantName}.cloudappdev.site`,
-      SENDGRID_FROM_NAME: process.env.SENDGRID_FROM_NAME || 'CloudAppDev Team',
+      SENDGRID_API_KEY:
+        process.env.SENDGRID_API_KEY ||
+        '',
+      SENDGRID_FROM_EMAIL: `team@${tenantName}.dev.cloudappdev.site`,
+      SENDGRID_FROM_NAME: `${tenantName} Team`,
       NEWSLETTER_MODE: 'sendgrid',
-      FRONTEND_URL: `https://${tenantName}.cloudappdev.site`,
+      FRONTEND_URL: `https://${tenantName}.dev.cloudappdev.site`,
     };
 
     const appSecrets = {
+      ...baseSecrets,
       API_GATEWAY_URL: `http://gateway.${namespace}.svc.cluster.local:80`,
+      APP_MODE: "ENTERPRISE",
+      GCP_MONITORING_CREDENTIALS_BASE64: process.env.GCP_MONITORING_CREDENTIALS_BASE64 || '',
     };
 
     const secrets = [
@@ -348,17 +350,39 @@ export class KubernetesService {
 
     try {
       const firebaseAccount = await this.getSecretFromGSM(
-        `${tenantName}-firebase-service-account`,
-        environment,
-      );
-      const jwtSecret = await this.getSecretFromGSM(
-        `${tenantName}-jwt-secret`,
+        `firebase_service_account`,
         environment,
       );
 
+      const usersDbPassword = await this.getSecretFromGSM(
+        `${tenantName}-users-password`,
+        environment,
+      );
+
+      const userServiceAccount = await this.getServiceAccountKeyFromTerraform(
+        tenantName,
+        'user',
+        environment,
+      );
+
+      const itineraryDbPassword = await this.getSecretFromGSM(
+        `${tenantName}-itinerary-password`,
+        environment,
+      );
+
+      const itineraryServiceAccount =
+        await this.getServiceAccountKeyFromTerraform(
+          tenantName,
+          'itinerary',
+          environment,
+        );
+
       return {
+        database_users_password: usersDbPassword,
+        user_service_account: userServiceAccount,
+        database_itinerary_password: itineraryDbPassword,
+        itinerary_service_account: itineraryServiceAccount,
         firebase_service_account: firebaseAccount,
-        jwt_secret: jwtSecret,
       };
     } catch (err) {
       this.logger.warn(
@@ -369,7 +393,6 @@ export class KubernetesService {
       return {
         firebase_service_account:
           process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || '',
-        jwt_secret: `${tenantName}-jwt-secret-${Date.now()}`,
       };
     }
   }
@@ -401,6 +424,44 @@ export class KubernetesService {
 
       throw new Error(
         `Secret ${secretPath} not found and no fallback available`,
+      );
+    }
+  }
+
+  /**
+   * Retrieves the GCP service account key (base64) for a tenant's service
+   * from Terraform state outputs
+   */
+  private async getServiceAccountKeyFromTerraform(
+    tenantName: string,
+    serviceName: 'user' | 'itinerary' | 'social',
+    environment: string,
+  ): Promise<string> {
+    this.logger.log(
+      `Retrieving ${serviceName} service account key for tenant ${tenantName}`,
+    );
+
+    try {
+      const terraformDir = `/terraform/environments/${environment}-tenants`;
+      const outputName = `${serviceName}_service_account_key`;
+
+      const { stdout } = await execAsync(
+        `cd ${terraformDir} && terraform output -json | jq -r '.enterprise_deployments.value["${tenantName}"]["${outputName}"]'`,
+        { timeout: 30000 },
+      );
+
+      const key = stdout.trim();
+      if (!key || key === 'null') {
+        throw new Error(`Service account key not found in Terraform outputs`);
+      }
+
+      return key;
+    } catch (err) {
+      this.logger.error(
+        `Failed to retrieve ${serviceName} service account key for ${tenantName}: ${err.message}`,
+      );
+      throw new Error(
+        `Cannot retrieve service account key for ${serviceName}-service: ${err.message}`,
       );
     }
   }
