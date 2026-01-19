@@ -173,7 +173,7 @@ resource "kubernetes_manifest" "main_gateway" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "Gateway"
-    
+
     metadata = {
       name      = "main-gateway"
       namespace = "default"
@@ -184,8 +184,7 @@ resource "kubernetes_manifest" "main_gateway" {
       }
 
       annotations = {
-        "networking.gke.io/global-static-ip-name" = google_compute_global_address.main_gateway_ip.name
-        "networking.gke.io/certmap"               = google_certificate_manager_certificate_map.main.name
+        "networking.gke.io/certmap" = google_certificate_manager_certificate_map.main.name
       }
     }
 
@@ -214,26 +213,20 @@ resource "kubernetes_manifest" "main_gateway" {
           }
         }
       ]
+
+      # Use spec.addresses with IPAddress type (not deprecated NamedAddress)
+      addresses = [
+        {
+          type  = "NamedAddress"
+          value = google_compute_global_address.main_gateway_ip.name
+        }
+      ]
     }
   }
 
   depends_on = [
     google_container_cluster.primary,
     google_compute_global_address.main_gateway_ip
-  ]
-}
-
-# Cloudflare DNS A record pointing to the main Gateway IP
-resource "cloudflare_dns_record" "main_gateway" {
-  zone_id = var.cloudflare_zone_id
-  name    = var.hostname
-  content = google_compute_global_address.main_gateway_ip.address
-  type    = "A"
-  ttl     = 300
-  proxied = false
-
-  depends_on = [
-    kubernetes_manifest.main_gateway
   ]
 }
 

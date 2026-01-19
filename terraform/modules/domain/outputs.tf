@@ -36,5 +36,18 @@ output "certificate_status" {
   value       = google_certificate_manager_certificate.domain.managed[0].provisioning_issue
 }
 
-# Note: Gateway outputs have been removed.
-# Gateway resources are now managed directly in the environment's main.tf
+# DNS A Record outputs for the main gateway
+output "dns_record_name" {
+  description = "Name of the DNS A record for the gateway"
+  value       = cloudflare_dns_record.main_gateway.name
+}
+
+output "dns_record_content" {
+  description = "IP address content of the DNS A record"
+  value       = cloudflare_dns_record.main_gateway.content
+}
+
+output "dns_record_proxied" {
+  description = "Whether the DNS record is proxied through Cloudflare"
+  value       = cloudflare_dns_record.main_gateway.proxied
+}
