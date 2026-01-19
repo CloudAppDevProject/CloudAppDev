@@ -173,6 +173,7 @@ export class KubernetesService {
       JWT_EXPIRATION: '7d',
       NODE_ENV: environment === 'prod' ? 'production' : 'development',
       GOOGLE_CLOUD_PROJECT_ID: projectId,
+      GCP_PROJECT_ID: projectId,
     };
 
     // Fetch Firestore database UID using gcloud
@@ -347,15 +348,19 @@ export class KubernetesService {
         process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 ||
         (await this.getSecretFromGSM(`firebase_service_account`, environment));
 
-      const usersDbPassword = await this.getSecretFromGSM(
+      const usersDbPasswordRaw = await this.getSecretFromGSM(
         `${tenantName}-users-password`,
         environment,
       );
 
-      const itineraryDbPassword = await this.getSecretFromGSM(
+      const itineraryDbPasswordRaw = await this.getSecretFromGSM(
         `${tenantName}-itinerary-password`,
         environment,
       );
+
+      // URI encode passwords for safe use in connection strings
+      const usersDbPassword = encodeURIComponent(usersDbPasswordRaw);
+      const itineraryDbPassword = encodeURIComponent(itineraryDbPasswordRaw);
 
       return {
         database_users_password: usersDbPassword,
