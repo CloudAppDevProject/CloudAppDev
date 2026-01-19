@@ -192,7 +192,7 @@ ${tenantBlocks.join(',\n')}
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await execAsync(
-          'terraform apply -auto-approve -input=false -lock-timeout=10m -var-file=terraform.tfvars -var-file=tenants.tfvars',
+          'terraform apply -auto-approve -input=false -var-file=terraform.tfvars -var-file=tenants.tfvars',
           { cwd: workDir, timeout: 1200000 },
         );
         this.logger.log('Terraform apply completed');
