@@ -96,6 +96,7 @@ export class KubernetesService {
             `-f ${service.path}/values-${environment}.yaml ` +
             `${setFlags} ` +
             `--namespace ${namespace} ` +
+            `--set namespace=${namespace} ` +
             `--set fullnameOverride=${service.helmRelease} `,
           {
             timeout: 600000,

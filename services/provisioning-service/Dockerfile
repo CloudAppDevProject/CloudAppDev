@@ -48,13 +48,20 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && \
     helm version
 
-# Install gcloud CLI
-RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz && \
-    tar -xf google-cloud-cli-linux-x86_64.tar.gz && \
-    ./google-cloud-sdk/install.sh --quiet --path-update=true && \
-    rm google-cloud-cli-linux-x86_64.tar.gz && \
-    ln -s /google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud && \
-    ln -s /google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil
+# Install gcloud CLI (Alpine-compatible)
+# gcloud requires glibc - install compatibility layer and required libs
+RUN apk add --no-cache \
+    libc6-compat \
+    gcompat \
+    libstdc++ \
+    libgcc \
+    && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz \
+    && tar -xf google-cloud-cli-linux-x86_64.tar.gz -C / \
+    && /google-cloud-sdk/install.sh --quiet --path-update=false \
+    && rm google-cloud-cli-linux-x86_64.tar.gz \
+    && ln -sf /google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
+    && ln -sf /google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
+    && gcloud --version
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
