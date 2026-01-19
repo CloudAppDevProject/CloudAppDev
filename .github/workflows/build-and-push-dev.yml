@@ -486,7 +486,6 @@ jobs:
             echo "🔐 Deploying secrets for ${{ matrix.service }} to ${NAMESPACE}"
             case "${{ matrix.service }}" in
 
-
               "user-service")
                 SECRET_NAME="user-service-secrets"
 

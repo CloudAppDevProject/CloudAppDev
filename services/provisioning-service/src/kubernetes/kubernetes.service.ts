@@ -172,7 +172,7 @@ export class KubernetesService {
       JWT_SECRET: `${tenantName}-jwt-secret`,
       JWT_EXPIRATION: '7d',
       NODE_ENV: environment === 'prod' ? 'production' : 'development',
-      GCP_PROJECT_ID: projectId,
+      GOOGLE_CLOUD_PROJECT_ID: projectId,
     };
 
     // Fetch Firestore database UID using gcloud
@@ -220,7 +220,7 @@ export class KubernetesService {
       { name: 'user-service-secrets', data: userSecrets },
       { name: 'itinerary-service-secrets', data: itinerarySecrets },
       { name: 'social-service-secrets', data: socialSecrets },
-      { name: 'cloudappdev-secrets', data: appSecrets },
+      { name: 'app-secrets', data: appSecrets },
     ];
 
     for (const secret of secrets) {
