@@ -72,6 +72,16 @@ export class TenantsController {
     return this.tenantsService.checkAdminEmail(email);
   }
 
+  /**
+   * List all tenants (internal service-to-service call)
+   * GET /api/v1/tenants
+   * Used by provisioning-service for startup synchronization
+   */
+  @Get()
+  async findAll() {
+    return this.tenantsService.findAll();
+  }
+
   // ==================== AUTHENTICATED ENDPOINTS ====================
 
   /**

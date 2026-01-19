@@ -103,7 +103,13 @@ tenants = []
   }`;
 
     if (tenantsArray.length === 0) {
-      content = `tenants = [\n${newTenantBlock}\n]\n`;
+      content = `# Tenant Infrastructure Configuration
+# Managed by infrastructure-provisioner service
+
+tenants = [
+${newTenantBlock}
+]
+`;
     } else {
       content = content.replace(/\](\s*)$/, `,\n${newTenantBlock}\n]$1`);
     }
