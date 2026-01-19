@@ -7,6 +7,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
+    "start:optimized": "NODE_ENV=production node server.js",
+    "start:load-test": "NODE_ENV=production UV_THREADPOOL_SIZE=128 node --max-old-space-size=4096 server.js",
     "db:init-mongo": "node init-mongo.js"
   },
   "dependencies": {
