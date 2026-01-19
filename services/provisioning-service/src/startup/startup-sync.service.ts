@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -33,9 +35,79 @@ export class StartupSyncService implements OnApplicationBootstrap {
     try {
       await this.synchronizeTenants();
       this.logger.log('Startup synchronization completed successfully');
+      this.logger.log('Starting deployment synchronization...');
+      await this.synchronizeDeployments();
+      this.logger.log('Deployment synchronization completed successfully');
     } catch (error) {
       this.logger.error(`Startup sync failed: ${error.message}`);
       this.logger.warn('Service will continue despite sync failure');
+    }
+  }
+  private async synchronizeDeployments(): Promise<void> {
+    // Fetch tenants again (could be cached from previous step if needed)
+    const tenants = await this.fetchTenantsWithRetry();
+    this.logger.log(`Synchronizing deployments for ${tenants.length} tenants`);
+
+    if (tenants.length === 0) {
+      this.logger.log('No tenants to deploy');
+      return;
+    }
+
+    // Import services dynamically to avoid circular deps
+    const { TerraformService } =
+      await import('../terraform/terraform.service.js');
+    const { KubernetesService } =
+      await import('../kubernetes/kubernetes.service.js');
+    // Instantiate services (in real app, use DI container)
+    const terraformService = new TerraformService();
+    const kubernetesService = new KubernetesService();
+
+    const environment = process.env.ENVIRONMENT || 'dev';
+
+    for (const tenant of tenants) {
+      try {
+        this.logger.log(
+          `Ensuring deployment for tenant: ${tenant.namespace} (tier: ${tenant.tier})`,
+        );
+        // Use the same logic as provisionTenant, but skip tfvars/terraform (already done)
+        if (tenant.tier === 'enterprise') {
+          // Get terraform outputs for this tenant
+          const terraformOutputs =
+            await terraformService.getTerraformOutputsForTenant(
+              tenant.namespace,
+              environment,
+            );
+          if (terraformOutputs) {
+            await kubernetesService.deployEnterpriseNamespace(
+              tenant.namespace,
+              environment,
+              terraformOutputs,
+            );
+          } else {
+            this.logger.warn(
+              `No terraform outputs for enterprise tenant ${tenant.namespace}, skipping deployment.`,
+            );
+          }
+          // Always deploy HTTPRoute for enterprise as well
+          await kubernetesService.deploySharedTierHTTPRoute(
+            tenant.namespace,
+            tenant.tier,
+            environment,
+          );
+        } else {
+          // Free/standard: only HTTPRoute
+          await kubernetesService.deploySharedTierHTTPRoute(
+            tenant.namespace,
+            tenant.tier,
+            environment,
+          );
+        }
+        this.logger.log(`Deployment ensured for tenant: ${tenant.namespace}`);
+      } catch (err) {
+        this.logger.error(
+          `Failed to deploy for tenant ${tenant.namespace}: ${err.message}`,
+        );
+      }
     }
   }
 
@@ -54,8 +126,7 @@ export class StartupSyncService implements OnApplicationBootstrap {
   }
 
   private async fetchTenantsWithRetry(): Promise<TenantDto[]> {
-    const url =
-      process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
+    const url = process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
