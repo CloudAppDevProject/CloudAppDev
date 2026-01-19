@@ -244,10 +244,7 @@ export class KubernetesService {
               value !== '' && value !== undefined && value !== null,
           )
           .map(([key, value]) => {
-            // Encode special characters for URI resolution and shell safety
-            const stringValue = String(value);
-            const encodedValue = encodeURI(stringValue).replace(/'/g, "'\\''");
-            return `--from-literal='${key}=${encodedValue}'`;
+            return `--from-literal='${key}=${value}'`;
           })
           .join(' ');
 
