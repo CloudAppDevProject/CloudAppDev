@@ -87,10 +87,7 @@ export class KubernetesService {
 
     for (const service of services) {
       try {
-        const setFlags = this.generateHelmSetFlags(
-          service.name,
-          tenantName,
-        );
+        const setFlags = this.generateHelmSetFlags(service.name, tenantName);
 
         this.logger.log(`Deploying ${service.name} with overrides`);
 
@@ -344,10 +341,9 @@ export class KubernetesService {
     this.logger.log(`Retrieving secrets for tenant ${tenantName}`);
 
     try {
-      const firebaseAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 || await this.getSecretFromGSM(
-        `firebase_service_account`,
-        environment,
-      );
+      const firebaseAccount =
+        process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 ||
+        (await this.getSecretFromGSM(`firebase_service_account`, environment));
 
       const usersDbPassword = await this.getSecretFromGSM(
         `${tenantName}-users-password`,
@@ -403,12 +399,18 @@ export class KubernetesService {
     const secretPath = `${secretName}`;
 
     try {
+      this.logger.log(
+        `Executing command to retrieve secret ${secretPath} from GSM and project ${projectId}`,
+      );
       const { stdout } = await execAsync(
         `gcloud secrets versions access latest --secret="${secretPath}" --project="${projectId}"`,
         { timeout: 30000 },
       );
       return stdout.trim();
     } catch (err) {
+      this.logger.error(
+        `Failed to retrieve secret ${secretPath} from GSM: ${err.message}`,
+      );
       this.logger.warn(`Secret ${secretPath} not found, generating fallback`);
 
       if (secretName.includes('db-password')) {
@@ -481,7 +483,6 @@ export class KubernetesService {
         `--set env[1].name=USER_NAMESPACE --set env[1].value=${tenantName}`,
         `--set env[2].name=ITINERARY_NAMESPACE --set env[2].value=${tenantName}`,
         `--set env[3].name=SOCIAL_NAMESPACE --set env[3].value=${tenantName}`,
-        
       );
     } else if (serviceName === 'app') {
       // Frontend environment variables
