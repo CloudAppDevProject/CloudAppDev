@@ -97,7 +97,6 @@ jobs:
             workflow:
               - '.github/workflows/build-and-push-dev.yml'
 
-
       - name: Generate version
         id: version
         run: |
