@@ -1,4 +1,4 @@
-import { IsInt, IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional } from 'class-validator';
 
 export enum TenantTier {
   FREE = 'free',
@@ -7,8 +7,8 @@ export enum TenantTier {
 }
 
 export class ProvisionTenantDto {
-  @IsInt()
-  tenantId: number;
+  @IsString()
+  tenantId: string;
 
   @IsString()
   tenantName: string;

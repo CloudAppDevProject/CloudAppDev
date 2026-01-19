@@ -221,11 +221,16 @@ export class TenantsService {
         );
       }
     } catch (error) {
-      const errorMessage =
+      let errorMessage =
         error.response?.data?.message ||
         error.response?.data?.error ||
         error.message ||
         'Unknown provisioning error';
+
+      // Handle array of validation errors from class-validator
+      if (Array.isArray(errorMessage)) {
+        errorMessage = errorMessage.join(', ');
+      }
 
       this.logger.error(
         `Provisioning failed for tenant ${tenantUuid}: ${errorMessage}`,
