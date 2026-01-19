@@ -77,9 +77,9 @@ output "infrastructure" {
       static_ip_name = google_compute_global_address.main_gateway_ip.name
 
       dns_record = {
-        name    = cloudflare_dns_record.main_gateway.name
-        content = cloudflare_dns_record.main_gateway.content
-        proxied = cloudflare_dns_record.main_gateway.proxied
+        name    = module.main_domain.dns_record_name
+        content = module.main_domain.dns_record_content
+        proxied = module.main_domain.dns_record_proxied
       }
 
       urls = {
