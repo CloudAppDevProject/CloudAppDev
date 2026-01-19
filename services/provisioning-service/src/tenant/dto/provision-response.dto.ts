@@ -22,7 +22,7 @@ export interface KubernetesDeploymentResult {
 
 export class ProvisionTenantResponseDto {
   success: boolean;
-  tenantId?: number;
+  tenantId?: string;
   tenantName?: string;
   tier?: string;
   domain?: string;

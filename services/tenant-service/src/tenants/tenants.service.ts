@@ -169,9 +169,10 @@ export class TenantsService {
     tier: string,
   ): Promise<void> {
     const provisioningServiceUrl =
-      process.env.PROVISIONING_SERVICE_URL || 'http://provisioning-service:8080';
+      process.env.PROVISIONING_SERVICE_URL || 'http://provisioning-service:8090';
     const environment = process.env.ENVIRONMENT || 'dev';
 
+    this.logger.log(`Provisioning service URL: ${provisioningServiceUrl}`);
     this.logger.log(
       `Triggering provisioning for tenant ${tenantUuid} (${tenantName}, ${tier})`,
     );
@@ -220,11 +221,16 @@ export class TenantsService {
         );
       }
     } catch (error) {
-      const errorMessage =
+      let errorMessage =
         error.response?.data?.message ||
         error.response?.data?.error ||
         error.message ||
         'Unknown provisioning error';
+
+      // Handle array of validation errors from class-validator
+      if (Array.isArray(errorMessage)) {
+        errorMessage = errorMessage.join(', ');
+      }
 
       this.logger.error(
         `Provisioning failed for tenant ${tenantUuid}: ${errorMessage}`,
