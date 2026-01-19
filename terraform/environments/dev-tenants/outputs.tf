@@ -75,6 +75,15 @@ output "enterprise_deployments" {
       user_service_account_email     = module.enterprise_namespace[name].user_service_account_email
       itinerary_service_account_email = module.enterprise_namespace[name].itinerary_service_account_email
       social_service_account_email   = module.enterprise_namespace[name].social_service_account_email
+    }
+  }
+}
+
+output "enterprise_deployments_keys" {
+  sensitive = true
+  value = {
+    for name in keys(local.enterprise_tenants) :
+    name => {
       user_service_account_key     = module.enterprise_namespace[name].user_service_account_key
       itinerary_service_account_key = module.enterprise_namespace[name].itinerary_service_account_key
       social_service_account_key   = module.enterprise_namespace[name].social_service_account_key

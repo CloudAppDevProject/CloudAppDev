@@ -206,9 +206,7 @@ export class KubernetesService {
       MONGODB_URI: mongodbUri,
       USER_SERVICE_URL: `http://user-service.${namespace}.svc.cluster.local:8080`,
       ITINERARY_SERVICE_URL: `http://itinerary-service.${namespace}.svc.cluster.local:8081`,
-      SENDGRID_API_KEY:
-        process.env.SENDGRID_API_KEY ||
-        '',
+      SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
       SENDGRID_FROM_EMAIL: `team@${tenantName}.dev.cloudappdev.site`,
       SENDGRID_FROM_NAME: `${tenantName} Team`,
       NEWSLETTER_MODE: 'sendgrid',
@@ -218,8 +216,9 @@ export class KubernetesService {
     const appSecrets = {
       ...baseSecrets,
       API_GATEWAY_URL: `http://gateway.${namespace}.svc.cluster.local:80`,
-      APP_MODE: "ENTERPRISE",
-      GCP_MONITORING_CREDENTIALS_BASE64: process.env.GCP_MONITORING_CREDENTIALS_BASE64 || '',
+      APP_MODE: 'ENTERPRISE',
+      GCP_MONITORING_CREDENTIALS_BASE64:
+        process.env.GCP_MONITORING_CREDENTIALS_BASE64 || '',
     };
 
     const secrets = [
