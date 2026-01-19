@@ -400,7 +400,7 @@ export class KubernetesService {
     environment: string,
   ): Promise<string> {
     const projectId = process.env.GCP_PROJECT || 'cloudappdev-dev';
-    const secretPath = `${secretName}-${environment}`;
+    const secretPath = `${secretName}`;
 
     try {
       const { stdout } = await execAsync(
