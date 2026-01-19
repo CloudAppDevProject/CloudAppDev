@@ -54,8 +54,7 @@ spec:
           containerPort: {{ .Values.service.targetPort }}
           protocol: TCP
         env:
-        - name: NODE_ENV
-          value: {{ .Values.env.NODE_ENV | default "development" | quote }}
+        {{- toYaml .Values.env | nindent 8 }}
         - name: PORT
           value: "{{ .Values.service.targetPort }}"
         - name: ENVIRONMENT

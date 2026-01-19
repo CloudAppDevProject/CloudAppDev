@@ -67,7 +67,6 @@ terraform:
 gcp:
   project: cloudappdev-dev
   region: europe-west1
-  credentialsSecret: provisioning-service-secrets
 
 # Cloudflare configuration (from secrets)
 cloudflare:
