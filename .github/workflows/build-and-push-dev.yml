@@ -593,7 +593,9 @@ jobs:
                 kubectl create secret generic ${SECRET_NAME} \
                   --from-literal=GCP_SERVICE_ACCOUNT_KEY="$GCP_SA_KEY" \
                   --from-literal=GCP_MONITORING_CREDENTIALS_BASE64="$GCP_SA_KEY" \
+                  --from-literal=FIREBASE_SERVICE_ACCOUNT_JSON_BASE64="$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" \
                   --from-literal=SENDGRID_API_KEY="${SENDGRID_API_KEY}" \
+                  --from-literal=IMAGE_TAG="${VERSION}" \
                   --namespace ${NAMESPACE}
                 ;;
 

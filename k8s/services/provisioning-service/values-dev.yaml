@@ -26,7 +26,33 @@ environment: dev
 namespace: default
 
 env: 
-  NODE_ENV: "development"
+  - name: NODE_ENV
+    value: "development"
+  - name: IMAGE_TAG
+    valueFrom:
+      secretKeyRef:
+        name: provisioning-service-secrets
+        key: IMAGE_TAG
+  - name: GCP_MONITORING_CREDENTIALS_BASE64
+    valueFrom:
+      secretKeyRef:
+        name: provisioning-service-secrets
+        key: GCP_MONITORING_CREDENTIALS_BASE64
+  - name: GCP_SERVICE_ACCOUNT_KEY
+    valueFrom:
+      secretKeyRef:
+        name: provisioning-service-secrets
+        key: GCP_SERVICE_ACCOUNT_KEY
+  - name: SENDGRID_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: provisioning-service-secrets
+        key: SENDGRID_API_KEY
+  - name: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+    valueFrom:
+      secretKeyRef:
+        name: provisioning-service-secrets
+        key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
 # Service account with permissions to manage GKE resources
 serviceAccount:
   create: true

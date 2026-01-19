@@ -90,8 +90,6 @@ export class KubernetesService {
         const setFlags = this.generateHelmSetFlags(
           service.name,
           tenantName,
-          terraformOutputs,
-          environment,
         );
 
         this.logger.log(`Deploying ${service.name} with overrides`);
@@ -101,7 +99,8 @@ export class KubernetesService {
             `-f ${service.path}/values-${environment}.yaml ` +
             `${setFlags} ` +
             `--namespace ${namespace} ` +
-            `--wait --timeout 10m`,
+            `--wait --timeout 10m`+
+            `--set fullnameOverride=${service.helmRelease} `,
           {
             timeout: 600000,
             maxBuffer: 10 * 1024 * 1024,
@@ -472,90 +471,25 @@ export class KubernetesService {
   private generateHelmSetFlags(
     serviceName: string,
     tenantName: string,
-    terraformOutputs: any,
-    environment: string,
   ): string {
     const setFlags: string[] = [];
 
     // Common overrides for all services
-    setFlags.push(`--set namespace=${tenantName}`);
     const imageTag = process.env.IMAGE_TAG || 'latest';
     setFlags.push(`--set image.tag=${imageTag}`);
 
-    if (serviceName === 'user-service') {
-      // Cloud SQL Proxy configuration
-      setFlags.push(
-        `--set initContainers[0].name=cloud-sql-proxy`,
-        `--set initContainers[0].image=gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1`,
-        `--set-string initContainers[0].args[0]=--port=5432`,
-        `--set-string initContainers[0].args[1]=${terraformOutputs.database_connection_name}`,
-      );
-
-      // Service Account with Workload Identity
-      setFlags.push(
-        `--set serviceAccount.create=true`,
-        `--set serviceAccount.name=user-service-sa`,
-        `--set serviceAccount.annotations.iam\\.gke\\.io/gcp-service-account=${terraformOutputs.user_service_account_email}`,
-      );
-
-      // Environment variables
-      setFlags.push(
-        `--set env[0].name=TENANT_NAME`,
-        `--set env[0].value=${tenantName}`,
-        `--set env[1].name=TENANT_NAMESPACE`,
-        `--set env[1].value=${tenantName}`,
-      );
-    } else if (serviceName === 'itinerary-service') {
-      // Cloud SQL Proxy configuration
-      setFlags.push(
-        `--set initContainers[0].name=cloud-sql-proxy`,
-        `--set initContainers[0].image=gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1`,
-        `--set-string initContainers[0].args[0]=--port=5432`,
-        `--set-string initContainers[0].args[1]=${terraformOutputs.database_connection_name}`,
-      );
-
-      // Service Account with Workload Identity
-      setFlags.push(
-        `--set serviceAccount.create=true`,
-        `--set serviceAccount.name=itinerary-service-sa`,
-        `--set serviceAccount.annotations.iam\\.gke\\.io/gcp-service-account=${terraformOutputs.itinerary_service_account_email}`,
-      );
-
-      // Environment variables
-      setFlags.push(
-        `--set-json extraEnv='[{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"}]'`,
-      );
-    } else if (serviceName === 'social-service') {
-      // Service Account with Workload Identity
-      setFlags.push(
-        `--set serviceAccount.create=true`,
-        `--set serviceAccount.name=social-service-sa`,
-        `--set serviceAccount.annotations.iam\\.gke\\.io/gcp-service-account=${terraformOutputs.social_service_account_email}`,
-      );
-
-      // Environment variables
-      setFlags.push(
-        `--set-json extraEnv='[{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"},{"name":"FIRESTORE_DATABASE_ID","value":"${terraformOutputs.social_db_name}"}]'`,
-      );
-    } else if (serviceName === 'gateway') {
+    if (serviceName === 'api-gateway') {
       // Gateway tenant routing
       setFlags.push(
-        `--set tenant=${tenantName}`,
-        `--set serviceNamespaces.user=${tenantName}`,
-        `--set serviceNamespaces.itinerary=${tenantName}`,
-        `--set serviceNamespaces.social=${tenantName}`,
-        `--set serviceNamespaces.travelInfo=default`,
-        `--set serviceNamespaces.tenant=default`,
-      );
-
-      // Environment variables
-      setFlags.push(
-        `--set-json extraEnv='[{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"}]'`,
+        `--set env[1].name=USER_NAMESPACE --set env[1].value=${tenantName}`,
+        `--set env[2].name=ITINERARY_NAMESPACE --set env[2].value=${tenantName}`,
+        `--set env[3].name=SOCIAL_NAMESPACE --set env[3].value=${tenantName}`,
+        
       );
     } else if (serviceName === 'app') {
       // Frontend environment variables
       setFlags.push(
-        `--set-json extraEnv='[{"name":"API_GATEWAY_URL","value":"http://gateway.${tenantName}.svc.cluster.local:80"},{"name":"NEXT_PUBLIC_TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAME","value":"${tenantName}"},{"name":"TENANT_NAMESPACE","value":"${tenantName}"}]'`,
+        `--set httpRoute.enabled=false --set httpsRoute.enabled=false`,
       );
     }
 
