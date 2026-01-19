@@ -169,7 +169,7 @@ export class TenantsService {
     tier: string,
   ): Promise<void> {
     const provisioningServiceUrl =
-      process.env.PROVISIONING_SERVICE_URL || 'http://provisioning-service:8080';
+      process.env.PROVISIONING_SERVICE_URL || 'http://provisioning-service:8090';
     const environment = process.env.ENVIRONMENT || 'dev';
 
     this.logger.log(
