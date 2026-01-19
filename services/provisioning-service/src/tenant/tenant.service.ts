@@ -52,7 +52,10 @@ export class TenantService {
         terraformResult =
           await this.terraformService.runTerraformApply(environment);
       } catch (terraformErr) {
-        this.logger.error('[Terraform Apply Error]', terraformErr);
+        this.logger.error(
+          `[Terraform Apply Error] ${terraformErr.message}`,
+          terraformErr.stack || terraformErr,
+        );
 
         // Rollback: Remove tenant from tfvars since Terraform failed
         try {
@@ -65,8 +68,8 @@ export class TenantService {
           );
         } catch (rollbackErr) {
           this.logger.error(
-            'Failed to remove tenant from tfvars during rollback',
-            rollbackErr,
+            `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+            rollbackErr.stack || rollbackErr,
           );
         }
 
@@ -104,7 +107,10 @@ export class TenantService {
               terraformOutputs,
             );
         } catch (deployErr) {
-          this.logger.error('[K8s Deployment Error]', deployErr);
+          this.logger.error(
+            `[K8s Deployment Error] ${deployErr.message}`,
+            deployErr.stack || deployErr,
+          );
 
           // Rollback: Remove tenant from tfvars since deployment failed
           try {
@@ -117,8 +123,8 @@ export class TenantService {
             );
           } catch (rollbackErr) {
             this.logger.error(
-              'Failed to remove tenant from tfvars during rollback',
-              rollbackErr,
+              `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+              rollbackErr.stack || rollbackErr,
             );
           }
 
@@ -152,7 +158,10 @@ export class TenantService {
             domain: `https://${sanitizedName}.cloudappdev.site`,
           };
         } catch (routeErr) {
-          this.logger.error('[HTTPRoute Deployment Error]', routeErr);
+          this.logger.error(
+            `[HTTPRoute Deployment Error] ${routeErr.message}`,
+            routeErr.stack || routeErr,
+          );
 
           // Rollback: Remove tenant from tfvars since routing failed
           try {
@@ -165,8 +174,8 @@ export class TenantService {
             );
           } catch (rollbackErr) {
             this.logger.error(
-              'Failed to remove tenant from tfvars during rollback',
-              rollbackErr,
+              `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+              rollbackErr.stack || rollbackErr,
             );
           }
 
@@ -205,7 +214,10 @@ export class TenantService {
         message: 'Infrastructure provisioned successfully',
       };
     } catch (error) {
-      this.logger.error('[Provision Error]', error);
+      this.logger.error(
+        `[Provision Error] ${error.message}`,
+        error.stack || error,
+      );
 
       // If this is already a formatted error from inner catches, just rethrow
       if (error instanceof InternalServerErrorException) {
@@ -224,8 +236,8 @@ export class TenantService {
           );
         } catch (rollbackErr) {
           this.logger.error(
-            'Failed to remove tenant from tfvars during rollback',
-            rollbackErr,
+            `Failed to remove tenant from tfvars during rollback: ${rollbackErr.message}`,
+            rollbackErr.stack || rollbackErr,
           );
         }
       }
