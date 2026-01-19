@@ -35,6 +35,8 @@ export class TenantService {
       `[Provision Request] Tenant: ${sanitizedName}, Tier: ${tier}, Env: ${environment}`,
     );
 
+    let tenantAddedToTfvars = false;
+
     try {
       // Step 1: Update tenants.tfvars with new tenant
       await this.terraformService.addTenantToTfvars(
@@ -42,10 +44,46 @@ export class TenantService {
         tier,
         environment,
       );
+      tenantAddedToTfvars = true;
 
       // Step 2: Run Terraform apply
-      const terraformResult =
-        await this.terraformService.runTerraformApply(environment);
+      let terraformResult;
+      try {
+        terraformResult =
+          await this.terraformService.runTerraformApply(environment);
+      } catch (terraformErr) {
+        this.logger.error('[Terraform Apply Error]', terraformErr);
+
+        // Rollback: Remove tenant from tfvars since Terraform failed
+        try {
+          await this.terraformService.removeTenantFromTfvars(
+            sanitizedName,
+            environment,
+          );
+          this.logger.log(
+            `Removed ${sanitizedName} from tfvars after Terraform failure`,
+          );
+        } catch (rollbackErr) {
+          this.logger.error(
+            'Failed to remove tenant from tfvars during rollback',
+            rollbackErr,
+          );
+        }
+
+        throw new InternalServerErrorException({
+          success: false,
+          tenantId,
+          tenantName: sanitizedName,
+          tier,
+          error: 'Terraform provisioning failed',
+          terraform: {
+            message: terraformErr.message,
+            details: terraformErr.stack,
+          },
+          message:
+            'Infrastructure provisioning failed. Tenant entry removed from tfvars.',
+        });
+      }
 
       // Step 3: For enterprise, trigger Kubernetes deployment
       let deploymentResult: any = undefined;
@@ -168,10 +206,38 @@ export class TenantService {
       };
     } catch (error) {
       this.logger.error('[Provision Error]', error);
+
+      // If this is already a formatted error from inner catches, just rethrow
+      if (error instanceof InternalServerErrorException) {
+        throw error;
+      }
+
+      // Otherwise, this is an unexpected error - try to clean up if we added to tfvars
+      if (tenantAddedToTfvars) {
+        try {
+          await this.terraformService.removeTenantFromTfvars(
+            sanitizedName,
+            environment,
+          );
+          this.logger.log(
+            `Removed ${sanitizedName} from tfvars after unexpected error`,
+          );
+        } catch (rollbackErr) {
+          this.logger.error(
+            'Failed to remove tenant from tfvars during rollback',
+            rollbackErr,
+          );
+        }
+      }
+
       throw new InternalServerErrorException({
         success: false,
+        tenantId,
+        tenantName: sanitizedName,
+        tier,
         error: error.message,
         details: error.stack,
+        message: 'Unexpected error during provisioning. Cleanup attempted.',
       });
     }
   }

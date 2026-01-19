@@ -32,6 +32,13 @@ export default function OrganizationPage() {
       return;
     }
 
+    // Validate namespace length
+    if (namespace.length > 15) {
+      setNamespaceStatus('invalid');
+      setNamespaceMessage('Maximum 15 characters allowed');
+      return;
+    }
+
     // Validate namespace format
     const namespaceRegex = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
     if (!namespaceRegex.test(namespace)) {
@@ -182,6 +189,7 @@ export default function OrganizationPage() {
                   setNamespace(e.target.value.toLowerCase().replace(/\s/g, '-'))
                 }
                 placeholder="my-travel-company"
+                maxLength={25}
                 className="flex-1 px-4 py-3 rounded-l-lg border border-r-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <span className="px-4 py-3 bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-r-lg text-gray-500 dark:text-gray-400">
@@ -217,7 +225,7 @@ export default function OrganizationPage() {
               </p>
             )}
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              This will be your platform URL. Min 3 characters.
+              This will be your platform URL. Min 3, max 25 characters.
             </p>
           </div>
         </div>
