@@ -632,6 +632,7 @@ jobs:
                 ;;
             esac
 
+
             # Check for stuck Helm releases and fix by deleting ALL stuck secrets
             RELEASE_STATUS=$(helm status ${{ steps.chart.outputs.release }} -n ${NAMESPACE} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
             if [ "$RELEASE_STATUS" = "pending-install" ] || [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ]; then

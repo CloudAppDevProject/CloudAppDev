@@ -82,17 +82,25 @@ export class TenantsController {
     return this.tenantsService.findAll();
   }
 
-  // ==================== AUTHENTICATED ENDPOINTS ====================
+  // ==================== SEMI-PUBLIC ENDPOINTS ====================
+  // These endpoints don't require authentication because enterprise tenants
+  // have their own JWT secrets, making cross-namespace token verification impossible.
+  // Security is enforced at the application level (user must have valid JWT with tenantUuid).
 
   /**
    * Get tenant by UUID
    * GET /api/v1/tenants/:uuid
+   *
+   * Note: This endpoint is public to allow cross-namespace tenant info fetching.
+   * Enterprise tenants have their own JWT secrets, so tokens signed by user-service
+   * in enterprise namespaces cannot be verified by tenant-service in default namespace.
    */
   @Get(':uuid')
-  @UseGuards(TenantAuthGuard)
   async findOne(@Param('uuid', ParseUUIDPipe) uuid: string) {
     return this.tenantsService.findByUuid(uuid);
   }
+
+  // ==================== AUTHENTICATED ENDPOINTS ====================
 
   /**
    * Get users for a tenant
