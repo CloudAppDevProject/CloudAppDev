@@ -1,0 +1,75 @@
+{{- if .Values.deploymentSync.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: deployment-version-sync
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "provisioning.labels" . | nindent 4 }}
+    component: deployment-sync
+  annotations:
+    description: "Periodic job to synchronize deployment versions across all namespaces"
+spec:
+  # Schedule: Every 10 minutes
+  # Format: minute hour day-of-month month day-of-week
+  schedule: "*/10 * * * *"
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Clean up after 1 hour
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            {{- include "provisioning.labels" . | nindent 12 }}
+            job-type: deployment-sync
+          annotations:
+            description: "Deployment version sync job"
+        spec:
+          serviceAccountName: {{ include "provisioning.serviceAccountName" . }}
+          restartPolicy: OnFailure
+          containers:
+          - name: deployment-sync
+            image: curlimages/curl:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting deployment version sync..."
+              echo "Calling provisioning service at http://provisioning-service.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.service.port }}/deployment-update/sync"
+
+              RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+                "http://provisioning-service.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.service.port }}/deployment-update/sync" \
+                -H "Content-Type: application/json" \
+                --max-time 300)
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              echo "Response code: $HTTP_CODE"
+              echo "Response body: $BODY"
+
+              if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+                echo "Deployment sync completed successfully"
+                exit 0
+              else
+                echo "Deployment sync failed with HTTP code: $HTTP_CODE"
+                exit 1
+              fi
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+          tolerations:
+          - key: "batch-jobs"
+            operator: "Equal"
+            value: "true"
+            effect: "NoSchedule"
+{{- end }}
