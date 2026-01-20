@@ -206,18 +206,34 @@ export class DeploymentUpdateService {
 
   /**
    * Get the latest semantic version tag for a specific image from the registry
+   * Uses a two-step process:
+   * 1. Get the digest for the 'latest' tag
+   * 2. Find all tags pointing to that digest and return the semantic version
    */
   private async getLatestTagForImage(imageName: string): Promise<string> {
     try {
-      // Query the registry for tags associated with 'latest'
-      const { stdout } = await execAsync(
-        `gcloud artifacts docker images list ${this.imageRegistry}/${imageName} ` +
-          `--include-tags --filter="tags:latest" --format="value(tags)" --limit=1`,
+      // Step 1: Get the digest for the 'latest' tag
+      const { stdout: digestOutput } = await execAsync(
+        `gcloud artifacts docker tags list ${this.imageRegistry}/${imageName} ` +
+          `--filter="tag:latest" --format="value(version)" --limit=1`,
         { timeout: 30000 },
       );
 
-      // Parse tags like "0.0.185,latest,sha-b188ad4"
-      const tags = stdout.trim().split(',');
+      const digest = digestOutput.trim();
+      if (!digest) {
+        this.logger.warn(`No 'latest' tag found for ${imageName}`);
+        return 'latest';
+      }
+
+      // Step 2: Find all tags pointing to the same digest
+      const { stdout: tagsOutput } = await execAsync(
+        `gcloud artifacts docker tags list ${this.imageRegistry}/${imageName} ` +
+          `--filter="version:${digest}" --format="value(tag)"`,
+        { timeout: 30000 },
+      );
+
+      // Parse tags (one per line) and find semantic version
+      const tags = tagsOutput.trim().split('\n').filter(Boolean);
       const versionTag = tags.find((t) => /^\d+\.\d+\.\d+$/.test(t));
 
       if (versionTag) {
