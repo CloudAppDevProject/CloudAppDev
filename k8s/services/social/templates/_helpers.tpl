@@ -36,8 +36,8 @@ Common labels
 {{- define "social.labels" -}}
 helm.sh/chart: {{ include "social.chart" . }}
 {{ include "social.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- if or .Values.image.tag .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
