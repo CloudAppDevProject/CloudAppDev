@@ -193,10 +193,6 @@ export default function SuccessPage() {
               />
               <div>
                 <p className="font-semibold">Checking tenant availability...</p>
-                <p className="text-sm text-yellow-700 dark:text-yellow-200">
-                  Waiting for {tenantDomain}/health to return 200. This can take a
-                  few seconds while DNS and services finish provisioning.
-                </p>
               </div>
             </div>
           )}
