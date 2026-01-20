@@ -9,6 +9,9 @@ import {
 @Controller('deployment-update')
 export class DeploymentUpdateController {
   private readonly logger = new Logger(DeploymentUpdateController.name);
+  private syncInProgress = false;
+  private lastSyncResult: DeploymentUpdateSummary | null = null;
+  private lastSyncTime: Date | null = null;
 
   constructor(
     private readonly deploymentUpdateService: DeploymentUpdateService,
@@ -17,22 +20,67 @@ export class DeploymentUpdateController {
   /**
    * POST /deployment-update/sync
    * Triggers synchronization of all outdated deployments to latest versions
+   * Runs asynchronously in the background to avoid blocking health checks
    */
   @Post('sync')
-  async synchronizeDeployments(): Promise<{
+  triggerSync(): {
     success: boolean;
     message: string;
-    summary: DeploymentUpdateSummary;
-  }> {
+    syncInProgress: boolean;
+  } {
     this.logger.log('Received request to synchronize deployments');
 
-    const summary =
-      await this.deploymentUpdateService.synchronizeAllDeployments();
+    if (this.syncInProgress) {
+      this.logger.warn('Sync already in progress, skipping request');
+      return {
+        success: true,
+        message: 'Sync already in progress',
+        syncInProgress: true,
+      };
+    }
+
+    // Run sync in background (don't await)
+    this.syncInProgress = true;
+    this.runSyncInBackground();
 
     return {
       success: true,
-      message: `Deployment sync complete: ${summary.updatedDeployments} updated, ${summary.failedUpdates} failed`,
-      summary,
+      message: 'Deployment sync triggered, running in background',
+      syncInProgress: true,
+    };
+  }
+
+  private async runSyncInBackground(): Promise<void> {
+    try {
+      this.logger.log('Starting background deployment sync...');
+      const summary =
+        await this.deploymentUpdateService.synchronizeAllDeployments();
+      this.lastSyncResult = summary;
+      this.lastSyncTime = new Date();
+      this.logger.log(
+        `Background sync complete: ${summary.updatedDeployments} updated, ${summary.failedUpdates} failed`,
+      );
+    } catch (error) {
+      this.logger.error(`Background sync failed: ${error.message}`);
+    } finally {
+      this.syncInProgress = false;
+    }
+  }
+
+  /**
+   * GET /deployment-update/sync-status
+   * Returns the status of the last/current sync operation
+   */
+  @Get('sync-status')
+  getSyncStatus(): {
+    syncInProgress: boolean;
+    lastSyncTime: Date | null;
+    lastSyncResult: DeploymentUpdateSummary | null;
+  } {
+    return {
+      syncInProgress: this.syncInProgress,
+      lastSyncTime: this.lastSyncTime,
+      lastSyncResult: this.lastSyncResult,
     };
   }
 

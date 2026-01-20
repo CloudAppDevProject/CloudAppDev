@@ -42,10 +42,11 @@ spec:
               echo "Starting deployment version sync..."
               echo "Calling provisioning service at http://provisioning-service.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.service.port }}/deployment-update/sync"
 
+              # Trigger sync (returns immediately, runs in background)
               RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
                 "http://provisioning-service.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.service.port }}/deployment-update/sync" \
                 -H "Content-Type: application/json" \
-                --max-time 300)
+                --max-time 30)
 
               HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
               BODY=$(echo "$RESPONSE" | sed '$d')
@@ -54,10 +55,10 @@ spec:
               echo "Response body: $BODY"
 
               if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-                echo "Deployment sync completed successfully"
+                echo "Deployment sync triggered successfully (running in background)"
                 exit 0
               else
-                echo "Deployment sync failed with HTTP code: $HTTP_CODE"
+                echo "Failed to trigger deployment sync with HTTP code: $HTTP_CODE"
                 exit 1
               fi
             resources:

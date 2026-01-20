@@ -694,7 +694,6 @@ jobs:
             echo "✅ Deployed to ${NAMESPACE}"
           done
 
-
       - name: Verify deployment
         run: |
           NAMESPACES="${{ steps.chart.outputs.namespaces }}"
