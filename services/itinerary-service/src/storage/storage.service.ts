@@ -10,16 +10,26 @@ export class StorageService {
 
   constructor() {
     const credentialsBase64 = process.env.GOOGLE_CLOUD_CREDENTIALS_BASE64;
-    
+
     if (!credentialsBase64) {
       this.logger.warn('GOOGLE_CLOUD_CREDENTIALS_BASE64 not set - storage uploads will fail');
       return;
     }
 
     try {
-      const credentials = JSON.parse(
-        Buffer.from(credentialsBase64, 'base64').toString('utf-8')
-      );
+      // Handle both raw JSON and base64-encoded JSON
+      // Kubernetes secrets are automatically base64-decoded when injected as env vars,
+      // so we may receive raw JSON. Try parsing as JSON first, then fall back to base64.
+      let credentials;
+      try {
+        // First, try parsing as raw JSON (Kubernetes already decoded the secret)
+        credentials = JSON.parse(credentialsBase64);
+      } catch {
+        // If that fails, try decoding as base64 first (for local development)
+        credentials = JSON.parse(
+          Buffer.from(credentialsBase64, 'base64').toString('utf-8')
+        );
+      }
 
       this.storage = new Storage({
         credentials,
