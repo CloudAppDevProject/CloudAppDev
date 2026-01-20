@@ -138,7 +138,7 @@ Stack: NestJS + Terraform + K8s
 ---
 
 <div class="flex justify-center items-center h-full flex-col gap-4">
-  <a href="https://raw.githubusercontent.com/CloudAppDevProject/CloudAppDev/ed8a212ea18a0cd3ab75b48cee6cfbb606af66e2/docs/microservice_architecture.drawio.svg" target="_blank" rel="noopener noreferrer" class="text-sm text-[#9ccfd8] hover:text-[#c4a7e7] transition-colors">Ref
+  <a href="https://raw.githubusercontent.com/CloudAppDevProject/CloudAppDev/develop/docs/microservice_architecture.drawio.svg" target="_blank" rel="noopener noreferrer" class="text-sm text-[#9ccfd8] hover:text-[#c4a7e7] transition-colors">Ref
   </a>
 </div>
 
