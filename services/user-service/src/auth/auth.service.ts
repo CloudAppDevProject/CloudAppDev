@@ -255,7 +255,7 @@ export class AuthService {
     this.logger.log(`Registration attempt for email: ${registerDto.email}`);
     try {
       const tenantServiceUrl =
-        process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
+        process.env.TENANT_SERVICE_URL || 'http://tenant-service.default.svc.cluster.local:8084';
 
       // Determine tenant namespace (order of precedence):
       //  1. Explicit tenantNamespace from request body (extracted by frontend from subdomain)
