@@ -1,8 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { firstValueFrom } from 'rxjs';
 
 const execAsync = promisify(exec);
+
+interface TenantInfo {
+  uuid: string;
+  name: string;
+  namespace: string;
+  tier: string;
+  provisioningStatus: string;
+}
 
 export interface ServiceConfig {
   name: string;
@@ -49,6 +59,11 @@ export class DeploymentUpdateService {
 
   private readonly imageRegistry =
     'europe-west1-docker.pkg.dev/cloudappdev-dev/docker-repo';
+
+  private readonly tenantServiceUrl =
+    process.env.TENANT_SERVICE_URL || 'http://tenant-service.default.svc.cluster.local:8084';
+
+  constructor(private readonly httpService: HttpService) {}
 
   // Services deployed to tenant namespaces
   private readonly services: ServiceConfig[] = [
@@ -251,12 +266,59 @@ export class DeploymentUpdateService {
   }
 
   /**
+   * Fetch valid namespaces from the tenant service
+   * Only namespaces with provisioningStatus='provisioned' should be updated
+   */
+  private async getValidNamespaces(): Promise<Set<string>> {
+    const validNamespaces = new Set<string>();
+
+    // Always include base namespaces
+    validNamespaces.add('free');
+    validNamespaces.add('standard');
+    validNamespaces.add('cloudappdev');
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<TenantInfo[]>(`${this.tenantServiceUrl}/api/v1/tenants`),
+      );
+
+      const tenants = response.data;
+      this.logger.log(`Fetched ${tenants.length} tenants from tenant service`);
+
+      for (const tenant of tenants) {
+        // Only include properly provisioned tenants
+        if (tenant.provisioningStatus === 'provisioned') {
+          // For enterprise tier, namespace is the tenant name
+          // For free/standard, they use shared namespaces (already added above)
+          if (tenant.tier === 'enterprise') {
+            validNamespaces.add(tenant.namespace);
+            this.logger.log(`Including enterprise namespace: ${tenant.namespace}`);
+          }
+        } else {
+          this.logger.warn(
+            `Skipping tenant ${tenant.name} with status: ${tenant.provisioningStatus}`,
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Failed to fetch tenants: ${err.message}`);
+      this.logger.warn('Falling back to base namespaces only');
+    }
+
+    return validNamespaces;
+  }
+
+  /**
    * Find all deployments that are running an older version
    */
   private async findOutdatedDeployments(
     serviceVersions: ServiceVersionInfo[],
   ): Promise<DeploymentInfo[]> {
     const outdated: DeploymentInfo[] = [];
+
+    // Get valid namespaces from tenant service
+    const validNamespaces = await this.getValidNamespaces();
+    this.logger.log(`Valid namespaces for update: ${Array.from(validNamespaces).join(', ')}`);
 
     // Create a map for quick lookup
     const versionMap = new Map<string, ServiceVersionInfo>();
@@ -279,6 +341,14 @@ export class DeploymentUpdateService {
 
         // Skip excluded namespaces
         if (this.excludedNamespaces.includes(namespace)) {
+          continue;
+        }
+
+        // Only update namespaces that are properly provisioned
+        if (!validNamespaces.has(namespace)) {
+          this.logger.debug(
+            `Skipping ${namespace}/${deploymentName} - namespace not in valid list`,
+          );
           continue;
         }
 
