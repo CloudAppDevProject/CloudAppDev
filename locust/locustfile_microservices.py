@@ -758,12 +758,14 @@ NewUserJourney.tasks = {
     NewUserJourney.browse_popular_itineraries: 4,
     NewUserJourney.search_destinations: 2,
     NewUserJourney.view_itinerary_details: 3,
+    NewUserJourney.create_first_itinerary: 2,  # New users create their first itinerary
     NewUserJourney.view_and_comment: 1,
 }
 
 ActiveUserJourney.tasks = {
     ActiveUserJourney.browse_and_engage: 5,
     ActiveUserJourney.check_my_itineraries: 3,
+    ActiveUserJourney.create_new_itinerary: 2,  # Active users create new itineraries
     ActiveUserJourney.view_and_comment: 2,
 }
 
