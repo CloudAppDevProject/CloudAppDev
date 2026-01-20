@@ -485,7 +485,7 @@ export class KubernetesService {
    * Generates Helm --set flags for service-specific overrides
    * Applies tier-based resource configuration from TIER_CONFIG
    */
-  private generateHelmSetFlags(
+  public generateHelmSetFlags(
     serviceName: string,
     tenantName: string,
     tier: TierName = 'enterprise',

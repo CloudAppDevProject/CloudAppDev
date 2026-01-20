@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { firstValueFrom } from 'rxjs';
+import { KubernetesService, TierName } from '../kubernetes/kubernetes.service';
 
 const execAsync = promisify(exec);
 
@@ -63,7 +64,10 @@ export class DeploymentUpdateService {
   private readonly tenantServiceUrl =
     process.env.TENANT_SERVICE_URL || 'http://tenant-service.default.svc.cluster.local:8084';
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly kubernetesService: KubernetesService,
+  ) {}
 
   // Services deployed to tenant namespaces
   private readonly services: ServiceConfig[] = [
@@ -396,6 +400,16 @@ export class DeploymentUpdateService {
   }
 
   /**
+   * Determine tier based on namespace
+   */
+  private getTierForNamespace(namespace: string): TierName {
+    if (namespace === 'free') return 'free';
+    if (namespace === 'standard') return 'standard';
+    // Enterprise namespaces are tenant-specific (not free/standard/cloudappdev)
+    return 'enterprise';
+  }
+
+  /**
    * Update deployment using Helm upgrade
    */
   private async updateWithHelm(
@@ -406,17 +420,27 @@ export class DeploymentUpdateService {
   ): Promise<UpdateResult> {
     const environment = process.env.ENVIRONMENT || 'dev';
     const releaseName = service.name;
+    const tier = this.getTierForNamespace(namespace);
 
     try {
       this.logger.log(
-        `Upgrading ${releaseName} in ${namespace} from ${deployment.currentTag} to ${newTag} via Helm...`,
+        `Upgrading ${releaseName} in ${namespace} (tier: ${tier}) from ${deployment.currentTag} to ${newTag} via Helm...`,
+      );
+
+      // Use KubernetesService to generate consistent Helm set flags
+      const setFlags = this.kubernetesService.generateHelmSetFlags(
+        service.name,
+        namespace,
+        tier,
       );
 
       const helmCmd =
         `helm upgrade --install ${releaseName} ${service.chartPath} ` +
         `-f ${service.chartPath}/values-${environment}.yaml ` +
+        `${setFlags} ` +
         `--set image.tag=${newTag} ` +
         `--set namespace=${namespace} ` +
+        `--set fullnameOverride=${releaseName} ` +
         `--namespace ${namespace} `;
 
       await execAsync(helmCmd, {
