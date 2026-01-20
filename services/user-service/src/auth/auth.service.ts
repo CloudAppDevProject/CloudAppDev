@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { HttpService } from '@nestjs/axios';
 import { UsersService } from '../users/users.service';
@@ -257,14 +257,16 @@ export class AuthService {
       const tenantServiceUrl =
         process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
 
-      // Determine tenant namespace (order of precedence):
-      //  1. Explicit tenantNamespace from request body (extracted by frontend from subdomain)
-      //  2. DEFAULT_TENANT_NAMESPACE env var
-      //  3. Fallback to 'free'
-      const defaultTenantNamespace = process.env.DEFAULT_TENANT_NAMESPACE || 'free';
-      const tenantNamespace = registerDto.tenantNamespace?.toLowerCase() || defaultTenantNamespace;
+      // Determine tenant namespace: must come from subdomain (frontend extracts to tenantNamespace)
+      const tenantNamespace = registerDto.tenantNamespace?.toLowerCase();
+      if (!tenantNamespace) {
+        this.logger.error('Registration failed: tenant namespace missing. Expected namespace from tenant subdomain.');
+        throw new BadRequestException(
+          'Registration failed: missing tenant namespace from subdomain. Please register via your tenant subdomain so the namespace is sent.',
+        );
+      }
 
-      this.logger.log(`Using tenant namespace: ${tenantNamespace} (from body: ${!!registerDto.tenantNamespace})`);
+      this.logger.log(`Using tenant namespace: ${tenantNamespace} (from subdomain)`);
 
       // Try to lookup tenant by namespace
       let tenantUuid: string | null = null;
@@ -277,10 +279,21 @@ export class AuthService {
         if (tenantUuid) {
           this.logger.log(`Resolved tenant namespace '${tenantNamespace}' to UUID: ${tenantUuid}`);
         } else {
-          this.logger.warn(`Tenant namespace '${tenantNamespace}' not found in Tenant Service`);
+          this.logger.error(`Tenant namespace '${tenantNamespace}' not found in Tenant Service`);
+          throw new BadRequestException(
+            `Registration failed: Tenant namespace '${tenantNamespace}' does not exist. Please verify the subdomain/namespace.`,
+          );
         }
       } catch (error) {
-        this.logger.warn(`Error looking up tenant by namespace '${tenantNamespace}': ${error.message}`);
+        // If it's already a BadRequestException, rethrow it
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        // For other errors (network issues, service down, etc.)
+        this.logger.error(`Error looking up tenant by namespace '${tenantNamespace}': ${error.message}`);
+        throw new BadRequestException(
+          `Registration failed: Unable to verify tenant namespace '${tenantNamespace}'. ${error.message}`,
+        );
       }
 
       // Create User in User Service with resolved tenantUuid (may be null)
