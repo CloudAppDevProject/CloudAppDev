@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRegistration } from '../context/RegistrationContext';
 
 export default function SuccessPage() {
   const router = useRouter();
   const { state, reset } = useRegistration();
+  const [healthStatus, setHealthStatus] = useState<'checking' | 'healthy'>(
+    'checking'
+  );
 
   // Redirect if registration wasn't completed
   useEffect(() => {
@@ -19,12 +22,58 @@ export default function SuccessPage() {
   const host =
     typeof window !== 'undefined' ? window.location.hostname : 'cloudappdev.site';
   const baseDomain = host === 'localhost' ? 'cloudappdev.site' : host;
+  const tenantDomain = `${state.namespace}.${baseDomain}`;
   const tenantUrl = `https://${state.namespace}.${baseDomain}`;
+  const healthUrl = `${tenantUrl.replace(/\/$/, '')}/health`;
 
   const handleStartOver = () => {
     reset();
     router.push('/register/plan');
   };
+
+  useEffect(() => {
+    if (!state.namespace) return;
+
+    let active = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const controller = new AbortController();
+
+    const checkHealth = async (attempt = 0) => {
+      if (!active) return;
+
+      try {
+        const response = await fetch(healthUrl, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        if (response.status >= 200 && response.status < 300) {
+          if (active) {
+            setHealthStatus('healthy');
+          }
+          return;
+        }
+      } catch (error) {
+        // Ignore transient errors; the retry loop will handle them.
+      }
+
+      if (!active) return;
+
+      const backoff = Math.min(5000, 1000 + attempt * 500);
+      timeoutId = setTimeout(() => checkHealth(attempt + 1), backoff);
+    };
+
+    checkHealth();
+
+    return () => {
+      active = false;
+      controller.abort();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [healthUrl, state.namespace]);
 
   if (!state.namespace) {
     return null;
@@ -107,6 +156,52 @@ export default function SuccessPage() {
           </div>
         </div>
 
+        {/* Health Check */}
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-6 mb-8 text-left">
+          <h3 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 uppercase tracking-wider mb-4">
+            Health Check
+          </h3>
+
+          {healthStatus === 'healthy' ? (
+            <div className="flex items-start gap-3 text-green-800 dark:text-green-300">
+              <svg
+                className="w-6 h-6 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <div>
+                <p className="font-semibold">Health endpoint is responding.</p>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  {tenantDomain}/health returned a 200-level status. You can open
+                  your platform now.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3 text-yellow-800 dark:text-yellow-100">
+              <span
+                aria-label="Health check in progress"
+                className="mt-1 inline-flex w-5 h-5 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"
+              />
+              <div>
+                <p className="font-semibold">Checking tenant availability...</p>
+                <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                  Waiting for {tenantDomain}/health to return 200. This can take a
+                  few seconds while DNS and services finish provisioning.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Next Steps */}
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 mb-8 text-left">
           <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider mb-4">
@@ -126,7 +221,7 @@ export default function SuccessPage() {
                   rel="noopener noreferrer"
                   className="font-semibold hover:underline"
                 >
-                  {state.namespace}.{baseDomain}
+                  {tenantDomain}
                 </a>
               </span>
             </li>
