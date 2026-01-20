@@ -97,9 +97,19 @@ async function getGCPAccessToken(): Promise<string | null> {
       return null;
     }
 
-    const credentials = JSON.parse(
-      Buffer.from(GCP_CREDENTIALS_BASE64, 'base64').toString('utf-8')
-    );
+    // Handle both raw JSON and base64-encoded JSON
+    // Kubernetes secrets are automatically base64-decoded when injected as env vars,
+    // so we may receive raw JSON. Try parsing as JSON first, then fall back to base64.
+    let credentials;
+    try {
+      // First, try parsing as raw JSON (Kubernetes already decoded the secret)
+      credentials = JSON.parse(GCP_CREDENTIALS_BASE64);
+    } catch {
+      // If that fails, try decoding as base64 first (for local development)
+      credentials = JSON.parse(
+        Buffer.from(GCP_CREDENTIALS_BASE64, 'base64').toString('utf-8')
+      );
+    }
 
     // Use Google Auth Library to get access token
     const { GoogleAuth } = require('google-auth-library');

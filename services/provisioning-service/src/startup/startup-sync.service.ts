@@ -127,7 +127,7 @@ export class StartupSyncService implements OnApplicationBootstrap {
   }
 
   private async fetchTenantsWithRetry(): Promise<TenantDto[]> {
-    const url = process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
+    const url = process.env.TENANT_SERVICE_URL || 'http://tenant-service.default.svc.cluster.local:8084';
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {

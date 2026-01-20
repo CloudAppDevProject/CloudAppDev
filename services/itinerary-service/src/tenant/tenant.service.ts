@@ -33,7 +33,7 @@ export class TenantService {
     }
 
     // Fetch from tenant-service
-    const tenantServiceUrl = process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
+    const tenantServiceUrl = process.env.TENANT_SERVICE_URL || 'http://tenant-service.default.svc.cluster.local:8084';
     const url = `${tenantServiceUrl}/api/v1/tenants/check-admin-email/${encodeURIComponent(email)}`;
 
     this.logger.log(`Checking tenant admin status for email: ${email}`);
