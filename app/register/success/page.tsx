@@ -15,7 +15,11 @@ export default function SuccessPage() {
     }
   }, [state, router]);
 
-  const tenantUrl = `https://${state.namespace}.cloudappdev.site`;
+  // Derive base domain from current host so dev/stage prefixes are preserved (e.g., dev.cloudappdev.site)
+  const host =
+    typeof window !== 'undefined' ? window.location.hostname : 'cloudappdev.site';
+  const baseDomain = host === 'localhost' ? 'cloudappdev.site' : host;
+  const tenantUrl = `https://${state.namespace}.${baseDomain}`;
 
   const handleStartOver = () => {
     reset();
@@ -122,7 +126,7 @@ export default function SuccessPage() {
                   rel="noopener noreferrer"
                   className="font-semibold hover:underline"
                 >
-                  {state.namespace}.cloudappdev.site
+                  {state.namespace}.{baseDomain}
                 </a>
               </span>
             </li>
