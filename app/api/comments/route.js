@@ -2,6 +2,41 @@ import { NextResponse } from 'next/server';
 
 const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:80';
 const SOCIAL_SERVICE_URL = `${API_GATEWAY_URL}/api/v1/social`;
+const USER_SERVICE_URL = `${API_GATEWAY_URL}/api/v1/users`;
+
+// Fetch a single user record; return null on failure to keep comments resilient
+async function fetchUser(userId) {
+  try {
+    const response = await fetch(`${USER_SERVICE_URL}/${userId}`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.error(`User Service Error for user ${userId}:`, err);
+    return null;
+  }
+}
+
+async function buildUserMap(userIds = []) {
+  const uniqueIds = [...new Set(userIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return new Map();
+
+  const entries = await Promise.all(
+    uniqueIds.map(async (id) => {
+      const user = await fetchUser(id);
+      return user ? [Number(id), user] : null;
+    })
+  );
+
+  return new Map(entries.filter(Boolean));
+}
+
+async function attachUserNamesToComments(comments = []) {
+  const userMap = await buildUserMap(comments.map((c) => c.userId));
+  return comments.map((comment) => ({
+    ...comment,
+    userName: userMap.get(Number(comment.userId))?.name || null
+  }));
+}
 
 /**
  * POST /api/comments - Create comment
@@ -20,7 +55,18 @@ export async function POST(request) {
     });
 
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    const user = await fetchUser(body.userId);
+    const enrichedComment = {
+      ...data,
+      userId: data.userId ?? body.userId,
+      userName: user?.name || data.userName || null
+    };
+
+    return NextResponse.json(enrichedComment, { status: response.status });
   } catch (error) {
     console.error('Social Service Error:', error);
     return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });
@@ -54,6 +100,27 @@ export async function GET(request) {
     });
 
     const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    if (Array.isArray(data)) {
+      const commentsWithNames = await attachUserNamesToComments(data);
+      return NextResponse.json(commentsWithNames, { status: response.status });
+    }
+
+    if (data?.comments && Array.isArray(data.comments)) {
+      const commentsWithNames = await attachUserNamesToComments(data.comments);
+      return NextResponse.json(
+        {
+          ...data,
+          comments: commentsWithNames,
+        },
+        { status: response.status }
+      );
+    }
+
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Social Service Error:', error);

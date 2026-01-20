@@ -72,7 +72,12 @@ export default function CommentSection({ itineraryId, currentUser }) {
 
       if (res.ok) {
         const createdComment = await res.json();
-        setComments([createdComment, ...comments]);
+        const normalizedComment = {
+          ...createdComment,
+          userId: createdComment.userId ?? currentUser.id,
+          userName: createdComment.userName || currentUser?.name || null
+        };
+        setComments([normalizedComment, ...comments]);
         setCommentCount(commentCount + 1);
         setNewComment("");
       } else {
@@ -170,7 +175,7 @@ export default function CommentSection({ itineraryId, currentUser }) {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-semibold text-sm">
-                          User {comment.userId}
+                          {comment.userName || `User ${comment.userId}`}
                         </span>
                         <span className="text-xs text-gray-500">
                           {formatDate(comment.createdAt)}
