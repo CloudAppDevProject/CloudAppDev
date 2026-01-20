@@ -1,4 +1,3 @@
-
 # GKE Autopilot Cluster - fully managed node provisioning
 resource "google_container_cluster" "primary" {
   name     = "${var.project_id}-cluster"
@@ -17,6 +16,7 @@ resource "google_container_cluster" "primary" {
 }
 
 # Free Namespace deployment (databases + storage + service accounts)
+# Tier: free - Cost efficient, minimal resources, best effort
 module "free" {
   source = "../../modules/deployment"
 
@@ -24,6 +24,7 @@ module "free" {
   project_id     = var.project_id
   region         = var.region
   namespace      = "free"
+  tier           = "free"
   gke_cluster_id = google_container_cluster.primary.id
 
   depends_on = [
@@ -32,6 +33,7 @@ module "free" {
 }
 
 # Standard Namespace deployment (databases + storage + service accounts)
+# Tier: standard - Medium scalability, better performance than free
 module "standard" {
   source = "../../modules/deployment"
 
@@ -39,6 +41,7 @@ module "standard" {
   project_id     = var.project_id
   region         = var.region
   namespace      = "standard"
+  tier           = "standard"
   gke_cluster_id = google_container_cluster.primary.id
 
   depends_on = [
@@ -46,19 +49,18 @@ module "standard" {
   ]
 }
 
-# Default Namespace databases
+# Default Namespace databases (Enterprise tier - shared infrastructure services)
 module "default_databases" {
   source = "../../modules/cloudsql"
 
-  instance_name       = "${var.project_name}-default"
-  region              = var.region
-  tier                = var.db_tier
-  namespace           = "default"
-  database_names      = [
-    "tenant"
-  ]
-  deletion_protection = false
-  backup_enabled      = false
+  instance_name          = "${var.project_name}-default"
+  region                 = var.region
+  tier                   = "enterprise"
+  namespace              = "default"
+  database_names         = ["tenant"]
+  deletion_protection    = false
+  backup_enabled         = false
+  point_in_time_recovery = false
 }
 
 # Might not be needed anymore

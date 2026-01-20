@@ -678,6 +678,64 @@ jobs:
               echo "ℹ️ Configuring API Gateway for namespace routing (USER/ITINERARY/SOCIAL: ${NAMESPACE}, TRAVEL_INFO/TENANT: default)"
             fi
 
+            # ========================================
+            # Tier-based Resource Configuration
+            # ========================================
+            # Determine tier based on namespace and apply resource limits
+            # Note: frontend and api-gateway use 'resources.*', microservices use 'container.resources.*'
+
+            # Determine resource path based on service type
+            case "${{ matrix.service }}" in
+              "frontend"|"api-gateway")
+                RES_PATH="resources"
+                ;;
+              *)
+                RES_PATH="container.resources"
+                ;;
+            esac
+
+            case "${NAMESPACE}" in
+              "free")
+                TIER="free"
+                TIER_ARGS="--set podLabels.tier=free"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.requests.cpu=50m"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.requests.memory=128Mi"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.limits.cpu=250m"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.limits.memory=256Mi"
+                TIER_ARGS="${TIER_ARGS} --set autoscaling.minReplicas=1"
+                TIER_ARGS="${TIER_ARGS} --set autoscaling.maxReplicas=2"
+                TIER_ARGS="${TIER_ARGS} --set autoscaling.targetCPUUtilizationPercentage=85"
+                # Disable newsletter for free tier
+                if [ "${{ matrix.service }}" = "social-service" ]; then
+                  TIER_ARGS="${TIER_ARGS} --set newsletter.enabled=false"
+                fi
+                ;;
+              "standard")
+                TIER="standard"
+                TIER_ARGS="--set podLabels.tier=standard"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.requests.cpu=100m"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.requests.memory=256Mi"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.limits.cpu=500m"
+                TIER_ARGS="${TIER_ARGS} --set ${RES_PATH}.limits.memory=512Mi"
+                TIER_ARGS="${TIER_ARGS} --set autoscaling.minReplicas=1"
+                TIER_ARGS="${TIER_ARGS} --set autoscaling.maxReplicas=5"
+                TIER_ARGS="${TIER_ARGS} --set autoscaling.targetCPUUtilizationPercentage=75"
+                # Standard newsletter config
+                if [ "${{ matrix.service }}" = "social-service" ]; then
+                  TIER_ARGS="${TIER_ARGS} --set newsletter.enabled=true"
+                  TIER_ARGS="${TIER_ARGS} --set newsletter.env.NEWSLETTER_BATCH_SIZE=50"
+                fi
+                ;;
+              *)
+                # cloudappdev, default, and enterprise tenant namespaces use enterprise tier
+                TIER="enterprise"
+                TIER_ARGS="--set podLabels.tier=enterprise"
+                # Enterprise uses values-dev.yaml defaults (already configured for enterprise)
+                ;;
+            esac
+            echo "ℹ️ Applying ${TIER} tier configuration to ${NAMESPACE}"
+            EXTRA_ARGS="${EXTRA_ARGS} ${TIER_ARGS}"
+
             # Update Chart.yaml appVersion before deploying
             echo "📝 Updating Chart.yaml appVersion to ${VERSION}"
             sed -i.bak "s/^appVersion:.*/appVersion: \"${VERSION}\"/" ${{ steps.chart.outputs.path }}/Chart.yaml

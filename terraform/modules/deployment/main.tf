@@ -1,22 +1,21 @@
 module "databases" {
   source = "../../modules/cloudsql"
 
-  instance_name       = "${var.project_name}-${var.namespace}"
-  region              = var.region
-  tier                = var.db_tier
-  namespace           = var.namespace
-  database_names       = [
-    "itinerary",
-    "users"
-  ]
-  deletion_protection = false
-  backup_enabled      = false
+  instance_name          = "${var.project_name}-${var.namespace}"
+  region                 = var.region
+  tier                   = local.db_config.db_tier
+  namespace              = var.namespace
+  database_names         = ["itinerary", "users"]
+  deletion_protection    = local.db_config.deletion_protection
+  backup_enabled         = local.db_config.backup_enabled
+  point_in_time_recovery = local.db_config.point_in_time_recovery
 }
 
 module "images_bucket" {
   source = "../storage"
-    bucket_name   = "${var.project_name}-${var.namespace}-images"
-    region        = var.region
+
+  bucket_name = "${var.project_name}-${var.namespace}-images"
+  region      = var.region
 }
 
 # Firestore Database

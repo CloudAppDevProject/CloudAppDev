@@ -21,6 +21,41 @@ export interface KubernetesDeploymentResult {
   deployments: DeploymentResult[];
 }
 
+/**
+ * Tier-based resource configuration for Helm deployments
+ * Free: Cost-efficient, minimal resources, best effort (~$9/month DB)
+ * Standard: Medium scalability, better performance (~$26/month DB)
+ * Enterprise: Full scalability, outstanding performance (~$100/month DB)
+ */
+export const TIER_CONFIG = {
+  free: {
+    resources: {
+      requests: { cpu: '50m', memory: '128Mi' },
+      limits: { cpu: '250m', memory: '256Mi' },
+    },
+    autoscaling: { minReplicas: 1, maxReplicas: 2, targetCPU: 85 },
+    newsletter: { enabled: false },
+  },
+  standard: {
+    resources: {
+      requests: { cpu: '100m', memory: '256Mi' },
+      limits: { cpu: '500m', memory: '512Mi' },
+    },
+    autoscaling: { minReplicas: 1, maxReplicas: 5, targetCPU: 75 },
+    newsletter: { enabled: true, batchSize: 50 },
+  },
+  enterprise: {
+    resources: {
+      requests: { cpu: '500m', memory: '1Gi' },
+      limits: { cpu: '2000m', memory: '2Gi' },
+    },
+    autoscaling: { minReplicas: 2, maxReplicas: 20, targetCPU: 70 },
+    newsletter: { enabled: true, batchSize: 100 },
+  },
+} as const;
+
+export type TierName = keyof typeof TIER_CONFIG;
+
 @Injectable()
 export class KubernetesService {
   private readonly logger = new Logger(KubernetesService.name);
@@ -86,9 +121,10 @@ export class KubernetesService {
 
     for (const service of services) {
       try {
-        const setFlags = this.generateHelmSetFlags(service.name, tenantName);
+        // Enterprise tier gets full resources and autoscaling
+        const setFlags = this.generateHelmSetFlags(service.name, tenantName, 'enterprise');
 
-        this.logger.log(`Deploying ${service.name} with overrides`);
+        this.logger.log(`Deploying ${service.name} with enterprise tier configuration`);
 
         const { stdout, stderr } = await execAsync(
           `helm upgrade --install ${service.helmRelease} ${service.path} ` +
@@ -447,30 +483,62 @@ export class KubernetesService {
   }
   /**
    * Generates Helm --set flags for service-specific overrides
-   * Only sets the necessary tenant-specific values
+   * Applies tier-based resource configuration from TIER_CONFIG
    */
   private generateHelmSetFlags(
     serviceName: string,
     tenantName: string,
+    tier: TierName = 'enterprise',
   ): string {
     const setFlags: string[] = [];
+    const tierConfig = TIER_CONFIG[tier];
 
     // Common overrides for all services
     const imageTag = process.env.IMAGE_TAG || 'latest';
     setFlags.push(`--set image.tag=${imageTag}`);
+    setFlags.push(`--set podLabels.tier=${tier}`);
 
+    // Determine resource path based on service type
+    // frontend and api-gateway use 'resources.*', microservices use 'container.resources.*'
+    const resourcePath =
+      serviceName === 'api-gateway' || serviceName === 'app'
+        ? 'resources'
+        : 'container.resources';
+
+    // Apply tier-based resource limits using correct path
+    setFlags.push(
+      `--set ${resourcePath}.requests.cpu=${tierConfig.resources.requests.cpu}`,
+      `--set ${resourcePath}.requests.memory=${tierConfig.resources.requests.memory}`,
+      `--set ${resourcePath}.limits.cpu=${tierConfig.resources.limits.cpu}`,
+      `--set ${resourcePath}.limits.memory=${tierConfig.resources.limits.memory}`,
+    );
+
+    // Apply tier-based autoscaling
+    setFlags.push(
+      `--set autoscaling.minReplicas=${tierConfig.autoscaling.minReplicas}`,
+      `--set autoscaling.maxReplicas=${tierConfig.autoscaling.maxReplicas}`,
+      `--set autoscaling.targetCPUUtilizationPercentage=${tierConfig.autoscaling.targetCPU}`,
+    );
+
+    // Service-specific overrides
     if (serviceName === 'api-gateway') {
-      // Gateway tenant routing
+      // Gateway needs tenant routing configuration
       setFlags.push(
         `--set env[1].name=USER_NAMESPACE --set env[1].value=${tenantName}`,
         `--set env[2].name=ITINERARY_NAMESPACE --set env[2].value=${tenantName}`,
         `--set env[3].name=SOCIAL_NAMESPACE --set env[3].value=${tenantName}`,
       );
     } else if (serviceName === 'app') {
-      // Frontend environment variables
-      setFlags.push(
-        `--set httpRoute.enabled=false --set httpsRoute.enabled=false`,
-      );
+      // Frontend: disable HTTPRoute for enterprise tenants (handled by tenant-httproute)
+      setFlags.push(`--set httpRoute.enabled=false --set httpsRoute.enabled=false`);
+    } else if (serviceName === 'social-service') {
+      // Newsletter configuration for social service
+      setFlags.push(`--set newsletter.enabled=${tierConfig.newsletter.enabled}`);
+      if (tierConfig.newsletter.enabled && 'batchSize' in tierConfig.newsletter) {
+        setFlags.push(
+          `--set newsletter.env.NEWSLETTER_BATCH_SIZE=${tierConfig.newsletter.batchSize}`,
+        );
+      }
     }
 
     return setFlags.join(' ');
