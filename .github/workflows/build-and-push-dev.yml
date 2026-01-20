@@ -721,7 +721,6 @@ jobs:
           echo "**Namespaces:** \`${NAMESPACES}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
 
-
   summary:
     environment: dev
     needs: [prepare, build-and-push, deploy]
