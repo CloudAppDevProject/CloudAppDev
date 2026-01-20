@@ -239,6 +239,11 @@ export async function POST(request: NextRequest) {
 /**
  * GET endpoint for predefined metrics queries
  * Useful for quick access without building complex queries
+ *
+ * Query params:
+ * - preset: The metric preset to use (requests-by-tenant, errors-by-tenant, service-health)
+ * - startTime: ISO 8601 start time (optional, defaults to 1 hour ago)
+ * - endTime: ISO 8601 end time (optional, defaults to now)
  */
 export async function GET(request: NextRequest) {
   const auth = await verifyAdminToken(request);
@@ -251,13 +256,33 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const preset = searchParams.get('preset');
+  const startTime = searchParams.get('startTime');
+  const endTime = searchParams.get('endTime');
+
+  // Calculate alignment period based on time range for better visualization
+  const getAlignmentPeriod = (start?: string, end?: string): string => {
+    if (!start || !end) return '60s';
+
+    const durationMs = new Date(end).getTime() - new Date(start).getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+
+    // Adjust alignment period for better chart resolution
+    if (durationHours <= 0.5) return '30s';      // 30 min or less: 30s intervals
+    if (durationHours <= 1) return '60s';        // 1 hour: 1 min intervals
+    if (durationHours <= 6) return '120s';       // 6 hours: 2 min intervals
+    if (durationHours <= 24) return '300s';      // 24 hours: 5 min intervals
+    if (durationHours <= 168) return '1800s';    // 7 days: 30 min intervals
+    return '3600s';                               // More: 1 hour intervals
+  };
+
+  const alignmentPeriod = getAlignmentPeriod(startTime || undefined, endTime || undefined);
 
   const presets: Record<string, MetricsRequest> = {
     // CPU usage by namespace using Prometheus metrics
     'requests-by-tenant': {
       metricType: 'prometheus.googleapis.com/container_cpu_usage_seconds_total/counter',
       aggregation: {
-        alignmentPeriod: '60s',
+        alignmentPeriod,
         perSeriesAligner: 'ALIGN_RATE',
         crossSeriesReducer: 'REDUCE_SUM',
         groupByFields: ['resource.labels.namespace'],
@@ -267,7 +292,7 @@ export async function GET(request: NextRequest) {
     'errors-by-tenant': {
       metricType: 'prometheus.googleapis.com/container_memory_working_set_bytes/gauge',
       aggregation: {
-        alignmentPeriod: '60s',
+        alignmentPeriod,
         perSeriesAligner: 'ALIGN_MEAN',
         crossSeriesReducer: 'REDUCE_MEAN',
         groupByFields: ['resource.labels.namespace'],
@@ -277,7 +302,7 @@ export async function GET(request: NextRequest) {
     'service-health': {
       metricType: 'prometheus.googleapis.com/container_network_receive_bytes_total/counter',
       aggregation: {
-        alignmentPeriod: '60s',
+        alignmentPeriod,
         perSeriesAligner: 'ALIGN_RATE',
         crossSeriesReducer: 'REDUCE_SUM',
         groupByFields: ['resource.labels.namespace'],
@@ -295,12 +320,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Add custom time interval if provided
+  const presetConfig = { ...presets[preset] };
+  if (startTime && endTime) {
+    presetConfig.interval = {
+      startTime,
+      endTime,
+    };
+  }
+
   // Forward to POST handler with preset configuration
   return POST(
     new NextRequest(request.url, {
       method: 'POST',
       headers: request.headers,
-      body: JSON.stringify(presets[preset]),
+      body: JSON.stringify(presetConfig),
     })
   );
 }
