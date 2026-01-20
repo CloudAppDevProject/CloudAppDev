@@ -28,4 +28,4 @@ COPY --from=build --chown=nestjs:nodejs /app/tsconfig.json ./tsconfig.json
 USER nestjs
 EXPOSE 8084
 # Apply Prisma migrations and seed database on container startup
-CMD ["sh", "-c", "npx prisma migrate deploy && npx ts-node src/seed.ts && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
@@ -167,8 +168,11 @@ ${tenantBlocks.join(',\n')}
 ]
 `;
 
+    // Always overwrite tenants.tfvars to ensure tenant DB is the source of truth
     await fs.writeFile(tfvarsPath, content, 'utf-8');
-    this.logger.log(`Wrote ${tenants.length} tenants to ${tfvarsPath}`);
+    this.logger.log(
+      `[SYNC] Overwrote ${tfvarsPath} with ${tenants.length} tenants from DB`,
+    );
   }
 
   private async runTerraformApply(environment: string): Promise<void> {
@@ -181,10 +185,57 @@ ${tenantBlocks.join(',\n')}
     });
 
     this.logger.log('Running terraform apply...');
-    await execAsync(
-      'terraform apply -auto-approve -input=false -var-file=terraform.tfvars -var-file=tenants.tfvars',
-      { cwd: workDir, timeout: 1200000 },
-    );
-    this.logger.log('Terraform apply completed');
+    // Retry logic for lock conflicts
+    let lastError: Error | null = null;
+    const maxRetries = 2;
+    let forceUnlockAttempted = false;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await execAsync(
+          'terraform apply -auto-approve -input=false -var-file=terraform.tfvars -var-file=tenants.tfvars',
+          { cwd: workDir, timeout: 1200000 },
+        );
+        this.logger.log('Terraform apply completed');
+        return;
+      } catch (applyError: any) {
+        lastError = applyError;
+        // Check if it's a lock error
+        if (
+          applyError.message?.includes('Error acquiring the state lock') &&
+          !forceUnlockAttempted
+        ) {
+          this.logger.warn(
+            `Lock conflict detected on attempt ${attempt}/${maxRetries}. Extracting lock ID...`,
+          );
+          // Try to extract lock ID from error message
+          const lockIdMatch = applyError.message.match(/ID:\s+(\d+)/);
+          if (lockIdMatch) {
+            const lockId = lockIdMatch[1];
+            this.logger.warn(
+              `Attempting to force-unlock stale lock: ${lockId}`,
+            );
+            try {
+              await execAsync(`terraform force-unlock -force ${lockId}`, {
+                cwd: workDir,
+              });
+              this.logger.log(
+                'Successfully released stale lock, retrying apply...',
+              );
+              // Wait a bit before retry
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              forceUnlockAttempted = true;
+              attempt--; // retry this attempt after unlocking
+              continue;
+            } catch (unlockError) {
+              this.logger.error('Failed to force-unlock:', unlockError.message);
+            }
+          }
+        }
+        // If not a lock error or last attempt, throw
+        throw applyError;
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw lastError;
   }
 }

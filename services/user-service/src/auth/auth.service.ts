@@ -20,7 +20,7 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     this.logger.log(`Login attempt for email: ${loginDto.email}`);
     const tenantServiceUrl =
-      process.env.TENANT_SERVICE_URL || 'http://tenant-service:8084';
+      process.env.TENANT_SERVICE_URL || 'http://tenant-service.default.svc.cluster.local:8084';
 
     // Resolve tenant UUID from namespace (subdomain) if provided
     let subdomainTenantUuid: string | null = null;
