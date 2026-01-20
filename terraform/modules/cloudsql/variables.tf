@@ -9,8 +9,20 @@ variable "region" {
 }
 
 variable "tier" {
-  description = "Machine tier for the instance"
+  description = "Tenant tier (free, standard, enterprise) or direct machine tier (db-*)"
   type        = string
+}
+
+locals {
+  # Map tenant tier names to actual Cloud SQL machine tiers
+  tier_map = {
+    free       = "db-f1-micro"      # Shared-core, 0.6 GB RAM (~$9/month)
+    standard   = "db-g1-small"      # Shared-core, 1.7 GB RAM (~$26/month)
+    enterprise = "db-custom-2-7680" # 2 vCPU, 7.5 GB RAM (~$100/month)
+  }
+
+  # Use mapped tier if it's a tenant tier name, otherwise use as-is (for direct db-* values)
+  resolved_tier = lookup(local.tier_map, var.tier, var.tier)
 }
 
 variable "database_names" {

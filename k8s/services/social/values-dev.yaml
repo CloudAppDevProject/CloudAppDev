@@ -1,4 +1,5 @@
 # Namespace where this chart will be deployed
+# Default namespace uses Enterprise tier settings
 namespace: default
 
 image:
@@ -10,10 +11,14 @@ container:
   port: 8082
   resources:
     requests:
-      cpu: "250m"
-      memory: "512Mi"
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
 
-podLabels: {}
+podLabels:
+  tier: enterprise
 
 env:
   - name: NODE_ENV
@@ -64,33 +69,37 @@ livenessProbe:
   initialDelaySeconds: 30
   periodSeconds: 10
 
+# Enterprise tier autoscaling: high availability with aggressive scaling
 autoscaling:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 75
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
 
-# Newsletter CronJob Configuration
+# Newsletter CronJob Configuration - Enterprise tier settings
 newsletter:
   enabled: true
   schedule: "0 20 * * 0"  # Sunday 8 PM UTC
   image:
-    tag: "0.2.30"  # Can be overridden
-  failedJobsHistoryLimit: 3
-  successfulJobsHistoryLimit: 1
+    tag: ""
+  failedJobsHistoryLimit: 5
+  successfulJobsHistoryLimit: 3
   concurrencyPolicy: Forbid
-  backoffLimit: 1
-  ttlSecondsAfterFinished: 3600
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 7200
   env:
     NEWSLETTER_ENABLED: "true"
-    NEWSLETTER_BATCH_SIZE: "50"
-    NEWSLETTER_RETRY_LIMIT: "3"
-    NEWSLETTER_RETRY_DELAY_MS: "5000"
+    NEWSLETTER_BATCH_SIZE: "100"
+    NEWSLETTER_RETRY_LIMIT: "5"
+    NEWSLETTER_RETRY_DELAY_MS: "3000"
     NODE_ENV: "production"
   resources:
     requests:
-      cpu: "500m"
-      memory: "1Gi"
+      cpu: "1000m"
+      memory: "2Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
   tolerations:
     - key: "batch-jobs"
       operator: "Equal"

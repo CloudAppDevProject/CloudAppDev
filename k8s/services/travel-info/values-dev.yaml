@@ -1,4 +1,5 @@
 # Namespace where this chart will be deployed
+# Default namespace uses Enterprise tier settings
 namespace: default
 
 image:
@@ -10,10 +11,14 @@ container:
   port: 8083
   resources:
     requests:
-      cpu: "250m"
-      memory: "512Mi"
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
 
-podLabels: {}
+podLabels:
+  tier: enterprise
 
 env:
   - name: WEATHER_API_KEY
@@ -45,8 +50,9 @@ livenessProbe:
   initialDelaySeconds: 30
   periodSeconds: 10
 
+# Enterprise tier autoscaling: high availability with aggressive scaling
 autoscaling:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 75
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70

@@ -1,4 +1,5 @@
 # Namespace where this chart will be deployed
+# Default namespace uses Enterprise tier settings
 namespace: default
 
 # Gateway namespace (if gateway is in a different namespace)
@@ -10,6 +11,18 @@ image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
+
+# Enterprise tier resources
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "2000m"
+    memory: "2Gi"
+
+podLabels:
+  tier: enterprise
 
 serviceAccount:
   create: false
@@ -72,8 +85,9 @@ httpsRoute:
             type: PathPrefix
             value: /
 
+# Enterprise tier autoscaling
 autoscaling:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 75
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70

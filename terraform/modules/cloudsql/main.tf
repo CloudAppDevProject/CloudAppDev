@@ -4,7 +4,7 @@ resource "google_sql_database_instance" "instance" {
   region           = var.region
 
   settings {
-    tier    = var.tier
+    tier    = local.resolved_tier
     edition = "ENTERPRISE"
   }
 

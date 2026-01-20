@@ -66,5 +66,6 @@ module "enterprise_namespace" {
   project_id     = var.project_id
   region         = var.region
   namespace      = each.key
+  tier           = "enterprise"
   gke_cluster_id = data.google_container_cluster.primary.id
 }

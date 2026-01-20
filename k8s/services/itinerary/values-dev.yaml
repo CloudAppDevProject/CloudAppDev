@@ -1,4 +1,5 @@
 # Namespace where this chart will be deployed
+# Default namespace uses Enterprise tier settings
 namespace: default
 
 image:
@@ -10,10 +11,14 @@ container:
   port: 8081
   resources:
     requests:
-      cpu: "250m"
-      memory: "512Mi"
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
 
-podLabels: {}
+podLabels:
+  tier: enterprise
 
 initContainers:
   - name: cloud-sql-proxy
@@ -25,6 +30,9 @@ initContainers:
       requests:
         cpu: "250m"
         memory: "512Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
 
 env:
   - name: NODE_ENV
@@ -83,9 +91,10 @@ livenessProbe:
   initialDelaySeconds: 30
   periodSeconds: 10
 
+# Enterprise tier autoscaling: high availability with aggressive scaling
 autoscaling:
   enabled: true
-  minReplicas: 1
+  minReplicas: 2
   maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
+  targetCPUUtilizationPercentage: 70
 

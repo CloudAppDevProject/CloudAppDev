@@ -1,4 +1,6 @@
 # Namespace where this chart will be deployed
+# Tenant service stays in default namespace (shared infrastructure service)
+# Uses Enterprise tier settings
 namespace: default
 
 image:
@@ -10,10 +12,14 @@ container:
   port: 8084
   resources:
     requests:
-      cpu: "250m"
-      memory: "512Mi"
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
 
-podLabels: {}
+podLabels:
+  tier: enterprise
 
 initContainers:
   - name: cloud-sql-proxy
@@ -25,6 +31,9 @@ initContainers:
       requests:
         cpu: "250m"
         memory: "512Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
 
 env:
   - name: NODE_ENV
@@ -68,8 +77,9 @@ livenessProbe:
   initialDelaySeconds: 30
   periodSeconds: 10
 
+# Enterprise tier autoscaling
 autoscaling:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 75
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
