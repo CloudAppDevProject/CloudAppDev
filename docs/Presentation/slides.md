@@ -61,7 +61,7 @@ mdc: true
 <div style="color: #f6c177; font-weight: bold; margin-bottom: 0.5rem;">FREE</div>
 <div style="font-size: 0.8em; color: #908caa;">
 Shared namespace<br/>
-3 routes, 500MB storage<br/>
+3 itineraries, 500MB storage<br/>
 Best Effort<br/>
 €0/month
 </div>
