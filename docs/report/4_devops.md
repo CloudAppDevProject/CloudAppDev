@@ -1,5 +1,82 @@
 # 4. DevOps
 
+## 4.1 Environments and Initial Infrastructure Setup
+
+Starting from a blank GCP project, the following steps provision all infrastructure before application deployment.
+
+### Step 1: GCP Project Initialization
+
+The script `terraform/scripts/init-env.sh` prepares the GCP project:
+
+```bash
+./terraform/scripts/init-env.sh dev cloudappdev-dev
+```
+
+This enables 21 GCP APIs (Compute Engine, GKE, Cloud SQL, Artifact Registry, Secret Manager, Certificate Manager, Firestore, Cloud Storage, IAM, VPC, Load Balancing, DNS, Monitoring, Logging, etc.) and creates a GCS bucket with versioning for Terraform remote state (`gs://cloudappdev-tf-state-dev/`).
+
+### Step 2: Base Infrastructure (Terraform)
+
+```bash
+cd terraform/environments/dev
+terraform init
+terraform apply
+```
+
+**Resources created:**
+
+| Resource | Details |
+|----------|---------|
+| **GKE Autopilot cluster** | Regional cluster in `europe-west1`, fully managed node provisioning |
+| **Namespaces** | `free`, `standard`, `default` (shared services) |
+| **Cloud SQL instances** | PostgreSQL databases per tier via the `cloudsql` module. Passwords auto-generated and stored in Secret Manager |
+| **Firestore databases** | NoSQL databases for social service per tier |
+| **Cloud Storage buckets** | Image storage per tier via the `storage` module |
+| **Service accounts** | `app-sa`, `tenant-default-sa`, `provisioning-default-sa` with Workload Identity bindings (via `service-account` module) |
+| **RBAC ClusterRole** | Provisioning Service permissions for namespace/deployment/secret/gateway management (`rbac.tf`) |
+| **Static external IP** | Global IP for the HTTPS load balancer |
+| **Gateway API resources** | HTTP and HTTPS listeners with certificate map |
+| **Certificate Manager** | Google-managed SSL certificate for `dev.cloudappdev.site` (via `domain` module) |
+| **Cloudflare DNS record** | A-record pointing hostname to the static IP |
+
+The infrastructure is organized in reusable Terraform modules:
+- `modules/deployment` -- full namespace infrastructure (databases, storage, service accounts)
+- `modules/cloudsql` -- PostgreSQL instance with password generation and Secret Manager storage
+- `modules/service-account` -- IAM bindings for Cloud SQL, Storage, Firestore, Artifact Registry
+- `modules/domain` -- DNS authorization, SSL certificate, certificate map entry
+- `modules/storage` -- GCS bucket with lifecycle rules
+- `modules/firestore` -- Firestore database provisioning
+
+### Step 3: Tenant Infrastructure State
+
+A second, separate Terraform state is initialized for dynamic tenant provisioning:
+
+```bash
+cd terraform/environments/dev-tenants
+terraform init
+```
+
+State: `gs://cloudappdev-tf-state-dev/env/dev-tenants`
+
+This state is managed automatically by the Provisioning Service at runtime. Keeping it separate from the base state prevents `terraform apply` on base infrastructure from accidentally deleting dynamically provisioned tenant resources.
+
+### Step 4: Container Registry and Secrets
+
+- Docker images are pushed to `europe-west1-docker.pkg.dev/{project}/docker-repo/`
+- Database passwords, API keys (JWT, Firebase, SendGrid, Weather API), and service account keys are stored in Google Secret Manager
+- The CI/CD pipeline retrieves these secrets and creates Kubernetes Secrets per namespace during deployment
+
+The following diagram illustrates how secrets and configuration data flow from their sources to the deployed services:
+
+![Secret and Configuration Data Flow](../dataflow_diagram.drawio.svg)
+
+### Step 5: First Deployment
+
+The GitHub Actions pipeline (`build-and-push-dev.yml`) performs the initial deployment: builds all service images, pushes them to Artifact Registry, creates namespace secrets from Secret Manager, and deploys via Helm to `free`, `standard`, and `default` namespaces.
+
+After this, the platform is operational at `https://dev.cloudappdev.site`.
+
+---
+
 ## 4.2 Pipelines and Release of New Features
 
 ### Overview
@@ -1099,3 +1176,70 @@ The CloudAppDev tenant provisioning system provides:
 
 The system enables a freemium business model with clear differentiation between tiers while maintaining operational simplicity through automation.
 
+## 4.4 Monitoring
+
+### Service Health Monitoring
+
+All microservices expose a `/health` endpoint that returns service status. GKE uses these for Kubernetes probes:
+
+| Probe | Purpose | Configuration |
+|-------|---------|---------------|
+| **Startup Probe** | Waits for service initialization | HTTP GET `/health`, failure threshold 30, period 10s |
+| **Liveness Probe** | Restarts unresponsive pods | HTTP GET `/health`, failure threshold 3, period 30s |
+| **Readiness Probe** | Removes pod from traffic if unhealthy | HTTP GET `/health`, failure threshold 3, period 10s |
+
+If a health check fails beyond the configured threshold, Kubernetes automatically restarts the pod (liveness) or stops routing traffic to it (readiness).
+
+The API Gateway also exposes a `/health` endpoint that verifies its own availability.
+
+### Alarms and Alerts
+
+GKE Autopilot provides built-in monitoring through Google Cloud Monitoring:
+
+- **Pod restarts:** Alerts when a pod restart count exceeds threshold, indicating crash loops
+- **CPU / Memory utilization:** HPA triggers scaling when CPU exceeds 70-75% (tier-dependent). Cloud Monitoring alerts on sustained high utilization
+- **Error rates:** HTTP 5xx response rates tracked per service via Cloud Monitoring metrics
+- **Node pressure:** GKE Autopilot automatically provisions nodes; alerts fire if pod scheduling is delayed
+
+### Logging
+
+All services follow the 12-Factor App principle of treating logs as event streams. Services write to `stdout`/`stderr` and never to local files.
+
+**Log Collection:**
+- Container stdout/stderr is automatically collected by GKE's logging agent
+- Logs are forwarded to **Google Cloud Logging** (Stackdriver)
+- Structured JSON logging from NestJS services enables field-based filtering
+
+**Querying Logs:**
+
+Logs are queried via the Google Cloud Console (Logs Explorer) or `gcloud` CLI:
+
+```bash
+# View logs for a specific service
+kubectl logs -f deployment/user-service -n free
+
+# Query Cloud Logging for a namespace
+gcloud logging read 'resource.labels.namespace_name="free" AND resource.labels.container_name="user-service"' --limit=100
+
+# Filter by severity
+gcloud logging read 'severity>=ERROR AND resource.labels.cluster_name="cloudappdev-dev"' --limit=50
+```
+
+**Log Retention:**
+- Cloud Logging retains logs for 30 days by default
+- Logs can be exported to Cloud Storage for long-term retention
+
+### CI/CD Pipeline Monitoring
+
+The GitHub Actions pipeline provides deployment-level observability:
+- Build status per service (success/failure/skipped)
+- Deployment rollout verification via `kubectl rollout status`
+- Pod health checks after each deployment
+- Helm release status tracking with stuck release detection and cleanup
+
+### Newsletter Delivery Monitoring
+
+The Social Service tracks newsletter delivery in MongoDB:
+- `/api/v1/social/newsletter/status` -- overall health, subscriber count, last send timestamp
+- `/api/v1/social/newsletter/logs/:userId` -- per-user delivery history with retry counts and failure reasons
+- CronJob execution logs available via `kubectl logs job/social-newsletter-weekly -n default`
