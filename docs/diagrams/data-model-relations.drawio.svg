@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1200px" height="900px" viewBox="-0.5 -0.5 1200 900" style="background-color: rgb(255, 255, 255);">
+<defs>
+<style type="text/css">
+@import url(https://fonts.googleapis.com/css?family=IBM+Plex+Sans);
+</style>
+<!-- Crow's Foot Notation Markers -->
+<marker id="crowFootMany" viewBox="0 0 20 20" refX="20" refY="10" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="20" orient="auto">
+  <path d="M 0,5 L 10,10 L 0,15" fill="none" stroke="#333333" stroke-width="1.5"/>
+  <line x1="10" y1="10" x2="20" y2="10" stroke="#333333" stroke-width="1.5"/>
+</marker>
+<marker id="crowFootOne" viewBox="0 0 20 20" refX="20" refY="10" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="20" orient="auto">
+  <line x1="0" y1="5" x2="0" y2="15" stroke="#333333" stroke-width="1.5"/>
+  <line x1="0" y1="10" x2="20" y2="10" stroke="#333333" stroke-width="1.5"/>
+</marker>
+<marker id="crowFootZeroOne" viewBox="0 0 25 20" refX="25" refY="10" markerUnits="userSpaceOnUse" markerWidth="25" markerHeight="20" orient="auto">
+  <circle cx="5" cy="10" r="4" fill="none" stroke="#333333" stroke-width="1.5"/>
+  <line x1="15" y1="5" x2="15" y2="15" stroke="#333333" stroke-width="1.5"/>
+  <line x1="15" y1="10" x2="25" y2="10" stroke="#333333" stroke-width="1.5"/>
+</marker>
+<marker id="crowFootManyDashed" viewBox="0 0 20 20" refX="20" refY="10" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="20" orient="auto">
+  <path d="M 0,5 L 10,10 L 0,15" fill="none" stroke="#d6336c" stroke-width="1.5"/>
+  <line x1="10" y1="10" x2="20" y2="10" stroke="#d6336c" stroke-width="1.5"/>
+</marker>
+<marker id="crowFootOneDashed" viewBox="0 0 20 20" refX="20" refY="10" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="20" orient="auto">
+  <line x1="0" y1="5" x2="0" y2="15" stroke="#d6336c" stroke-width="1.5"/>
+  <line x1="0" y1="10" x2="20" y2="10" stroke="#d6336c" stroke-width="1.5"/>
+</marker>
+<marker id="crowFootOneOneStart" viewBox="0 0 20 20" refX="0" refY="10" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="20" orient="auto">
+  <line x1="20" y1="5" x2="20" y2="15" stroke="#d6336c" stroke-width="1.5"/>
+  <line x1="0" y1="10" x2="20" y2="10" stroke="#d6336c" stroke-width="1.5"/>
+</marker>
+</defs>
+<g>
+<!-- Title -->
+<text x="600" y="35" font-family="IBM Plex Sans" font-size="22" font-weight="bold" text-anchor="middle" fill="#000000">Core Data Model - Entity Relationship Diagram</text>
+<text x="600" y="55" font-family="IBM Plex Sans" font-size="12" text-anchor="middle" fill="#666666">Multi-Tenant SaaS Architecture with Hybrid Database Strategy</text>
+
+<!-- ========== TENANT ENTITY (Purple - Dedicated DB) ========== -->
+<g id="entity-tenant">
+  <!-- Entity Container -->
+  <rect x="30" y="90" width="260" height="250" rx="4" ry="4" fill="#ffffff" stroke="#9673a6" stroke-width="2.5"/>
+  <!-- Header -->
+  <rect x="30" y="90" width="260" height="40" rx="4" ry="4" fill="#9673a6" stroke="none"/>
+  <text x="160" y="117" font-family="IBM Plex Sans" font-size="15" font-weight="bold" text-anchor="middle" fill="#ffffff">Tenant</text>
+  <!-- Separator line -->
+  <line x1="30" y1="130" x2="290" y2="130" stroke="#9673a6" stroke-width="1.5"/>
+  <!-- Attributes -->
+  <text x="45" y="153" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#000000">PK  uuid: UUID</text>
+  <text x="60" y="173" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">name: String</text>
+  <text x="60" y="191" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">email: String (unique)</text>
+  <text x="60" y="209" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">password: String</text>
+  <text x="60" y="227" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">namespace: String (unique)</text>
+  <text x="60" y="245" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">tier: String</text>
+  <text x="60" y="263" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">domain: String</text>
+  <text x="60" y="281" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">provisioningStatus: String</text>
+  <!-- Footer -->
+  <rect x="30" y="300" width="260" height="40" rx="4" ry="4" fill="#e1d5e7" stroke="none"/>
+  <text x="160" y="325" font-family="IBM Plex Sans" font-size="10" font-style="italic" text-anchor="middle" fill="#666666">Tenant Service DB (PostgreSQL)</text>
+</g>
+
+<!-- ========== USER ENTITY (Blue - PostgreSQL) ========== -->
+<g id="entity-user">
+  <!-- Entity Container -->
+  <rect x="370" y="90" width="260" height="250" rx="4" ry="4" fill="#ffffff" stroke="#6c8ebf" stroke-width="2.5"/>
+  <!-- Header -->
+  <rect x="370" y="90" width="260" height="40" rx="4" ry="4" fill="#6c8ebf" stroke="none"/>
+  <text x="500" y="117" font-family="IBM Plex Sans" font-size="15" font-weight="bold" text-anchor="middle" fill="#ffffff">User</text>
+  <!-- Separator line -->
+  <line x1="370" y1="130" x2="630" y2="130" stroke="#6c8ebf" stroke-width="1.5"/>
+  <!-- Attributes -->
+  <text x="385" y="153" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#000000">PK  id: Int</text>
+  <text x="385" y="173" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">FK  tenantUuid: UUID</text>
+  <text x="400" y="191" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">name: String</text>
+  <text x="400" y="209" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">email: String (unique)</text>
+  <text x="400" y="227" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">password: String</text>
+  <text x="400" y="245" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">googleUid: String (unique)</text>
+  <text x="400" y="263" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">avatarUrl: String</text>
+  <text x="400" y="281" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">createdAt, updatedAt: DateTime</text>
+  <!-- Footer -->
+  <rect x="370" y="300" width="260" height="40" rx="4" ry="4" fill="#dae8fc" stroke="none"/>
+  <text x="500" y="325" font-family="IBM Plex Sans" font-size="10" font-style="italic" text-anchor="middle" fill="#666666">User Service DB (PostgreSQL)</text>
+</g>
+
+<!-- ========== ITINERARY ENTITY (Blue - PostgreSQL) ========== -->
+<g id="entity-itinerary">
+  <!-- Entity Container -->
+  <rect x="710" y="90" width="260" height="250" rx="4" ry="4" fill="#ffffff" stroke="#6c8ebf" stroke-width="2.5"/>
+  <!-- Header -->
+  <rect x="710" y="90" width="260" height="40" rx="4" ry="4" fill="#6c8ebf" stroke="none"/>
+  <text x="840" y="117" font-family="IBM Plex Sans" font-size="15" font-weight="bold" text-anchor="middle" fill="#ffffff">Itinerary</text>
+  <!-- Separator line -->
+  <line x1="710" y1="130" x2="970" y2="130" stroke="#6c8ebf" stroke-width="1.5"/>
+  <!-- Attributes -->
+  <text x="725" y="153" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#000000">PK  id: Int</text>
+  <text x="725" y="173" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">FK  user_id: Int</text>
+  <text x="740" y="191" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">title: String</text>
+  <text x="740" y="209" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">destination: String</text>
+  <text x="740" y="227" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">start_date: String</text>
+  <text x="740" y="245" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">short_desc: String</text>
+  <text x="740" y="263" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">detail_desc: String</text>
+  <text x="740" y="281" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">created_at, updated_at: DateTime</text>
+  <!-- Footer -->
+  <rect x="710" y="300" width="260" height="40" rx="4" ry="4" fill="#dae8fc" stroke="none"/>
+  <text x="840" y="325" font-family="IBM Plex Sans" font-size="10" font-style="italic" text-anchor="middle" fill="#666666">Itinerary Service DB (PostgreSQL)</text>
+</g>
+
+<!-- ========== LOCATION ENTITY (Blue - PostgreSQL) ========== -->
+<g id="entity-location">
+  <!-- Entity Container -->
+  <rect x="710" y="390" width="260" height="210" rx="4" ry="4" fill="#ffffff" stroke="#6c8ebf" stroke-width="2.5"/>
+  <!-- Header -->
+  <rect x="710" y="390" width="260" height="40" rx="4" ry="4" fill="#6c8ebf" stroke="none"/>
+  <text x="840" y="417" font-family="IBM Plex Sans" font-size="15" font-weight="bold" text-anchor="middle" fill="#ffffff">Location</text>
+  <!-- Separator line -->
+  <line x1="710" y1="430" x2="970" y2="430" stroke="#6c8ebf" stroke-width="1.5"/>
+  <!-- Attributes -->
+  <text x="725" y="453" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#000000">PK  id: Int</text>
+  <text x="725" y="473" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">FK  itinerary_id: Int (CASCADE DELETE)</text>
+  <text x="740" y="491" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">name: String</text>
+  <text x="740" y="509" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">start_date, end_date: String</text>
+  <text x="740" y="527" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">short_desc: String</text>
+  <text x="740" y="545" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">images: String[]</text>
+  <text x="740" y="563" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">latitude, longitude: Float</text>
+  <text x="740" y="581" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">created_at: DateTime</text>
+</g>
+
+<!-- ========== LIKE ENTITY (Green - MongoDB) ========== -->
+<g id="entity-like">
+  <!-- Entity Container -->
+  <rect x="30" y="390" width="260" height="160" rx="4" ry="4" fill="#ffffff" stroke="#82b366" stroke-width="2.5"/>
+  <!-- Header -->
+  <rect x="30" y="390" width="260" height="40" rx="4" ry="4" fill="#82b366" stroke="none"/>
+  <text x="160" y="417" font-family="IBM Plex Sans" font-size="15" font-weight="bold" text-anchor="middle" fill="#ffffff">Like</text>
+  <!-- Separator line -->
+  <line x1="30" y1="430" x2="290" y2="430" stroke="#82b366" stroke-width="1.5"/>
+  <!-- Attributes -->
+  <text x="45" y="453" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#000000">PK  _id: ObjectId</text>
+  <text x="45" y="473" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">ref  userId: Int</text>
+  <text x="45" y="493" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">ref  itineraryId: Int</text>
+  <text x="60" y="511" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">createdAt: Date</text>
+  <!-- Footer -->
+  <rect x="30" y="525" width="260" height="25" rx="4" ry="4" fill="#d5e8d4" stroke="none"/>
+  <text x="160" y="543" font-family="IBM Plex Sans" font-size="9" font-style="italic" text-anchor="middle" fill="#666666">Unique: (userId, itineraryId)</text>
+</g>
+
+<!-- ========== COMMENT ENTITY (Green - MongoDB) ========== -->
+<g id="entity-comment">
+  <!-- Entity Container -->
+  <rect x="370" y="390" width="260" height="180" rx="4" ry="4" fill="#ffffff" stroke="#82b366" stroke-width="2.5"/>
+  <!-- Header -->
+  <rect x="370" y="390" width="260" height="40" rx="4" ry="4" fill="#82b366" stroke="none"/>
+  <text x="500" y="417" font-family="IBM Plex Sans" font-size="15" font-weight="bold" text-anchor="middle" fill="#ffffff">Comment</text>
+  <!-- Separator line -->
+  <line x1="370" y1="430" x2="630" y2="430" stroke="#82b366" stroke-width="1.5"/>
+  <!-- Attributes -->
+  <text x="385" y="453" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#000000">PK  _id: ObjectId</text>
+  <text x="385" y="473" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">ref  userId: Int</text>
+  <text x="385" y="493" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">ref  itineraryId: Int</text>
+  <text x="400" y="511" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">text: String</text>
+  <text x="400" y="529" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">createdAt, updatedAt: Date</text>
+  <!-- Footer -->
+  <rect x="370" y="545" width="260" height="25" rx="4" ry="4" fill="#d5e8d4" stroke="none"/>
+  <text x="500" y="563" font-family="IBM Plex Sans" font-size="9" font-style="italic" text-anchor="middle" fill="#666666">Social Service DB (MongoDB)</text>
+</g>
+
+<!-- ========== NEWSLETTER SUBSCRIPTION ENTITY (Green - MongoDB) ========== -->
+<g id="entity-newsletter">
+  <!-- Entity Container -->
+  <rect x="30" y="600" width="300" height="190" rx="4" ry="4" fill="#ffffff" stroke="#82b366" stroke-width="2.5"/>
+  <!-- Header -->
+  <rect x="30" y="600" width="300" height="40" rx="4" ry="4" fill="#82b366" stroke="none"/>
+  <text x="180" y="627" font-family="IBM Plex Sans" font-size="15" font-weight="bold" text-anchor="middle" fill="#ffffff">NewsletterSubscription</text>
+  <!-- Separator line -->
+  <line x1="30" y1="640" x2="330" y2="640" stroke="#82b366" stroke-width="1.5"/>
+  <!-- Attributes -->
+  <text x="45" y="663" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#000000">PK  _id: ObjectId</text>
+  <text x="45" y="683" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#d6336c">ref  userId: Int (unique)</text>
+  <text x="60" y="701" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">isSubscribed: Boolean</text>
+  <text x="60" y="719" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">frequency: String</text>
+  <text x="60" y="737" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">includeTrending: Boolean</text>
+  <text x="60" y="755" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">includeRecommendations: Boolean</text>
+  <text x="60" y="773" font-family="IBM Plex Sans" font-size="11" text-anchor="start" fill="#333333">recommendationCount: Int</text>
+</g>
+
+<!-- ==================== RELATIONSHIPS ==================== -->
+
+<!-- Tenant to User (1:N) - Solid line with crow's foot -->
+<g id="rel-tenant-user">
+  <path d="M 290 215 L 370 215" fill="none" stroke="#333333" stroke-width="2" marker-start="url(#crowFootOne)" marker-end="url(#crowFootMany)"/>
+  <text x="330" y="208" font-family="IBM Plex Sans" font-size="10" font-weight="bold" text-anchor="middle" fill="#333333">owns</text>
+  <text x="295" y="233" font-family="IBM Plex Sans" font-size="9" text-anchor="start" fill="#666666">1</text>
+  <text x="355" y="233" font-family="IBM Plex Sans" font-size="9" text-anchor="end" fill="#666666">N</text>
+</g>
+
+<!-- User to Itinerary (1:N) - Solid line with crow's foot -->
+<g id="rel-user-itinerary">
+  <path d="M 630 215 L 710 215" fill="none" stroke="#333333" stroke-width="2" marker-start="url(#crowFootOne)" marker-end="url(#crowFootMany)"/>
+  <text x="670" y="208" font-family="IBM Plex Sans" font-size="10" font-weight="bold" text-anchor="middle" fill="#333333">creates</text>
+  <text x="635" y="233" font-family="IBM Plex Sans" font-size="9" text-anchor="start" fill="#666666">1</text>
+  <text x="695" y="233" font-family="IBM Plex Sans" font-size="9" text-anchor="end" fill="#666666">N</text>
+</g>
+
+<!-- Itinerary to Location (1:N) - Solid line with crow's foot, CASCADE DELETE -->
+<g id="rel-itinerary-location">
+  <path d="M 840 340 L 840 390" fill="none" stroke="#333333" stroke-width="2" marker-start="url(#crowFootOne)" marker-end="url(#crowFootMany)"/>
+  <text x="858" y="365" font-family="IBM Plex Sans" font-size="10" font-weight="bold" text-anchor="start" fill="#333333">contains</text>
+  <text x="822" y="350" font-family="IBM Plex Sans" font-size="9" text-anchor="end" fill="#666666">1</text>
+  <text x="822" y="385" font-family="IBM Plex Sans" font-size="9" text-anchor="end" fill="#666666">N</text>
+  <text x="858" y="380" font-family="IBM Plex Sans" font-size="8" font-style="italic" text-anchor="start" fill="#d6336c">CASCADE</text>
+</g>
+
+<!-- User to Like (1:N) - Dashed line (cross-DB reference) -->
+<g id="rel-user-like">
+  <path d="M 370 280 L 210 390" fill="none" stroke="#d6336c" stroke-width="2" stroke-dasharray="6 4" marker-start="url(#crowFootOneDashed)" marker-end="url(#crowFootManyDashed)"/>
+  <text x="290" y="325" font-family="IBM Plex Sans" font-size="9" font-style="italic" text-anchor="middle" fill="#d6336c">likes</text>
+  <text x="360" y="295" font-family="IBM Plex Sans" font-size="8" text-anchor="end" fill="#d6336c">1</text>
+  <text x="220" y="385" font-family="IBM Plex Sans" font-size="8" text-anchor="start" fill="#d6336c">N</text>
+</g>
+
+<!-- Itinerary to Like (1:N) - Dashed line (cross-DB reference) -->
+<g id="rel-itinerary-like">
+  <path d="M 710 280 L 260 420" fill="none" stroke="#d6336c" stroke-width="2" stroke-dasharray="6 4" marker-start="url(#crowFootOneDashed)" marker-end="url(#crowFootManyDashed)"/>
+  <text x="485" y="340" font-family="IBM Plex Sans" font-size="9" font-style="italic" text-anchor="middle" fill="#d6336c">liked by</text>
+  <text x="700" y="295" font-family="IBM Plex Sans" font-size="8" text-anchor="end" fill="#d6336c">1</text>
+  <text x="270" y="415" font-family="IBM Plex Sans" font-size="8" text-anchor="start" fill="#d6336c">N</text>
+</g>
+
+<!-- User to Comment (1:N) - Dashed line (cross-DB reference) -->
+<g id="rel-user-comment">
+  <path d="M 470 340 L 470 390" fill="none" stroke="#d6336c" stroke-width="2" stroke-dasharray="6 4" marker-start="url(#crowFootOneDashed)" marker-end="url(#crowFootManyDashed)"/>
+  <text x="488" y="365" font-family="IBM Plex Sans" font-size="9" font-style="italic" text-anchor="start" fill="#d6336c">comments</text>
+  <text x="452" y="350" font-family="IBM Plex Sans" font-size="8" text-anchor="end" fill="#d6336c">1</text>
+  <text x="452" y="385" font-family="IBM Plex Sans" font-size="8" text-anchor="end" fill="#d6336c">N</text>
+</g>
+
+<!-- Itinerary to Comment (1:N) - Dashed line (cross-DB reference) -->
+<g id="rel-itinerary-comment">
+  <path d="M 710 260 L 560 440" fill="none" stroke="#d6336c" stroke-width="2" stroke-dasharray="6 4" marker-start="url(#crowFootOneDashed)" marker-end="url(#crowFootManyDashed)"/>
+  <text x="635" y="340" font-family="IBM Plex Sans" font-size="9" font-style="italic" text-anchor="middle" fill="#d6336c">commented on</text>
+  <text x="700" y="275" font-family="IBM Plex Sans" font-size="8" text-anchor="end" fill="#d6336c">1</text>
+  <text x="570" y="435" font-family="IBM Plex Sans" font-size="8" text-anchor="start" fill="#d6336c">N</text>
+</g>
+
+<!-- User to NewsletterSubscription (1:1) - Dashed line (cross-DB reference) -->
+<g id="rel-user-newsletter">
+  <path d="M 370 300 L 220 600" fill="none" stroke="#d6336c" stroke-width="2" stroke-dasharray="6 4" marker-start="url(#crowFootOneOneStart)" marker-end="url(#crowFootOneDashed)"/>
+  <text x="295" y="440" font-family="IBM Plex Sans" font-size="9" font-style="italic" text-anchor="middle" fill="#d6336c">subscribes to</text>
+  <text x="360" y="315" font-family="IBM Plex Sans" font-size="8" text-anchor="end" fill="#d6336c">1</text>
+  <text x="230" y="595" font-family="IBM Plex Sans" font-size="8" text-anchor="start" fill="#d6336c">0..1</text>
+</g>
+
+<!-- ==================== LEGEND ==================== -->
+<g id="legend">
+  <rect x="400" y="630" width="770" height="130" rx="6" ry="6" fill="#f9f9f9" stroke="#999999" stroke-width="1.5"/>
+  <text x="785" y="658" font-family="IBM Plex Sans" font-size="14" font-weight="bold" text-anchor="middle" fill="#000000">Legend - ER Notation</text>
+  
+  <!-- Relationship notation -->
+  <text x="420" y="685" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#333333">Relationship Cardinality:</text>
+  
+  <!-- One to Many -->
+  <line x1="420" y1="700" x2="480" y2="700" stroke="#333333" stroke-width="2" marker-start="url(#crowFootOne)" marker-end="url(#crowFootMany)"/>
+  <text x="490" y="704" font-family="IBM Plex Sans" font-size="10" text-anchor="start" fill="#333333">One-to-Many (1:N) - Database FK</text>
+  
+  <!-- Dashed cross-DB -->
+  <line x1="420" y1="720" x2="480" y2="720" stroke="#d6336c" stroke-width="2" stroke-dasharray="6 4" marker-start="url(#crowFootOneDashed)" marker-end="url(#crowFootManyDashed)"/>
+  <text x="490" y="724" font-family="IBM Plex Sans" font-size="10" text-anchor="start" fill="#333333">Cross-database reference (application-level)</text>
+  
+  <!-- Database types -->
+  <text x="760" y="685" font-family="IBM Plex Sans" font-size="11" font-weight="bold" text-anchor="start" fill="#333333">Database Types:</text>
+  
+  <rect x="760" y="693" width="20" height="16" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.5"/>
+  <text x="788" y="704" font-family="IBM Plex Sans" font-size="10" text-anchor="start" fill="#333333">PostgreSQL (relational)</text>
+  
+  <rect x="760" y="713" width="20" height="16" fill="#d5e8d4" stroke="#82b366" stroke-width="1.5"/>
+  <text x="788" y="724" font-family="IBM Plex Sans" font-size="10" text-anchor="start" fill="#333333">MongoDB (document store)</text>
+  
+  <rect x="950" y="693" width="20" height="16" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.5"/>
+  <text x="978" y="704" font-family="IBM Plex Sans" font-size="10" text-anchor="start" fill="#333333">Tenant metadata (dedicated DB)</text>
+  
+  <!-- Notation symbols -->
+  <text x="420" y="745" font-family="IBM Plex Sans" font-size="10" text-anchor="start" fill="#666666">
+    <tspan font-weight="bold">PK</tspan> = Primary Key  |  <tspan font-weight="bold">FK</tspan> = Foreign Key  |  <tspan font-weight="bold">ref</tspan> = Application reference
+  </text>
+</g>
+
+<!-- ==================== MULTI-TENANCY NOTE ==================== -->
+<g id="multi-tenancy-note">
+  <rect x="400" y="780" width="770" height="100" rx="6" ry="6" fill="#fffef0" stroke="#d6b656" stroke-width="2"/>
+  <text x="785" y="808" font-family="IBM Plex Sans" font-size="13" font-weight="bold" text-anchor="middle" fill="#000000">Multi-Tenancy Isolation Strategy</text>
+  
+  <text x="420" y="830" font-family="IBM Plex Sans" font-size="10.5" text-anchor="start" fill="#333333">
+    <tspan font-weight="bold">Logical Isolation (Free/Standard):</tspan> tenantUuid column in User table filters data in shared PostgreSQL databases.
+  </text>
+  <text x="420" y="848" font-family="IBM Plex Sans" font-size="10.5" text-anchor="start" fill="#333333">
+    MongoDB collections enforce isolation via application-level ownership checks through userId references.
+  </text>
+  <text x="420" y="866" font-family="IBM Plex Sans" font-size="10.5" text-anchor="start" fill="#333333">
+    <tspan font-weight="bold">Physical Isolation (Enterprise):</tspan> Dedicated Cloud SQL instances + dedicated MongoDB databases per tenant.
+  </text>
+</g>
+
+</g>
+</svg>

@@ -191,7 +191,198 @@ The CronJob uses a lightweight `curl` container that POSTs to `http://provisioni
 
 ## 2.3 Datastores
 
-<!--- TODO: Simon Driescher--->
+### Overview
+
+The application uses a **polyglot persistence** strategy with three storage types:
+
+![Datastore Overview](../diagrams/datastore-overview.drawio.svg)
+
+1. **PostgreSQL** (relational) — User Service, Itinerary Service, Tenant Service
+2. **MongoDB** (document) — Social Service (likes, comments, newsletter data)
+3. **Google Cloud Storage** (object) — Image storage for locations and user avatars
+
+### Data Model
+
+![Data Model Relations](../diagrams/data-model-relations.drawio.svg)
+
+#### PostgreSQL Databases
+
+**User Service Database** ([schema](../../services/user-service/prisma/schema.prisma))
+
+```prisma
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique
+  password   String?
+  googleUid  String?  @unique
+  avatarUrl  String?  
+  tenantUuid String?  @db.Uuid  // Multi-tenancy isolation
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([email])
+  @@index([googleUid])
+  @@index([tenantUuid])  // Key for logical isolation
+}
+```
+
+**Itinerary Service Database** ([schema](../../services/itinerary-service/prisma/schema.prisma))
+
+```prisma
+model Itinerary {
+  id          Int        @id @default(autoincrement())
+  user_id     Int        // Cross-service reference to User.id
+  title       String
+  destination String
+  start_date  String
+  locations   Location[]
+  
+  @@index([user_id])
+  @@index([destination])
+}
+
+model Location {
+  id           Int       @id @default(autoincrement())
+  itinerary_id Int
+  name         String
+  images       String[]  // GCS URLs
+  latitude     Float?
+  longitude    Float?
+  itinerary    Itinerary @relation(fields: [itinerary_id], references: [id], onDelete: Cascade)
+  
+  @@index([itinerary_id])
+}
+```
+
+**Tenant Service Database** ([schema](../../services/tenant-service/prisma/schema.prisma))
+
+```prisma
+model Tenant {
+  uuid               String   @id @default(uuid()) @db.Uuid
+  name               String
+  email              String   @unique
+  namespace          String   @unique  // Maps to K8s namespace
+  tier               String   @default("free")  // free, standard, enterprise
+  domain             String?
+  provisioningStatus String   @default("pending")
+  
+  @@index([namespace])
+  @@index([tier])
+}
+```
+
+#### MongoDB Collections
+
+**Social Service Database** (MongoDB 8.0)
+
+All collections in `social-service` database:
+
+**Comments** ([schema](../../services/social-service/src/schemas/comment.schema.ts))
+
+```typescript
+{
+  _id: ObjectId,
+  userId: number,        // Cross-DB reference to User.id
+  itineraryId: number,   // Cross-DB reference to Itinerary.id
+  text: string,
+  createdAt: Date,
+  updatedAt: Date
+}
+// Index: { itineraryId: 1, createdAt: -1 }
+```
+
+**Likes** ([schema](../../services/social-service/src/schemas/like.schema.ts))
+
+```typescript
+{
+  _id: ObjectId,
+  userId: number,        // Cross-DB reference to User.id
+  itineraryId: number,   // Cross-DB reference to Itinerary.id
+  createdAt: Date
+}
+// Unique compound index: { userId: 1, itineraryId: 1 }
+```
+
+**NewsletterSubscriptions** ([schema](../../services/social-service/src/schemas/newsletter-subscription.schema.ts))
+
+```typescript
+{
+  _id: ObjectId,
+  userId: number,        // Cross-DB reference to User.id (unique)
+  isSubscribed: boolean,
+  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly',
+  includeTrending: boolean,
+  includeRecommendations: boolean,
+  recommendationCount: number,
+  createdAt: Date,
+  updatedAt: Date
+}
+// Index: { isSubscribed: 1, frequency: 1 }
+```
+
+**NewsletterDeliveries** ([schema](../../services/social-service/src/schemas/newsletter-delivery.schema.ts))
+
+```typescript
+{
+  _id: ObjectId,
+  userId: number,
+  newsletterDate: Date,
+  status: 'pending' | 'sent' | 'failed',
+  retryCount: number,
+  sentAt: Date,
+  error: string
+}
+```
+
+**TrendingItineraries** (cache collection, 24h TTL)
+
+```typescript
+{
+  _id: ObjectId,
+  itineraryId: number,
+  score: number,          // Weighted: likes × 0.5 + comments × 0.3 + recency × 0.2
+  likeCount: number,
+  commentCount: number,
+  lastUpdated: Date
+}
+```
+
+### Multi-Tenancy Data Isolation
+
+| Tier | PostgreSQL | MongoDB | Cloud Storage |
+|------|-----------|---------|---------------|
+| **Free** | Shared DB, filtered by `tenantUuid` | Shared collections, no tenant field (filtered via user ownership) | Shared bucket, prefix isolation |
+| **Standard** | Shared DB, filtered by `tenantUuid` | Shared collections, no tenant field (filtered via user ownership) | Shared bucket, prefix isolation |
+| **Enterprise** | Dedicated Cloud SQL instance per tenant | Dedicated database per tenant | Dedicated GCS bucket per tenant |
+
+**Logical Isolation (Free/Standard):**
+
+- PostgreSQL queries include `WHERE tenantUuid = ?` clause automatically via query middleware
+- MongoDB relies on **user ownership chain**: User → Itinerary → Comments/Likes
+  - No direct `tenantId` field in MongoDB collections
+  - Isolation enforced by checking `userId` belongs to authenticated tenant's users
+  - Itinerary ownership verified before allowing comments/likes
+
+**Physical Isolation (Enterprise):**
+
+- Separate database instances prevent any cross-tenant data leakage
+- Kubernetes namespace isolation with NetworkPolicies
+- Dedicated service accounts per tenant with scoped IAM permissions
+
+### Cross-Database References
+
+**Important:** References between PostgreSQL and MongoDB are **application-level only**, not database-enforced foreign keys.
+
+- `Comment.userId` and `Like.userId` reference `User.id` (PostgreSQL)
+- `Comment.itineraryId` and `Like.itineraryId` reference `Itinerary.id` (PostgreSQL)
+- Services validate existence via inter-service HTTP calls when creating social interactions
+
+**Referential Integrity:**
+
+- PostgreSQL: Enforced via Prisma FK constraints (`onDelete: Cascade` for Location → Itinerary)
+- MongoDB: Application-level checks only
+
 
 ## 2.4 Security: Roles and Role Mapping
 
