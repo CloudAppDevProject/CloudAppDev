@@ -30,7 +30,7 @@ const tiers: {
     id: 'standard',
     name: 'Standard',
     description: 'For power users and frequent travelers',
-    price: '€9.99/mo',
+    price: '€19.99/mo',
     priceDetails: 'Base fee + usage-based pricing',
     highlighted: true,
     features: [
