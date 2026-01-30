@@ -4,28 +4,18 @@ CloudAppDev is a cloud-native B2B SaaS platform for social travel itinerary mana
 
 ## 1.1 System Context
 
-<!-- TODO: Add system context diagram -->
-
+![System Context Diagram](../system-context-diagram.drawio.svg)
 **Actors:**
 
 - **End User** -- Registers, creates itineraries, uploads images, likes/comments on content, subscribes to newsletters
 - **Tenant Admin** -- Registers an organization, selects a tier, manages users within the tenant subdomain
-- **Platform Operator** -- Manages infrastructure, monitors services, provisions enterprise tenants
 
 **Neighboring Systems and External Interfaces:**
 
 | System | Type | Purpose |
 |--------|------|---------|
-| **Firebase Authentication** | Identity Provider | User authentication via email/password and Google OAuth. Provides JWT tokens verified by the User Service |
-| **Google Cloud Storage (GCS)** | Object Storage | Stores user-uploaded images (itinerary photos, avatars). Accessed via signed URLs |
-| **Google Cloud SQL** | Managed Database | Hosts PostgreSQL instances for User and Itinerary services. Enterprise tenants receive dedicated instances |
-| **MongoDB Atlas / Self-hosted** | Document Database | Stores social interactions (comments, likes) and newsletter data. Shared or dedicated per tier |
-| **SendGrid / SMTP** | Email Service | Sends personalized weekly newsletters and transactional emails |
-| **Cloudflare** | DNS / CDN | Manages tenant subdomains (`{tenant}.dev.cloudappdev.site`) and DNS records |
-| **Google Certificate Manager** | SSL/TLS | Provisions and manages SSL certificates for tenant subdomains |
-| **Google Artifact Registry** | Container Registry | Stores Docker images built by the CI/CD pipeline |
-| **GitHub Actions** | CI/CD | Automates building, testing, and deploying microservices to GKE |
-| **Google Secret Manager** | Secrets Store | Stores database credentials, API keys, and service account keys per tenant |
+| **Weather Provider** | Weather information Provider | Provide weather information for a specific location & time interval |
+| **Geaographic Location System** | Location Coordiantes | Provide the coordinates for a specified location or vice versa |
 
 ## 1.2 Feature Overview
 
@@ -43,7 +33,7 @@ CloudAppDev is a cloud-native B2B SaaS platform for social travel itinerary mana
 
 ## 1.3 Domain Model
 
-<!-- TODO: Add domain model diagram -->
+![Domain Model](../domain-model.drawio.svg)
 
 **Core Entities and Relationships:**
 
@@ -78,3 +68,13 @@ CloudAppDev is a cloud-native B2B SaaS platform for social travel itinerary mana
 - Attributes: `id`, `name`, `tier`, `domain`, `createdAt`
 - A Tenant has many Users
 - Tier determines infrastructure isolation level (shared vs. dedicated)
+
+**Weather** (External API -- Travel Info Service)
+- Attributes: `temp_c`, `feelslike_c`, `condition`, `wind_kph` (current); `date`, `maxtemp_c`, `mintemp_c`, `avgtemp_c`, `daily_chance_of_rain` (forecast)
+- Queried per Location name with configurable forecast days
+- Provides value-added travel insights for itinerary destinations
+
+**Geographic Location** (External API -- Travel Info Service)
+- Attributes: `lat`, `lon`, `name`, `address` (city, town, village, municipality)
+- Supports forward geocoding (location name to coordinates) and reverse geocoding (coordinates to city name)
+- Used to resolve coordinates for itinerary Locations
