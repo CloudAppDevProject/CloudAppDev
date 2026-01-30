@@ -1,9 +1,8 @@
 # 2 Runtime View
 
 ## 2.1 Runtime Overview
-
-<!-- TODO: Add cloud resource diagram -->
-
+For a better view please open this link: [HERE]()
+![Micro Service Diagram](../microservice_architecture.drawio.svg)
 **Cloud Resources (GCP):**
 
 | Resource | Service | Configuration |
