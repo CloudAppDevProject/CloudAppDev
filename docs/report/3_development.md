@@ -23,7 +23,6 @@ CloudAppDev/
 │   ├── travel-info-service/        # Weather & geocoding proxy
 │   ├── tenant-service/             # Tenant registration & plan management
 │   ├── provisioning-service/       # Orchestrates tenant provisioning
-│   ├── infrastructure-provisioner/ # Terraform execution for infra
 │   ├── seeder/                     # Unified DB seeding utility
 │   └── shared/                     # Reusable guards & middleware
 ├── k8s/                            # Kubernetes Helm charts & manifests
@@ -49,7 +48,6 @@ CloudAppDev/
 | **Travel Info Service** | `services/travel-info-service/` | Weather data and geocoding via external APIs |
 | **Tenant Service** | `services/tenant-service/` | Tenant registration, tier management, subdomain resolution |
 | **Provisioning Service** | `services/provisioning-service/` | Orchestrates tenant provisioning and deployment sync |
-| **Infrastructure Provisioner** | `services/infrastructure-provisioner/` | Executes Terraform for infrastructure creation |
 | **API Gateway** | `nginx/` | Nginx reverse proxy routing requests by path prefix to services |
 | **Seeder** | `services/seeder/` | Unified database seeding across all microservice databases |
 
@@ -66,7 +64,6 @@ CloudAppDev/
 | **Travel Info Service** | TypeScript | NestJS | Axios |
 | **Tenant Service** | TypeScript | NestJS, Prisma | Passport, bcryptjs |
 | **Provisioning Service** | TypeScript | NestJS | Axios, class-validator |
-| **Infrastructure Provisioner** | JavaScript | Express | Axios |
 | **Seeder** | JavaScript | Prisma | MongoDB driver |
 | **API Gateway** | Nginx config | Nginx | -- |
 | **Load Tests** | Python | Locust | -- |
