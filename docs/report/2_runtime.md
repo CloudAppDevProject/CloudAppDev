@@ -207,7 +207,7 @@ The Provisioning Service includes a deployment synchronization module that keeps
 3. Compares running image tags against the latest available versions
 4. Performs `helm upgrade` on outdated deployments with the correct per-environment values
 
-The CronJob uses a lightweight `curl` container that POSTs to `http://provisioning-service:8090/deployment-update/sync`. Concurrent executions are forbidden (`concurrencyPolicy: Forbid`), and a startup sync also runs automatically when the Provisioning Service boots. Status and results are queryable via `GET /deployment-update/sync-status` and `GET /deployment-update/status`.
+The CronJob uses a lightweight `curl` container that POSTs to `provisioning-service:8090/deployment-update/sync`. Concurrent executions are forbidden (`concurrencyPolicy: Forbid`), and a startup sync also runs automatically when the Provisioning Service boots. Status and results are queryable via `GET /deployment-update/sync-status` and `GET /deployment-update/status`.
 
 ---
 
