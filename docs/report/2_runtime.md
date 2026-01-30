@@ -1,22 +1,60 @@
 # 2 Runtime View
 
 ## 2.1 Runtime Overview
-For a better view please open this link: [HERE]()
+Since this Diagram is fairly large and provides a complete overview of the runtime setup please open this link [HERE](https://github.com/CloudAppDevProject/CloudAppDev/wiki/Microservice-architecture) for a btter oiverview. Rightclick the image and open in new tab. Alternative the drawio source file is located under: `<repository>/docs/microservice_architecture.drawio.svg`
 ![Micro Service Diagram](../microservice_architecture.drawio.svg)
+
 **Cloud Resources (GCP):**
 
 | Resource | Service | Configuration |
 |----------|---------|---------------|
 | **GKE Autopilot** | Compute | Regional cluster (`europe-west1`), automatic node provisioning and scaling |
 | **Cloud SQL (PostgreSQL 16)** | Database | Shared instances for Free/Standard tiers; dedicated instances per Enterprise tenant |
-| **MongoDB** | Database | Self-managed on GKE for social data (comments, likes, newsletter) |
+| **FireStore - MongoDB** | Database | Self-managed on GKE for social data (comments, likes, newsletter) |
 | **Cloud Storage** | Object Storage | Regional buckets for image uploads. Shared bucket for Free/Standard, dedicated per Enterprise |
 | **Artifact Registry** | Container Registry | `europe-west1-docker.pkg.dev` hosts all Docker images |
 | **Secret Manager** | Secrets | Stores database credentials, API keys, Firebase keys per namespace/tenant |
 | **Certificate Manager** | SSL/TLS | Google-managed certificates for all tenant subdomains |
 | **Cloud DNS / Cloudflare** | DNS | Subdomain routing: `{tenant}.dev.cloudappdev.site` |
 
-**API Gateway (Nginx):**
+**External Gateway (GKE Gateway API):**
+
+All external traffic enters the cluster through a single GKE Gateway resource (`main-gateway`) in the `default` namespace, using the `gke-l7-global-external-managed` GatewayClass. This provisions a Google Cloud Global External HTTP(S) Load Balancer with a reserved static IPv4 address (`main-gateway-ip`).
+
+The Gateway listens on two ports:
+
+| Listener | Port | Behavior |
+|----------|------|----------|
+| `http` | 80 | Redirects to HTTPS (301) |
+| `https` | 443 | SSL/TLS termination, routes to backend services |
+
+Both listeners allow routes from all namespaces (`from: All`), enabling tenant-specific HTTPRoutes in separate namespaces to attach to the shared Gateway.
+
+**SSL/TLS:** Google-managed certificates are provisioned per domain via Google Certificate Manager with Cloudflare DNS validation. A centralized Certificate Map (`cloudappdev-dev-cert-map`) aggregates all certificates (main domain and tenant subdomains) and is referenced by the Gateway via annotation.
+
+**Subdomain Routing:** Each tenant receives a subdomain (`{tenant}.dev.cloudappdev.site`) with a Cloudflare DNS A record pointing to the Gateway's static IP. Hostname-based HTTPRoutes direct traffic to the correct namespace:
+
+- `dev.cloudappdev.site` routes to the `app` service in the `default` namespace
+- `{tenant}.dev.cloudappdev.site` routes to the `app` service in the tenant's namespace (e.g., `enterprise-{tenant}`)
+
+Tenant domains and certificates are dynamically provisioned by the Infrastructure Provisioner via Terraform, using a separate state file (`dev-tenants`) to avoid conflicts with base infrastructure changes.
+
+**Synchronous Services:**
+
+The Next.js frontend and all NestJS microservices operate synchronously via REST. Client requests flow: Browser -> Next.js server-side API proxy routes -> API Gateway -> target microservice. The server-side proxy ensures the API Gateway URL is never exposed to the browser.
+
+**Asynchronous Services:**
+
+The Email Newsletter runs as a Kubernetes CronJob (every Sunday at 20:00 UTC). It calls the Social Service's `/newsletter/send-weekly` endpoint, which processes users in batches of 50 with 5 concurrent email sends. Failed sends are retried with exponential backoff (up to 3 retries). Delivery status is tracked in MongoDB.
+
+**Running Application:**
+!! ONLY THEORATICAL SINCE THE PROJECT HAS BEEN SHUT DOWN !!
+- Production: `dev.cloudappdev.site`
+- GCP Console: Google Cloud Console for project `cloudappdev-dev`
+
+## 2.2 Microservices
+
+### API Gateway (Nginx) ###
 
 The Nginx API Gateway is the single entry point for all backend traffic. It runs as a pod in each namespace and routes requests by path prefix:
 
@@ -30,21 +68,6 @@ The Nginx API Gateway is the single entry point for all backend traffic. It runs
 | `/health` | Gateway self-check | -- |
 
 The gateway uses namespace-scoped environment variables (`USER_NAMESPACE`, `ITINERARY_NAMESPACE`, etc.) to resolve service DNS names dynamically, enabling the same image to serve different namespaces. Client body size is set to 50 MB for image uploads. The Social Service has a 120-second timeout for newsletter batch operations.
-
-**Synchronous Services:**
-
-The Next.js frontend and all NestJS microservices operate synchronously via REST. Client requests flow: Browser -> Next.js server-side API proxy routes -> API Gateway -> target microservice. The server-side proxy ensures the API Gateway URL is never exposed to the browser.
-
-**Asynchronous Services:**
-
-The Email Newsletter runs as a Kubernetes CronJob (every Sunday at 20:00 UTC). It calls the Social Service's `/newsletter/send-weekly` endpoint, which processes users in batches of 50 with 5 concurrent email sends. Failed sends are retried with exponential backoff (up to 3 retries). Delivery status is tracked in MongoDB.
-
-**Running Application:**
-
-- Production: `https://{tenant}.dev.cloudappdev.site`
-- GCP Console: Google Cloud Console for project `cloudappdev-dev`
-
-## 2.2 Microservices
 
 ### User Service (Port 8080)
 
