@@ -1,0 +1,2290 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>1 Requirements</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+/* From extension marp-team.marp-vscode */
+#__marp-vscode {
+  all: revert;
+}
+
+/* Override VS Code default CSS rules reverting to initial
+   https://github.com/microsoft/vscode/blob/master/src/vs/workbench/contrib/webview/browser/pre/main.js#L53 */
+html:has(body.marp-vscode) {
+  padding: 0;
+}
+
+body.marp-vscode {
+  padding: 0;
+}
+
+body.marp-vscode img {
+  max-width: unset;
+  max-height: unset;
+}
+
+body.marp-vscode a,
+body.marp-vscode a:hover,
+body.marp-vscode code {
+  color: unset;
+}
+
+body.marp-vscode blockquote {
+  background: unset;
+  border-color: unset;
+}
+
+@media screen {
+  body.marp-vscode {
+    overflow-y: scroll;
+
+    /* stylelint-disable-next-line selector-class-pattern */
+    &.showEditorSelection {
+      --marp-vscode-highlight-color: rgb(255 255 255 / 40%);
+
+      &.vscode-light {
+        --marp-vscode-highlight-color: rgb(0 0 0 / 15%);
+      }
+
+      &.vscode-high-contrast {
+        --marp-vscode-highlight-color: rgb(255 160 0 / 70%);
+      }
+    }
+  }
+
+  #__marp-vscode [data-marp-vscode-slide-wrapper] {
+    margin: 20px;
+    position: relative;
+
+    &.code-active-line,
+    &:has(.code-active-line) {
+      &::before {
+        position: absolute;
+        content: '';
+        inset: -7px;
+        border: 3px solid var(--marp-vscode-highlight-color, transparent);
+        pointer-events: none;
+      }
+    }
+  }
+
+  #__marp-vscode svg[data-marpit-svg] {
+    box-shadow: 0 5px 10px rgb(0 0 0 / 25%);
+    display: block;
+    margin: 0;
+  }
+
+  /* Based on https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+  #code-csp-warning {
+    background-color: #444;
+    box-shadow: 1px 1px 1px rgb(0 0 0 / 25%);
+    color: white;
+    cursor: pointer;
+    font-family: sans-serif;
+    font-size: 12px;
+    line-height: 22px;
+    margin: 16px;
+    padding: 6px;
+    position: fixed;
+    right: 0;
+    text-align: center;
+    top: 0;
+    overflow-wrap: break-word;
+  }
+
+  #code-csp-warning:hover {
+    text-decoration: none;
+    background-color: #007acc;
+    box-shadow: 2px 2px 2px rgb(0 0 0 / 25%);
+  }
+}
+
+@media print {
+  body.marp-vscode #code-csp-warning {
+    display: none;
+  }
+}
+
+</style>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css">
+<link href="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="1-requirements">1 Requirements</h1>
+<p>CloudAppDev is a cloud-native B2B SaaS platform for social travel itinerary management. Users create, share, and discover travel itineraries with locations, images, and social interactions. The platform is built as a multi-tenant microservices application on Google Kubernetes Engine with three tenant tiers (Free, Standard, Enterprise).</p>
+<h2 id="11-system-context">1.1 System Context</h2>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\system-context-diagram.drawio.svg" alt="System Context Diagram">
+<strong>Actors:</strong></p>
+<ul>
+<li><strong>End User</strong> -- Registers, creates itineraries, uploads images, likes/comments on content, subscribes to newsletters</li>
+<li><strong>Tenant Admin</strong> -- Registers an organization, selects a tier, manages users within the tenant subdomain</li>
+</ul>
+<p><strong>Neighboring Systems and External Interfaces:</strong></p>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Weather Provider</strong></td>
+<td>Weather information Provider</td>
+<td>Provide weather information for a specific location &amp; time interval</td>
+</tr>
+<tr>
+<td><strong>Geaographic Location System</strong></td>
+<td>Location Coordiantes</td>
+<td>Provide the coordinates for a specified location or vice versa</td>
+</tr>
+</tbody>
+</table>
+<h2 id="12-feature-overview">1.2 Feature Overview</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>User Registration &amp; Auth</strong></td>
+<td>Register via email/password. Firebase Auth issues tokens, the User Service verifies and manages profiles</td>
+</tr>
+<tr>
+<td><strong>Itinerary Management</strong></td>
+<td>Create, edit, and delete travel itineraries with title, destination, description, and date range. Each itinerary contains ordered locations with coordinates and images</td>
+</tr>
+<tr>
+<td><strong>Image Upload</strong></td>
+<td>Upload images to Google Cloud Storage via signed URLs. Images are associated with itinerary locations or user avatars</td>
+</tr>
+<tr>
+<td><strong>Search &amp; Discovery</strong></td>
+<td>Search itineraries by destination or keyword. Browse public itineraries from other users</td>
+</tr>
+<tr>
+<td><strong>Social Interactions</strong></td>
+<td>Like and comment on itineraries. Stored in MongoDB for high-throughput read/write</td>
+</tr>
+<tr>
+<td><strong>Email Newsletter</strong></td>
+<td>Automated weekly newsletter with personalized content: trending destinations, engagement summaries, and quality-filtered itineraries. Kubernetes CronJob scheduling with retry logic</td>
+</tr>
+<tr>
+<td><strong>Travel Information</strong></td>
+<td>Weather data for itinerary destinations via external API integrations</td>
+</tr>
+<tr>
+<td><strong>Multi-Tenancy</strong></td>
+<td>Three-tier tenant model (Free, Standard, Enterprise) with subdomain-based routing, tier-specific resource limits, and infrastructure isolation for enterprise tenants</td>
+</tr>
+<tr>
+<td><strong>Tenant Self-Service</strong></td>
+<td>Organizations register, choose a tier, and receive a provisioned subdomain with automated infrastructure setup</td>
+</tr>
+</tbody>
+</table>
+<h2 id="13-domain-model">1.3 Domain Model</h2>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\domain-model.drawio.svg" alt="Domain Model"></p>
+<p><strong>Core Entities and Relationships:</strong></p>
+<p><strong>User</strong> (PostgreSQL -- User Service)</p>
+<ul>
+<li>Attributes: <code>id</code>, <code>name</code>, <code>email</code>, <code>password</code>, <code>googleUid</code>, <code>avatarUrl</code>, <code>tenantUuid</code></li>
+<li>A User belongs to one Tenant (via <code>tenantUuid</code>)</li>
+<li>A User creates many Itineraries</li>
+</ul>
+<p><strong>Itinerary</strong> (PostgreSQL -- Itinerary Service)</p>
+<ul>
+<li>Attributes: <code>id</code>, <code>user_id</code>, <code>title</code>, <code>destination</code>, <code>start_date</code>, <code>short_desc</code>, <code>detail_desc</code>, <code>created_at</code></li>
+<li>An Itinerary belongs to one User</li>
+<li>An Itinerary has many Locations</li>
+</ul>
+<p><strong>Location</strong> (PostgreSQL -- Itinerary Service)</p>
+<ul>
+<li>Attributes: <code>id</code>, <code>itinerary_id</code>, <code>name</code>, <code>latitude</code>, <code>longitude</code>, <code>images[]</code></li>
+<li>A Location belongs to one Itinerary</li>
+<li>Images stored as GCS URLs in an array field</li>
+</ul>
+<p><strong>Like</strong> (MongoDB -- Social Service)</p>
+<ul>
+<li>Attributes: <code>userId</code>, <code>itineraryId</code>, <code>createdAt</code></li>
+<li>Unique compound index on <code>(userId, itineraryId)</code> prevents duplicate likes</li>
+</ul>
+<p><strong>Comment</strong> (MongoDB -- Social Service)</p>
+<ul>
+<li>Attributes: <code>userId</code>, <code>itineraryId</code>, <code>text</code>, <code>createdAt</code></li>
+<li>Indexed on <code>(itineraryId, createdAt)</code> for efficient retrieval</li>
+</ul>
+<p><strong>Newsletter Subscription</strong> (MongoDB -- Social Service)</p>
+<ul>
+<li>Attributes: <code>userId</code>, <code>isSubscribed</code>, <code>frequency</code>, <code>preferences</code></li>
+<li>Tracks user opt-in status and delivery preferences</li>
+</ul>
+<p><strong>Tenant</strong> (PostgreSQL -- Tenant Service)</p>
+<ul>
+<li>Attributes: <code>id</code>, <code>name</code>, <code>tier</code>, <code>domain</code>, <code>createdAt</code></li>
+<li>A Tenant has many Users</li>
+<li>Tier determines infrastructure isolation level (shared vs. dedicated)</li>
+</ul>
+<p><strong>Weather</strong> (External API -- Travel Info Service)</p>
+<ul>
+<li>Attributes: <code>temp_c</code>, <code>feelslike_c</code>, <code>condition</code>, <code>wind_kph</code> (current); <code>date</code>, <code>maxtemp_c</code>, <code>mintemp_c</code>, <code>avgtemp_c</code>, <code>daily_chance_of_rain</code> (forecast)</li>
+<li>Queried per Location name with configurable forecast days</li>
+<li>Provides value-added travel insights for itinerary destinations</li>
+</ul>
+<p><strong>Geographic Location</strong> (External API -- Travel Info Service)</p>
+<ul>
+<li>Attributes: <code>lat</code>, <code>lon</code>, <code>name</code>, <code>address</code> (city, town, village, municipality)</li>
+<li>Supports forward geocoding (location name to coordinates) and reverse geocoding (coordinates to city name)</li>
+<li>Used to resolve coordinates for itinerary Locations</li>
+</ul>
+<h1 id="2-runtime-view">2 Runtime View</h1>
+<h2 id="21-runtime-overview">2.1 Runtime Overview</h2>
+<p>Since this Diagram is fairly large and provides a complete overview of the runtime setup please open this link <a href="https://github.com/CloudAppDevProject/CloudAppDev/wiki/Microservice-architecture">HERE</a> for a better oiverview. Rightclick the image and open in new tab. Alternative the drawio source file is located under: <code>&lt;repository&gt;/docs/microservice_architecture.drawio.svg</code>
+<img src="file:///d:\GitHub\CloudAppDev\docs\microservice_architecture.drawio.svg" alt="Micro Service Diagram"></p>
+<p><strong>Cloud Resources (GCP):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Service</th>
+<th>Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GKE Autopilot</strong></td>
+<td>Compute</td>
+<td>Regional cluster (<code>europe-west1</code>), automatic node provisioning and scaling</td>
+</tr>
+<tr>
+<td><strong>Cloud SQL (PostgreSQL 16)</strong></td>
+<td>Database</td>
+<td>Shared instances for Free/Standard tiers; dedicated instances per Enterprise tenant</td>
+</tr>
+<tr>
+<td><strong>FireStore - MongoDB</strong></td>
+<td>Database</td>
+<td>Self-managed on GKE for social data (comments, likes, newsletter)</td>
+</tr>
+<tr>
+<td><strong>Cloud Storage</strong></td>
+<td>Object Storage</td>
+<td>Regional buckets for image uploads. Shared bucket for Free/Standard, dedicated per Enterprise</td>
+</tr>
+<tr>
+<td><strong>Artifact Registry</strong></td>
+<td>Container Registry</td>
+<td><code>europe-west1-docker.pkg.dev</code> hosts all Docker images</td>
+</tr>
+<tr>
+<td><strong>Secret Manager</strong></td>
+<td>Secrets</td>
+<td>Stores database credentials, API keys, Firebase keys per namespace/tenant</td>
+</tr>
+<tr>
+<td><strong>Certificate Manager</strong></td>
+<td>SSL/TLS</td>
+<td>Google-managed certificates for all tenant subdomains</td>
+</tr>
+<tr>
+<td><strong>Cloud DNS / Cloudflare</strong></td>
+<td>DNS</td>
+<td>Subdomain routing: <code>{tenant}.dev.cloudappdev.site</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>External Gateway (GKE Gateway API):</strong></p>
+<p>All external traffic enters the cluster through a single GKE Gateway resource (<code>main-gateway</code>) in the <code>default</code> namespace, using the <code>gke-l7-global-external-managed</code> GatewayClass. This provisions a Google Cloud Global External HTTP(S) Load Balancer with a reserved static IPv4 address (<code>main-gateway-ip</code>).</p>
+<p>The Gateway listens on two ports:</p>
+<table>
+<thead>
+<tr>
+<th>Listener</th>
+<th>Port</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http</code></td>
+<td>80</td>
+<td>Redirects to HTTPS (301)</td>
+</tr>
+<tr>
+<td><code>https</code></td>
+<td>443</td>
+<td>SSL/TLS termination, routes to backend services</td>
+</tr>
+</tbody>
+</table>
+<p>Both listeners allow routes from all namespaces (<code>from: All</code>), enabling tenant-specific HTTPRoutes in separate namespaces to attach to the shared Gateway.</p>
+<p><strong>SSL/TLS:</strong> Google-managed certificates are provisioned per domain via Google Certificate Manager with Cloudflare DNS validation. A centralized Certificate Map (<code>cloudappdev-dev-cert-map</code>) aggregates all certificates (main domain and tenant subdomains) and is referenced by the Gateway via annotation.</p>
+<p><strong>Subdomain Routing:</strong> Each tenant receives a subdomain (<code>{tenant}.dev.cloudappdev.site</code>) with a Cloudflare DNS A record pointing to the Gateway's static IP. Hostname-based HTTPRoutes direct traffic to the correct namespace:</p>
+<ul>
+<li><code>dev.cloudappdev.site</code> routes to the <code>app</code> service in the <code>default</code> namespace</li>
+<li><code>{tenant}.dev.cloudappdev.site</code> routes to the <code>app</code> service in the tenant's namespace (e.g., <code>enterprise-{tenant}</code>)</li>
+</ul>
+<p>Tenant domains and certificates are dynamically provisioned by the Infrastructure Provisioner via Terraform, using a separate state file (<code>dev-tenants</code>) to avoid conflicts with base infrastructure changes.</p>
+<p><strong>Synchronous Services:</strong></p>
+<p>The Next.js frontend and all NestJS microservices operate synchronously via REST. Client requests flow: Browser -&gt; Next.js server-side API proxy routes -&gt; API Gateway -&gt; target microservice. The server-side proxy ensures the API Gateway URL is never exposed to the browser.</p>
+<p><strong>Asynchronous Services:</strong></p>
+<p>The Email Newsletter runs as a Kubernetes CronJob (every Sunday at 20:00 UTC). It calls the Social Service's <code>/newsletter/send-weekly</code> endpoint, which processes users in batches of 50 with 5 concurrent email sends. Failed sends are retried with exponential backoff (up to 3 retries). Delivery status is tracked in MongoDB.</p>
+<p><strong>Running Application:</strong>
+!! ONLY THEORATICAL SINCE THE PROJECT HAS BEEN SHUT DOWN !!</p>
+<ul>
+<li>Production: <code>dev.cloudappdev.site</code></li>
+<li>GCP Console: Google Cloud Console for project <code>cloudappdev-dev</code></li>
+</ul>
+<h2 id="22-microservices">2.2 Microservices</h2>
+<h3 id="api-gateway-nginx">API Gateway (Nginx)</h3>
+<p>The Nginx API Gateway is the single entry point for all backend traffic. It runs as a pod in each namespace and routes requests by path prefix:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Target Service</th>
+<th>Port</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/api/v1/auth</code>, <code>/api/v1/users</code></td>
+<td>User Service</td>
+<td>8080</td>
+</tr>
+<tr>
+<td><code>/api/v1/itineraries</code></td>
+<td>Itinerary Service</td>
+<td>8081</td>
+</tr>
+<tr>
+<td><code>/api/v1/social</code></td>
+<td>Social Service</td>
+<td>8082</td>
+</tr>
+<tr>
+<td><code>/api/v1/travel-info</code></td>
+<td>Travel Info Service</td>
+<td>8083</td>
+</tr>
+<tr>
+<td><code>/api/v1/tenants</code></td>
+<td>Tenant Service</td>
+<td>8084</td>
+</tr>
+<tr>
+<td><code>/health</code></td>
+<td>Gateway self-check</td>
+<td>--</td>
+</tr>
+</tbody>
+</table>
+<p>The gateway uses namespace-scoped environment variables (<code>USER_NAMESPACE</code>, <code>ITINERARY_NAMESPACE</code>, etc.) to resolve service DNS names dynamically, enabling the same image to serve different namespaces. Client body size is set to 50 MB for image uploads. The Social Service has a 120-second timeout for newsletter batch operations.</p>
+<h3 id="user-service-port-8080">User Service (Port 8080)</h3>
+<p><strong>Purpose:</strong> User registration, authentication, and profile management.</p>
+<p><strong>Runtime Configuration:</strong></p>
+<ul>
+<li>NestJS application with <code>@nestjs/config</code> for environment variables</li>
+<li>Firebase Admin SDK verifies authentication tokens</li>
+<li>Prisma ORM connects to PostgreSQL (Cloud SQL via Cloud SQL Proxy sidecar)</li>
+<li>JWT secret per namespace for token signing</li>
+</ul>
+<p><strong>Scaling:</strong></p>
+<ul>
+<li>Free: 1 replica, no autoscaling</li>
+<li>Standard: 1-5 replicas, HPA at 75% CPU</li>
+<li>Enterprise: 2-20 replicas, HPA at 70% CPU</li>
+</ul>
+<p><strong>Security:</strong></p>
+<ul>
+<li>Firebase token verification on protected endpoints</li>
+<li>Passwords hashed with bcrypt</li>
+<li>Database credentials injected via Kubernetes Secrets (sourced from Google Secret Manager)</li>
+<li>Cloud SQL Proxy handles encrypted database connections</li>
+</ul>
+<p><strong>External Connections:</strong> Cloud SQL (PostgreSQL), Firebase Auth, Google Cloud Storage (avatar uploads)</p>
+<p><strong>Multi-Tenancy Isolation:</strong></p>
+<ul>
+<li>Free/Standard: Shared database, logical isolation via <code>tenantUuid</code> column on User table</li>
+<li>Enterprise: Dedicated Cloud SQL instance and Kubernetes namespace</li>
+</ul>
+<hr>
+<h3 id="itinerary-service-port-8081">Itinerary Service (Port 8081)</h3>
+<p><strong>Purpose:</strong> CRUD operations for itineraries and locations, image upload management.</p>
+<p><strong>Runtime Configuration:</strong></p>
+<ul>
+<li>NestJS with Prisma ORM connecting to a separate PostgreSQL database</li>
+<li>Google Cloud Storage client for signed URL generation and image management</li>
+<li>Cloud SQL Proxy sidecar for database connectivity</li>
+</ul>
+<p><strong>Scaling:</strong></p>
+<ul>
+<li>Same tier-based scaling as User Service (1 / 1-5 / 2-20 replicas)</li>
+</ul>
+<p><strong>Security:</strong></p>
+<ul>
+<li>JWT verification for authenticated endpoints</li>
+<li>Signed URLs for GCS uploads (time-limited, scoped to bucket)</li>
+<li>Database credentials via Kubernetes Secrets</li>
+</ul>
+<p><strong>External Connections:</strong> Cloud SQL (PostgreSQL), Google Cloud Storage</p>
+<p><strong>Multi-Tenancy Isolation:</strong></p>
+<ul>
+<li>Free/Standard: Shared database, queries filtered by user ownership and tenantUid</li>
+<li>Enterprise: Dedicated Cloud SQL instance and dedicated GCS bucket</li>
+</ul>
+<hr>
+<h3 id="social-service-port-8082">Social Service (Port 8082)</h3>
+<p><strong>Purpose:</strong> Likes, comments, and email newsletter functionality.</p>
+<p><strong>Runtime Configuration:</strong></p>
+<ul>
+<li>NestJS with Mongoose ODM connecting to MongoDB</li>
+<li>Newsletter module with SMTP transport (SendGrid or Gmail)</li>
+<li>Handlebars templates for newsletter HTML rendering</li>
+<li>Trending itinerary cache with 24-hour TTL</li>
+</ul>
+<p><strong>Scaling:</strong></p>
+<ul>
+<li>Same tier-based scaling as other services</li>
+<li>Newsletter batching (50 users per batch, 5 concurrent sends) prevents overload</li>
+</ul>
+<p><strong>Security:</strong></p>
+<ul>
+<li>JWT verification for social endpoints</li>
+<li>SMTP credentials via Kubernetes Secrets</li>
+<li>Newsletter unsubscribe tokens for GDPR compliance</li>
+</ul>
+<p><strong>External Connections:</strong> MongoDB, SMTP/SendGrid, User Service and Itinerary Service (for newsletter content enrichment)</p>
+<p><strong>Multi-Tenancy Isolation:</strong></p>
+<ul>
+<li>Free/Standard: Shared MongoDB, documents tagged with tenant context</li>
+<li>Enterprise: Dedicated MongoDB database</li>
+</ul>
+<hr>
+<h3 id="travel-info-service-port-8083">Travel Info Service (Port 8083)</h3>
+<p><strong>Purpose:</strong> External travel data aggregation -- weather information, flight schedules, and travel warnings.</p>
+<p><strong>Runtime Configuration:</strong></p>
+<ul>
+<li>NestJS with <code>@nestjs/axios</code> for external HTTP API calls</li>
+<li>Deployed in the <code>default</code> namespace as a shared service across all tiers</li>
+</ul>
+<p><strong>Scaling:</strong></p>
+<ul>
+<li>Shared across all tiers, scales independently in the default namespace</li>
+</ul>
+<p><strong>Security:</strong></p>
+<ul>
+<li>API keys for external services stored in Kubernetes Secrets</li>
+<li>No direct database -- stateless request proxy</li>
+</ul>
+<p><strong>External Connections:</strong> Weather APIs, flight data providers</p>
+<p><strong>Multi-Tenancy Isolation:</strong></p>
+<ul>
+<li>Shared service -- no tenant-specific data stored. Serves all tiers equally.</li>
+</ul>
+<hr>
+<h3 id="tenant-service-port-8084">Tenant Service (Port 8084)</h3>
+<p><strong>Purpose:</strong> Tenant registration, plan management, and subdomain resolution.</p>
+<p><strong>Runtime Configuration:</strong></p>
+<ul>
+<li>NestJS with Prisma ORM connecting to a dedicated PostgreSQL database for tenant metadata</li>
+<li>Deployed in the <code>default</code> namespace</li>
+</ul>
+<p><strong>External Connections:</strong> Cloud SQL (PostgreSQL)</p>
+<p><strong>Multi-Tenancy Isolation:</strong></p>
+<ul>
+<li>Central service -- manages tenant metadata. Not tenant-scoped itself.</li>
+</ul>
+<hr>
+<h3 id="provisioning-service">Provisioning Service</h3>
+<p><strong>Purpose:</strong> Automated infrastructure provisioning for new tenants.</p>
+<p><strong>Runtime Configuration:</strong></p>
+<ul>
+<li>NestJS microservice in the <code>default</code> namespace</li>
+<li>Executes Terraform commands for infrastructure creation</li>
+<li>Manages Kubernetes deployments via <code>kubectl</code> and Helm</li>
+<li>RBAC ClusterRole with permissions to create namespaces, secrets, deployments, services, HPAs, and gateway resources</li>
+</ul>
+<p><strong>External Connections:</strong> Terraform (GCS state backend), Kubernetes API, Google Secret Manager</p>
+<p><strong>Deployment Updater (CronJob):</strong>
+The Provisioning Service includes a deployment synchronization module that keeps all microservices across all namespaces up to date. A Kubernetes CronJob (<code>deployment-sync-cronjob</code>) triggers the sync endpoint periodically (every 10 minutes in dev, daily at 3:01 AM UTC in production). The sync process:</p>
+<ol>
+<li>Queries Google Artifact Registry for the latest semantic version tag of each service image</li>
+<li>Lists all Kubernetes deployments running <code>cloudappdev-*</code> images across provisioned namespaces</li>
+<li>Compares running image tags against the latest available versions</li>
+<li>Performs <code>helm upgrade</code> on outdated deployments with the correct per-environment values</li>
+</ol>
+<p>The CronJob uses a lightweight <code>curl</code> container that POSTs to <code>provisioning-service:8090/deployment-update/sync</code>. Concurrent executions are forbidden (<code>concurrencyPolicy: Forbid</code>), and a startup sync also runs automatically when the Provisioning Service boots. Status and results are queryable via <code>GET /deployment-update/sync-status</code> and <code>GET /deployment-update/status</code>.</p>
+<hr>
+<h2 id="23-datastores">2.3 Datastores</h2>
+<h3 id="overview">Overview</h3>
+<p>The application uses a <strong>polyglot persistence</strong> strategy with three storage types:</p>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\diagrams\datastore-overview.drawio.svg" alt="Datastore Overview"></p>
+<ol>
+<li><strong>PostgreSQL</strong> (relational) — User Service, Itinerary Service, Tenant Service</li>
+<li><strong>MongoDB</strong> (document) — Social Service (likes, comments, newsletter data)</li>
+<li><strong>Google Cloud Storage</strong> (object) — Image storage for locations and user avatars</li>
+</ol>
+<h3 id="data-model">Data Model</h3>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\diagrams\data-model-relations.drawio.svg" alt="Data Model Relations"></p>
+<h3 id="multi-tenancy-data-isolation">Multi-Tenancy Data Isolation</h3>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>PostgreSQL</th>
+<th>MongoDB</th>
+<th>Cloud Storage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Free</strong></td>
+<td>Shared DB, filtered by <code>tenantUuid</code></td>
+<td>Shared collections, no tenant field (filtered via user ownership)</td>
+<td>Shared bucket, prefix isolation</td>
+</tr>
+<tr>
+<td><strong>Standard</strong></td>
+<td>Shared DB, filtered by <code>tenantUuid</code></td>
+<td>Shared collections, no tenant field (filtered via user ownership)</td>
+<td>Shared bucket, prefix isolation</td>
+</tr>
+<tr>
+<td><strong>Enterprise</strong></td>
+<td>Dedicated Cloud SQL instance per tenant</td>
+<td>Dedicated database per tenant</td>
+<td>Dedicated GCS bucket per tenant</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Logical Isolation (Free/Standard):</strong></p>
+<ul>
+<li>PostgreSQL queries include <code>WHERE tenantUuid = ?</code> clause automatically via query middleware</li>
+<li>MongoDB relies on <strong>user ownership chain</strong>: User → Itinerary → Comments/Likes
+<ul>
+<li>No direct <code>tenantId</code> field in MongoDB collections</li>
+<li>Isolation enforced by checking <code>userId</code> belongs to authenticated tenant's users</li>
+<li>Itinerary ownership verified before allowing comments/likes</li>
+</ul>
+</li>
+</ul>
+<p><strong>Physical Isolation (Enterprise):</strong></p>
+<ul>
+<li>Separate database instances prevent any cross-tenant data leakage</li>
+<li>Kubernetes namespace isolation with NetworkPolicies</li>
+<li>Dedicated service accounts per tenant with scoped IAM permissions</li>
+</ul>
+<h3 id="cross-database-references">Cross-Database References</h3>
+<p><strong>Important:</strong> References between PostgreSQL and MongoDB are <strong>application-level only</strong>, not database-enforced foreign keys.</p>
+<ul>
+<li><code>Comment.userId</code> and <code>Like.userId</code> reference <code>User.id</code> (PostgreSQL)</li>
+<li><code>Comment.itineraryId</code> and <code>Like.itineraryId</code> reference <code>Itinerary.id</code> (PostgreSQL)</li>
+<li>Services validate existence via inter-service HTTP calls when creating social interactions</li>
+</ul>
+<p><strong>Referential Integrity:</strong></p>
+<ul>
+<li>PostgreSQL: Enforced via Prisma FK constraints (<code>onDelete: Cascade</code> for Location → Itinerary)</li>
+<li>MongoDB: Application-level checks only</li>
+</ul>
+<h2 id="24-security-roles-and-role-mapping">2.4 Security: Roles and Role Mapping</h2>
+<h3 id="service-accounts-gcp-iam">Service Accounts (GCP IAM)</h3>
+<p>Service accounts follow the principle of least privilege and are provisioned <strong>per namespace and per microservice</strong> via Terraform. The <code>deployment</code> module creates three dedicated GCP service accounts for each namespace (free, standard, or enterprise tenant), each with only the IAM roles required by that service:</p>
+<table>
+<thead>
+<tr>
+<th>Service Account Pattern</th>
+<th>Created Per</th>
+<th>IAM Roles</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>user-{namespace}-sa</strong></td>
+<td>Namespace</td>
+<td>Cloud SQL Client, Cloud SQL Instance User, Storage Object Admin</td>
+</tr>
+<tr>
+<td><strong>itinerary-{namespace}-sa</strong></td>
+<td>Namespace</td>
+<td>Cloud SQL Client, Cloud SQL Instance User, Storage Object Admin</td>
+</tr>
+<tr>
+<td><strong>social-{namespace}-sa</strong></td>
+<td>Namespace</td>
+<td>Datastore User, Datastore Index Admin</td>
+</tr>
+</tbody>
+</table>
+<p>For example, the <code>free</code> namespace has <code>user-free-sa</code>, <code>itinerary-free-sa</code>, and <code>social-free-sa</code>. An enterprise tenant <code>acme-corp</code> would get <code>user-acme-corp-sa</code>, <code>itinerary-acme-corp-sa</code>, and <code>social-acme-corp-sa</code>.</p>
+<p><strong>Naming Convention:</strong> The pattern <code>{service}-{namespace}-sa</code> is intentionally human-readable, making it immediately clear which service and tenant a service account belongs to (e.g., <code>itinerary-acme-corp-sa</code> is the Itinerary Service in the <code>acme-corp</code> namespace). This convention also enables the Terraform modules to construct and bind service account names deterministically -- the deployment module can generate all required GCP service accounts, Kubernetes service accounts, and Workload Identity bindings using only the namespace name as input, without needing to parse or decompose existing names. The same pattern is used consistently across GCP IAM, Kubernetes, and Workload Identity, so cross-referencing between layers is straightforward.</p>
+<p><strong>Shared infrastructure service accounts</strong> (in the <code>default</code> namespace):</p>
+<table>
+<thead>
+<tr>
+<th>Service Account</th>
+<th>Scope</th>
+<th>IAM Roles</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>tenant-default-sa</strong></td>
+<td>Tenant Service</td>
+<td>Cloud SQL Client, Cloud SQL Instance User</td>
+</tr>
+<tr>
+<td><strong>provisioning-default-sa</strong></td>
+<td>Provisioning Service</td>
+<td>Editor, Compute Admin, Storage Admin, Cloud SQL Admin, IAM Service Account Admin/Key Admin, Datastore Owner, Project IAM Admin, Secret Manager Accessor</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Workload Identity:</strong> All service accounts use GKE Workload Identity instead of key files. Each GCP service account is bound to a corresponding Kubernetes service account in its namespace (e.g., <code>free/user-free-sa</code> → <code>user-free-sa@project.iam.gserviceaccount.com</code>), so pods authenticate transparently without managing credentials.</p>
+<h3 id="kubernetes-rbac">Kubernetes RBAC</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Bound To</th>
+<th>Permissions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>provisioning-service ClusterRole</strong></td>
+<td>provisioning-service-sa (default namespace)</td>
+<td>Create/manage namespaces, secrets, service accounts, configmaps, deployments, replicasets, statefulsets, services, pods, HPAs, ingresses, gateway resources, PVCs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="multi-tenancy-security-isolation">Multi-Tenancy Security Isolation</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Free</th>
+<th>Standard</th>
+<th>Enterprise</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Namespace</strong></td>
+<td>Shared (<code>free</code>)</td>
+<td>Shared (<code>standard</code>)</td>
+<td>Dedicated (<code>{tenant-name}</code>)</td>
+</tr>
+<tr>
+<td><strong>Service Accounts</strong></td>
+<td>Shared per-service SAs (<code>*-free-sa</code>)</td>
+<td>Shared per-service SAs (<code>*-standard-sa</code>)</td>
+<td>Dedicated per-service SAs (<code>*-{tenant}-sa</code>)</td>
+</tr>
+<tr>
+<td><strong>Database</strong></td>
+<td>Shared, logical isolation (<code>tenantUuid</code>)</td>
+<td>Shared, logical isolation (<code>tenantUuid</code>)</td>
+<td>Dedicated Cloud SQL instances</td>
+</tr>
+<tr>
+<td><strong>Storage</strong></td>
+<td>Shared bucket, prefix isolation</td>
+<td>Shared bucket, prefix isolation</td>
+<td>Dedicated GCS bucket</td>
+</tr>
+<tr>
+<td><strong>Secrets</strong></td>
+<td>Namespace-scoped K8s secrets</td>
+<td>Namespace-scoped K8s secrets</td>
+<td>Tenant-scoped K8s secrets in dedicated namespace</td>
+</tr>
+<tr>
+<td><strong>Network</strong></td>
+<td>Shared pod network</td>
+<td>Shared pod network</td>
+<td>Namespace-level isolation (NetworkPolicies)</td>
+</tr>
+<tr>
+<td><strong>Compute</strong></td>
+<td>Shared pods (1 replica)</td>
+<td>Shared pods (1-5 replicas)</td>
+<td>Dedicated pods (2-20 replicas)</td>
+</tr>
+</tbody>
+</table>
+<h1 id="3-development-view">3 Development View</h1>
+<h2 id="31-software-components">3.1 Software Components</h2>
+<h3 id="repository">Repository</h3>
+<p>The project uses a single monorepo hosted on GitHub: <a href="https://github.com/Sprayer115/CloudAppDev">CloudAppDev</a>.</p>
+<p><strong>Repository structure:</strong></p>
+<pre><code>CloudAppDev/
+├── app/                            # Next.js frontend (App Router)
+│   ├── api/                        # Server-side API proxy routes
+│   ├── components/                 # React UI components
+│   ├── context/                    # React Context providers
+│   ├── hooks/                      # Custom React hooks
+│   └── [pages]/                    # Route pages (itineraries, login, profile, etc.)
+├── services/                       # Backend microservices
+│   ├── user-service/               # User management &amp; authentication
+│   ├── itinerary-service/          # Itinerary &amp; location CRUD
+│   ├── social-service/             # Likes, comments, newsletter
+│   ├── travel-info-service/        # Weather &amp; geocoding proxy
+│   ├── tenant-service/             # Tenant registration &amp; plan management
+│   ├── provisioning-service/       # Orchestrates tenant provisioning
+│   ├── seeder/                     # Unified DB seeding utility
+│   └── shared/                     # Reusable guards &amp; middleware
+├── k8s/                            # Kubernetes Helm charts &amp; manifests
+├── terraform/                      # Infrastructure-as-Code (GCP)
+│   ├── environments/               # dev, prod, dev-tenants
+│   └── modules/                    # Reusable Terraform modules
+├── nginx/                          # API Gateway config &amp; Dockerfile
+├── locust/                         # Load testing (Python)
+├── seed-data/                      # Test dataset (dataset.json)
+├── .github/workflows/              # CI/CD pipelines
+├── docker-compose.yml              # Monolithic local setup
+└── docker-compose.microservices.yml # Microservices local setup
+</code></pre>
+<h3 id="software-components">Software Components</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frontend</strong></td>
+<td><code>app/</code></td>
+<td>Next.js web application with server-side API proxy routes to the Gateway</td>
+</tr>
+<tr>
+<td><strong>User Service</strong></td>
+<td><code>services/user-service/</code></td>
+<td>Registration, authentication (Firebase), profile management</td>
+</tr>
+<tr>
+<td><strong>Itinerary Service</strong></td>
+<td><code>services/itinerary-service/</code></td>
+<td>Itinerary/location CRUD, image upload via GCS signed URLs</td>
+</tr>
+<tr>
+<td><strong>Social Service</strong></td>
+<td><code>services/social-service/</code></td>
+<td>Likes, comments (MongoDB), email newsletter with async CronJob</td>
+</tr>
+<tr>
+<td><strong>Travel Info Service</strong></td>
+<td><code>services/travel-info-service/</code></td>
+<td>Weather data and geocoding via external APIs</td>
+</tr>
+<tr>
+<td><strong>Tenant Service</strong></td>
+<td><code>services/tenant-service/</code></td>
+<td>Tenant registration, tier management, subdomain resolution</td>
+</tr>
+<tr>
+<td><strong>Provisioning Service</strong></td>
+<td><code>services/provisioning-service/</code></td>
+<td>Orchestrates tenant provisioning and deployment sync</td>
+</tr>
+<tr>
+<td><strong>API Gateway</strong></td>
+<td><code>nginx/</code></td>
+<td>Nginx reverse proxy routing requests by path prefix to services</td>
+</tr>
+<tr>
+<td><strong>Seeder</strong></td>
+<td><code>services/seeder/</code></td>
+<td>Unified database seeding across all microservice databases</td>
+</tr>
+</tbody>
+</table>
+<h3 id="programming-languages-frameworks-and-libraries">Programming Languages, Frameworks, and Libraries</h3>
+<p><strong>TypeScript</strong> is the primary language for the frontend and all NestJS backend services. <strong>JavaScript (ES Modules)</strong> is used for the Infrastructure Provisioner and the Seeder. <strong>Python</strong> is used for load testing. <strong>HCL</strong> is used for Terraform infrastructure definitions.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Language</th>
+<th>Framework</th>
+<th>Key Libraries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frontend</strong></td>
+<td>TypeScript</td>
+<td>Next.js, React</td>
+<td>PrimeReact, TailwindCSS, Recharts, Leaflet, jose</td>
+</tr>
+<tr>
+<td><strong>User Service</strong></td>
+<td>TypeScript</td>
+<td>NestJS, Prisma</td>
+<td>Firebase Admin, Passport, @google-cloud/storage</td>
+</tr>
+<tr>
+<td><strong>Itinerary Service</strong></td>
+<td>TypeScript</td>
+<td>NestJS, Prisma</td>
+<td>@google-cloud/storage, Axios</td>
+</tr>
+<tr>
+<td><strong>Social Service</strong></td>
+<td>TypeScript</td>
+<td>NestJS, Mongoose</td>
+<td>Nodemailer, SendGrid, Handlebars</td>
+</tr>
+<tr>
+<td><strong>Travel Info Service</strong></td>
+<td>TypeScript</td>
+<td>NestJS</td>
+<td>Axios</td>
+</tr>
+<tr>
+<td><strong>Tenant Service</strong></td>
+<td>TypeScript</td>
+<td>NestJS, Prisma</td>
+<td>Passport, bcryptjs</td>
+</tr>
+<tr>
+<td><strong>Provisioning Service</strong></td>
+<td>TypeScript</td>
+<td>NestJS</td>
+<td>Axios, class-validator</td>
+</tr>
+<tr>
+<td><strong>Seeder</strong></td>
+<td>JavaScript</td>
+<td>Prisma</td>
+<td>MongoDB driver</td>
+</tr>
+<tr>
+<td><strong>API Gateway</strong></td>
+<td>Nginx config</td>
+<td>Nginx</td>
+<td>--</td>
+</tr>
+<tr>
+<td><strong>Load Tests</strong></td>
+<td>Python</td>
+<td>Locust</td>
+<td>--</td>
+</tr>
+<tr>
+<td><strong>Infrastructure</strong></td>
+<td>HCL</td>
+<td>Terraform</td>
+<td>GCP provider modules (cloudsql, storage, deployment, service-account, domain)</td>
+</tr>
+</tbody>
+</table>
+<h1 id="4-devops">4. DevOps</h1>
+<h2 id="41-environments-and-initial-infrastructure-setup">4.1 Environments and Initial Infrastructure Setup</h2>
+<p>Starting from a blank GCP project, the following steps provision all infrastructure before application deployment.</p>
+<h3 id="step-1-gcp-project-initialization">Step 1: GCP Project Initialization</h3>
+<p>The script <code>terraform/scripts/init-env.sh</code> prepares the GCP project.</p>
+<p>This enables 21 GCP APIs (Compute Engine, GKE, Cloud SQL, Artifact Registry, Secret Manager, Certificate Manager, Firestore, Cloud Storage, IAM, VPC, Load Balancing, DNS, Monitoring, Logging, etc.) and creates a GCS bucket with versioning for Terraform remote state (<code>gs://cloudappdev-tf-state-dev/</code>).</p>
+<h3 id="step-2-base-infrastructure-terraform">Step 2: Base Infrastructure (Terraform)</h3>
+<pre><code class="language-bash"><span class="hljs-built_in">cd</span> terraform/environments/dev
+terraform init
+terraform apply
+</code></pre>
+<p><strong>Resources created:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GKE Autopilot cluster</strong></td>
+<td>Regional cluster in <code>europe-west1</code>, fully managed node provisioning</td>
+</tr>
+<tr>
+<td><strong>Namespaces</strong></td>
+<td><code>free</code>, <code>standard</code>, <code>default</code> (shared services)</td>
+</tr>
+<tr>
+<td><strong>Cloud SQL instances</strong></td>
+<td>PostgreSQL databases per tier via the <code>cloudsql</code> module. Passwords auto-generated and stored in Secret Manager</td>
+</tr>
+<tr>
+<td><strong>Firestore databases</strong></td>
+<td>NoSQL databases for social service per tier</td>
+</tr>
+<tr>
+<td><strong>Cloud Storage buckets</strong></td>
+<td>Image storage per tier via the <code>storage</code> module</td>
+</tr>
+<tr>
+<td><strong>Service accounts</strong></td>
+<td><code>app-sa</code>, <code>tenant-default-sa</code>, <code>provisioning-default-sa</code> with Workload Identity bindings (via <code>service-account</code> module)</td>
+</tr>
+<tr>
+<td><strong>RBAC ClusterRole</strong></td>
+<td>Provisioning Service permissions for namespace/deployment/secret/gateway management (<code>rbac.tf</code>)</td>
+</tr>
+<tr>
+<td><strong>Static external IP</strong></td>
+<td>Global IP for the HTTPS load balancer</td>
+</tr>
+<tr>
+<td><strong>Gateway API resources</strong></td>
+<td>HTTP and HTTPS listeners with certificate map</td>
+</tr>
+<tr>
+<td><strong>Certificate Manager</strong></td>
+<td>Google-managed SSL certificate for <code>dev.cloudappdev.site</code> (via <code>domain</code> module)</td>
+</tr>
+<tr>
+<td><strong>Cloudflare DNS record</strong></td>
+<td>A-record pointing hostname to the static IP</td>
+</tr>
+</tbody>
+</table>
+<p>The infrastructure is organized in reusable Terraform modules:</p>
+<ul>
+<li><code>modules/deployment</code> -- full namespace infrastructure (databases, storage, service accounts)</li>
+<li><code>modules/cloudsql</code> -- PostgreSQL instance with password generation and Secret Manager storage</li>
+<li><code>modules/service-account</code> -- IAM bindings for Cloud SQL, Storage, Firestore, Artifact Registry</li>
+<li><code>modules/domain</code> -- DNS authorization, SSL certificate, certificate map entry</li>
+<li><code>modules/storage</code> -- GCS bucket with lifecycle rules</li>
+<li><code>modules/firestore</code> -- Firestore database provisioning</li>
+</ul>
+<h3 id="step-3-tenant-infrastructure-state">Step 3: Tenant Infrastructure State</h3>
+<p>A second, separate Terraform state is initialized for dynamic tenant provisioning.</p>
+<p>State: <code>gs://cloudappdev-tf-state-dev/env/dev-tenants</code></p>
+<p>This state is managed automatically by the Provisioning Service at runtime. Keeping it separate from the base state prevents <code>terraform apply</code> on base infrastructure from accidentally deleting dynamically provisioned tenant resources.</p>
+<h3 id="step-4-container-registry-and-secrets">Step 4: Container Registry and Secrets</h3>
+<ul>
+<li>Docker images are pushed to <code>europe-west1-docker.pkg.dev/{project}/docker-repo/</code></li>
+<li>Database passwords, API keys (JWT, Firebase, SendGrid, Weather API), and service account keys are stored in Google Secret Manager</li>
+<li>The CI/CD pipeline retrieves these secrets and creates Kubernetes Secrets per namespace during deployment</li>
+</ul>
+<p>The following diagram illustrates how secrets and configuration data flow from their sources to the deployed services:</p>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\dataflow_diagram.drawio.svg" alt="Secret and Configuration Data Flow"></p>
+<h3 id="step-5-first-deployment">Step 5: First Deployment</h3>
+<p>The GitHub Actions pipeline (<code>build-and-push-dev.yml</code>) performs the initial deployment: builds all service images, pushes them to Artifact Registry, creates namespace secrets from Secret Manager, and deploys via Helm to <code>free</code>, <code>standard</code>, and <code>default</code> namespaces.</p>
+<p>After this, the platform is operational at <code>https://dev.cloudappdev.site</code>.</p>
+<hr>
+<h2 id="42-pipelines-and-release-of-new-features">4.2 Pipelines and Release of New Features</h2>
+<h3 id="branching-strategy">Branching Strategy</h3>
+<p>The project follows <strong>Git Flow</strong> with three branch types:</p>
+<pre><code>master (production) ← develop (staging) ← feature/* (development)
+</code></pre>
+<p><strong>Branch Types:</strong></p>
+<ul>
+<li><strong>Feature branches</strong> (<code>feature/*</code>): Created from <code>develop</code>, trigger CI/CD to dev environment, auto-version <code>0.0.BUILD_NUMBER</code></li>
+<li><strong>Develop branch</strong>: Integration branch, deploys to development cluster, may contain unstable features</li>
+<li><strong>Master branch</strong>: Production-ready code, semantic versioning <code>MAJOR.MINOR.PATCH</code>, requires manual approval</li>
+</ul>
+<p><strong>Rationale</strong>: Isolates production from active development while enabling rapid iteration in dev environment. Feature branches allow parallel development without conflicts.</p>
+<hr>
+<h3 id="cicd-pipeline-architecture">CI/CD Pipeline Architecture</h3>
+<p>The pipeline uses <strong>GitHub Actions + Terraform + Helm</strong> to automate builds and deployments with intelligent change detection.</p>
+<h4 id="pipeline-triggers">Pipeline Triggers</h4>
+<p><strong>Automatic Triggers:</strong></p>
+<ul>
+<li>Push to <code>develop</code> or <code>feature/*</code> branches</li>
+<li>Changes in application code (<code>app/**</code>, <code>services/**</code>, <code>nginx/**</code>, <code>Dockerfile</code>)</li>
+</ul>
+<p><strong>Manual Triggers:</strong></p>
+<ul>
+<li>Build all services</li>
+<li>Build specific service (dropdown selection)</li>
+</ul>
+<p><strong>Rationale</strong>: Selective builds reduce pipeline time by 60-80% by only building changed services. Manual triggers enable emergency deployments and testing.</p>
+<hr>
+<h4 id="pipeline-stages">Pipeline Stages</h4>
+<p><strong>1. Prepare Stage</strong></p>
+<ul>
+<li>Detect changed files using path filters</li>
+<li>Generate version number (<code>0.0.BUILD_NUMBER</code> for dev, <code>MAJOR.MINOR.PATCH</code> for prod)</li>
+<li>Create build matrix with services to build</li>
+<li>Generate short SHA for traceability</li>
+</ul>
+<p><strong>2. Build and Push Stage</strong></p>
+<ul>
+<li>Parallel Docker builds for all changed services (multi-stage builds for optimization)</li>
+<li>Tag images with <code>latest</code>, version number, and <code>sha-abc1234</code></li>
+<li>Push to Google Artifact Registry (europe-west1)</li>
+<li>Add metadata labels (version, environment, git SHA, service ID)</li>
+</ul>
+<p><strong>3. Deploy Stage</strong></p>
+<ul>
+<li>Authenticate to GKE cluster</li>
+<li>Retrieve secrets from Google Secret Manager (database credentials, API keys)</li>
+<li>Deploy services to tier-specific namespaces using Helm</li>
+<li>Apply tier-based resource limits (CPU, memory, replicas)</li>
+<li>Verify deployment health (rollout status, pod health checks)</li>
+</ul>
+<p><strong>Rationale</strong>: Three-stage pipeline ensures separation of concerns: analyze → build → deploy. Parallel builds maximize efficiency. Health checks prevent broken deployments reaching production.</p>
+<hr>
+<h3 id="multi-tenant-deployment-strategy">Multi-Tenant Deployment Strategy</h3>
+<p>Services deploy to different namespaces based on tenant tier:</p>
+<table>
+<thead>
+<tr>
+<th>Namespace</th>
+<th>Services Deployed</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>cloudappdev</strong></td>
+<td>Frontend, API Gateway</td>
+<td>Admin/primary namespace</td>
+</tr>
+<tr>
+<td><strong>free</strong></td>
+<td>All 5 services (shared)</td>
+<td>Free tier tenants share these pods</td>
+</tr>
+<tr>
+<td><strong>standard</strong></td>
+<td>All 5 services (shared)</td>
+<td>Standard tier tenants share these pods</td>
+</tr>
+<tr>
+<td><strong>default</strong></td>
+<td>Tenant Service, Travel Info, Provisioner</td>
+<td>Shared services for all tiers</td>
+</tr>
+<tr>
+<td><strong>enterprise-</strong>*</td>
+<td>All 5 services (dedicated)</td>
+<td>Each enterprise tenant gets own namespace</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tier-Based Resource Allocation:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>CPU</th>
+<th>Memory</th>
+<th>Replicas</th>
+<th>Autoscaling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Free</strong></td>
+<td>50m-200m</td>
+<td>64Mi-128Mi</td>
+<td>1</td>
+<td>Disabled</td>
+</tr>
+<tr>
+<td><strong>Standard</strong></td>
+<td>100m-500m</td>
+<td>128Mi-256Mi</td>
+<td>2-4</td>
+<td>Enabled</td>
+</tr>
+<tr>
+<td><strong>Enterprise</strong></td>
+<td>250m-1000m</td>
+<td>256Mi-512Mi</td>
+<td>3-10</td>
+<td>Enabled</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rationale</strong>: Free/Standard tiers share infrastructure to minimize costs (95% reduction vs dedicated). Enterprise tenants get isolated namespaces for performance and security. Resource limits prevent noisy neighbors and ensure fair usage.</p>
+<p><strong>Service Discovery</strong>: API Gateway routes requests to correct namespace via environment variables (<code>USER_NAMESPACE=${DEPLOYMENT_NAMESPACE}</code>). Shared services (travel-info, tenant-service) always route to <code>default</code> namespace.</p>
+<hr>
+<h3 id="environment-specific-deployment">Environment-Specific Deployment</h3>
+<p><strong>Development Environment:</strong></p>
+<ul>
+<li><strong>Trigger</strong>: Push to <code>develop</code> or <code>feature/*</code></li>
+<li><strong>Version</strong>: Auto-increment <code>0.0.BUILD_NUMBER</code></li>
+<li><strong>Namespaces</strong>: cloudappdev, free, standard</li>
+<li><strong>Duration</strong>: 10-15 minutes end-to-end</li>
+<li><strong>Benefits</strong>: Rapid feedback, early integration testing, no production impact</li>
+</ul>
+<p><strong>Production Environment:</strong></p>
+<ul>
+<li><strong>Trigger</strong>: Push to <code>master</code> (manual approval required)</li>
+<li><strong>Version</strong>: Semantic versioning with git tags</li>
+<li><strong>Namespaces</strong>: All (including enterprise)</li>
+<li><strong>Safety</strong>: Pre-deployment validation, health checks, automatic rollback on failure</li>
+<li><strong>Duration</strong>: 15-25 minutes with approval gates</li>
+</ul>
+<p><strong>Rationale</strong>: Separate clusters prevent development changes from affecting production. Automatic dev deployment enables fast iteration. Manual production approval adds safety gate for critical changes.</p>
+<hr>
+<h3 id="pipeline-optimizations">Pipeline Optimizations</h3>
+<p><strong>Build Optimizations:</strong></p>
+<ul>
+<li>Docker layer caching (50-70% faster builds)</li>
+<li>Multi-stage builds (image size reduced 300MB → 150MB)</li>
+<li>Parallel service builds</li>
+<li>Selective builds (only changed services)</li>
+</ul>
+<p><strong>Deployment Optimizations:</strong></p>
+<ul>
+<li>Helm release management (automatic cleanup of stuck releases)</li>
+<li>Idempotent namespace provisioning</li>
+<li>Rolling updates (zero-downtime deployments)</li>
+<li>Progressive rollout for production</li>
+</ul>
+<p><strong>Rationale</strong>: Optimizations reduce pipeline time from 30+ minutes to 10-15 minutes for typical changes. Faster feedback improves developer productivity. Zero-downtime deployments maintain service availability.</p>
+<hr>
+<h2 id="43-creation-of-new-tenants">4.3 Creation of New Tenants</h2>
+<h3 id="overview-1">Overview</h3>
+<p>Tenant provisioning is <strong>fully automated</strong> via the <strong>Provisioning Service</strong> (NestJS microservice). The process varies by tier:</p>
+<ul>
+<li><strong>Free/Standard</strong>: Lightweight provisioning (SSL + routing only)</li>
+<li><strong>Enterprise</strong>: Full infrastructure provisioning (dedicated namespace + databases + services)</li>
+</ul>
+<h3 id="tenant-creation-workflow">Tenant Creation Workflow</h3>
+<p>The following diagram illustrates the complete tenant registration and provisioning workflow:</p>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\diagrams\registration.drawio.svg" alt="Tenant Registration Process"></p>
+<hr>
+<h3 id="tenant-creation-workflow-1">Tenant Creation Workflow</h3>
+<p><strong>Phase 1: User Registration (Manual - ~5 minutes)</strong></p>
+<ol>
+<li><strong>Register Organization</strong>: User provides organization name and contact info</li>
+<li><strong>Choose Plan</strong>: Select tier (Free/Standard/Enterprise)</li>
+<li><strong>Specify Subdomain</strong>: User chooses subdomain (e.g., <code>acme-corp.dev.cloudappdev.site</code>)</li>
+<li><strong>Create Admin Credentials</strong>: Set password for admin account</li>
+</ol>
+<p><strong>Phase 2: Infrastructure Provisioning (Automatic - 2-15 minutes)</strong></p>
+<ol start="5">
+<li>
+<p><strong>Provision Infrastructure</strong>: Provisioning Service executes Terraform + Kubernetes deployments</p>
+<ul>
+<li>Updates <code>tenants.tfvars</code> with new tenant</li>
+<li>Runs <code>terraform apply</code> to create cloud resources</li>
+<li>Deploys Kubernetes resources (namespace or HTTPRoute)</li>
+</ul>
+</li>
+<li>
+<p><strong>Tier-Specific Provisioning</strong>:</p>
+<ul>
+<li><strong>Enterprise</strong>: Creates dedicated namespace with all services</li>
+<li><strong>Free/Standard</strong>: Creates HTTPRoute to shared namespace</li>
+</ul>
+</li>
+<li>
+<p><strong>Save Tenant Data</strong>: Stores tenant UUID and metadata in database</p>
+</li>
+<li>
+<p><strong>Create Admin User</strong>: Hashes password and associates with tenant ID</p>
+</li>
+</ol>
+<p><strong>Phase 3: User Onboarding (Manual - ~5 minutes)</strong></p>
+<ol start="9">
+<li><strong>Login</strong>: Admin user accesses tenant-specific subdomain</li>
+<li><strong>Configure Organization</strong>: Set organization settings and preferences</li>
+<li><strong>Invite Users</strong>: Additional users register on tenant subdomain</li>
+</ol>
+<p><strong>Rationale</strong>: Only ~10 minutes of manual user interaction required. All complex infrastructure provisioning (the time-consuming part) is fully automated, reducing time-to-market and eliminating human error.</p>
+<hr>
+<h3 id="tier-specific-provisioning">Tier-Specific Provisioning</h3>
+<h4 id="freestandard-tier-provisioning-2-minutes">Free/Standard Tier Provisioning (~2 minutes)</h4>
+<p><strong>Infrastructure Created via Terraform:</strong></p>
+<ul>
+<li>Cloudflare DNS record (subdomain)</li>
+<li>Google-managed SSL certificate</li>
+<li>Certificate mapping to load balancer</li>
+</ul>
+<p><strong>Kubernetes Resources Created:</strong></p>
+<ul>
+<li>HTTPRoute pointing to shared namespace services</li>
+<li>No dedicated pods, databases, or storage</li>
+</ul>
+<p><strong>Resource Usage</strong>: Shares existing pods in <code>free</code> or <code>standard</code> namespace. Tenant isolation via application-layer filtering (tenant ID).</p>
+<p><strong>Cost</strong>: ~€0/month (shared infrastructure)</p>
+<p><strong>Rationale</strong>: Lightweight provisioning enables unlimited free/standard tenants at near-zero marginal cost. Shared infrastructure maximizes resource utilization while HTTPRoute provides SSL and domain isolation.</p>
+<hr>
+<h4 id="enterprise-tier-provisioning-10-15-minutes">Enterprise Tier Provisioning (~10-15 minutes)</h4>
+<p><strong>Infrastructure Created via Terraform:</strong></p>
+<ul>
+<li>Cloudflare DNS record</li>
+<li>Google-managed SSL certificate</li>
+<li><strong>2× Cloud SQL PostgreSQL databases</strong> (users, itinerary)</li>
+<li><strong>Firestore database</strong> (social service)</li>
+<li><strong>Cloud Storage bucket</strong> (image uploads)</li>
+<li>Database credentials stored in Google Secret Manager</li>
+</ul>
+<p><strong>Kubernetes Resources Created:</strong></p>
+<ul>
+<li><strong>Dedicated namespace</strong> (<code>acme-corp</code>)</li>
+<li><strong>5 microservices deployed</strong>:
+<ul>
+<li>User Service (port 8080)</li>
+<li>Itinerary Service (port 8081)</li>
+<li>Social Service (port 8082)</li>
+<li>Frontend/Next.js (port 80)</li>
+<li>API Gateway/NGINX (port 8000)</li>
+</ul>
+</li>
+<li><strong>Kubernetes secrets</strong> (database URLs, JWT secrets, API keys)</li>
+<li><strong>HTTPRoute</strong> routing subdomain to namespace services</li>
+<li><strong>Autoscaling</strong> (2-20 replicas per service)</li>
+</ul>
+<p><strong>Cost</strong>: ~€150/month (dedicated infrastructure)</p>
+<p><strong>Rationale</strong>: Dedicated infrastructure provides performance isolation, scalability, and security for enterprise customers. Higher costs justified by premium pricing (€249+/month). Full namespace isolation enables custom configurations and SLA guarantees.</p>
+<hr>
+<h3 id="provisioning-service-implementation">Provisioning Service Implementation</h3>
+<p><strong>API Endpoint</strong>: <code>POST /provision-tenant</code></p>
+<p><strong>Execution Flow:</strong></p>
+<ol>
+<li><strong>Sanitize Tenant Name</strong>: Convert to lowercase, remove invalid characters</li>
+<li><strong>Update Terraform Config</strong>: Add tenant to <code>tenants.tfvars</code></li>
+<li><strong>Run Terraform Apply</strong>: Provision cloud resources (DNS, SSL, databases, storage)</li>
+<li><strong>Conditional Deployment</strong>:
+<ul>
+<li><strong>Enterprise</strong>: Deploy full namespace via Helm (5 services × Helm charts)</li>
+<li><strong>Free/Standard</strong>: Deploy HTTPRoute only via Helm</li>
+</ul>
+</li>
+<li><strong>Return Response</strong>: Success/failure with infrastructure details</li>
+</ol>
+<p><strong>Error Handling &amp; Rollback:</strong></p>
+<ul>
+<li><strong>Terraform Failure</strong>: Remove tenant from <code>tenants.tfvars</code> (no infrastructure created)</li>
+<li><strong>Kubernetes Failure</strong>: Remove tenant from <code>tenants.tfvars</code> (may leave orphaned cloud resources)</li>
+<li><strong>Retry Logic</strong>: Terraform state lock conflicts retry with 10-second backoff</li>
+<li><strong>Logging</strong>: All errors logged with full context (tenant ID, tier, stage, stack trace)</li>
+</ul>
+<p><strong>Rationale</strong>: Single API endpoint handles complex multi-step provisioning. Automatic rollback ensures clean state on failure. Retry logic handles transient errors. Comprehensive logging enables troubleshooting.</p>
+<hr>
+<h3 id="tier-comparison-summary">Tier Comparison Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Free</th>
+<th>Standard</th>
+<th>Enterprise</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Provisioning Time</strong></td>
+<td>~2 min</td>
+<td>~2 min</td>
+<td>~10-15 min</td>
+</tr>
+<tr>
+<td><strong>Infrastructure</strong></td>
+<td>SSL + DNS</td>
+<td>SSL + DNS</td>
+<td>SSL + DNS + DB + Storage + Namespace</td>
+</tr>
+<tr>
+<td><strong>Kubernetes</strong></td>
+<td>HTTPRoute only</td>
+<td>HTTPRoute only</td>
+<td>Dedicated namespace (5 services)</td>
+</tr>
+<tr>
+<td><strong>Database</strong></td>
+<td>Shared</td>
+<td>Shared</td>
+<td>Dedicated PostgreSQL + Firestore</td>
+</tr>
+<tr>
+<td><strong>Storage</strong></td>
+<td>Shared bucket</td>
+<td>Shared bucket</td>
+<td>Dedicated bucket</td>
+</tr>
+<tr>
+<td><strong>Namespace</strong></td>
+<td>Shared (<code>free</code>)</td>
+<td>Shared (<code>standard</code>)</td>
+<td>Dedicated (<code>tenantName</code>)</td>
+</tr>
+<tr>
+<td><strong>Replicas</strong></td>
+<td>1 (shared)</td>
+<td>1-5 (shared)</td>
+<td>2-20 (dedicated)</td>
+</tr>
+<tr>
+<td><strong>Resource Isolation</strong></td>
+<td>Application-level</td>
+<td>Application-level</td>
+<td>Namespace + infrastructure</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3 id="benefits-of-implementation">Benefits of Implementation</h3>
+<p><strong>1. Full Automation</strong>: Single API call provisions complete tenant infrastructure (no manual Terraform or kubectl commands)</p>
+<p><strong>2. Cost Optimization</strong>: Free/Standard tiers share infrastructure (95% cost reduction vs dedicated). Enterprise tier pays for dedicated resources.</p>
+<p><strong>3. Scalability</strong>: Can provision thousands of free/standard tenants. Enterprise tenants scale independently with autoscaling.</p>
+<p><strong>4. Security</strong>: Namespace isolation (Enterprise), unique database credentials, secrets stored in Secret Manager.</p>
+<p><strong>5. Reliability</strong>: Comprehensive rollback on failure, retry logic for transient errors, health checks verify successful deployment.</p>
+<p><strong>6. Developer Experience</strong>: Simple API, rich error messages, async processing.</p>
+<p><strong>7. Business Enablement</strong>: Freemium strategy (low-cost free tier), clear upgrade path (free → standard → enterprise), resource accountability per tier.</p>
+<hr>
+<h3 id="summary">Summary</h3>
+<p><strong>CI/CD Pipeline</strong>: Intelligent build system that only builds changed services, deploys to tier-specific namespaces with appropriate resource limits, and verifies health before completion. Development pipeline provides rapid feedback (10-15 min), production pipeline adds safety gates.</p>
+<p><strong>Tenant Provisioning</strong>: Fully automated infrastructure provisioning that adapts to tenant tier. Free/Standard tenants provision in ~2 minutes with shared infrastructure. Enterprise tenants provision in ~10-15 minutes with dedicated infrastructure. Only ~10 minutes of manual user interaction required for complete onboarding.</p>
+<h3 id="service-health-monitoring">Service Health Monitoring</h3>
+<p>All microservices expose a <code>/health</code> endpoint that returns service status. GKE uses these for Kubernetes probes:</p>
+<table>
+<thead>
+<tr>
+<th>Probe</th>
+<th>Purpose</th>
+<th>Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Startup Probe</strong></td>
+<td>Waits for service initialization</td>
+<td>HTTP GET <code>/health</code>, failure threshold 30, period 10s</td>
+</tr>
+<tr>
+<td><strong>Liveness Probe</strong></td>
+<td>Restarts unresponsive pods</td>
+<td>HTTP GET <code>/health</code>, failure threshold 3, period 30s</td>
+</tr>
+<tr>
+<td><strong>Readiness Probe</strong></td>
+<td>Removes pod from traffic if unhealthy</td>
+<td>HTTP GET <code>/health</code>, failure threshold 3, period 10s</td>
+</tr>
+</tbody>
+</table>
+<p>The API Gateway also exposes a <code>/health</code> endpoint that verifies its own availability.</p>
+<h3 id="cicd-pipeline-monitoring">CI/CD Pipeline Monitoring</h3>
+<p>The GitHub Actions pipeline provides deployment-level observability:</p>
+<ul>
+<li>Build status per service (success/failure/skipped)</li>
+<li>Deployment rollout verification via <code>kubectl rollout status</code></li>
+<li>Pod health checks after each deployment</li>
+<li>Helm release status tracking with stuck release detection and cleanup</li>
+</ul>
+<h2 id="5-performance-testing">5. Performance Testing</h2>
+<h3 id="51-test-approach-and-modifications">5.1 Test Approach and Modifications</h3>
+<p>The standardized test guideline (Periodic + Once-in-a-Lifetime Workload) was adapted for this phase: Instead of maximizing individual load scenarios, a <strong>unified, moderate load across three infrastructure setups</strong> was compared. This optimizes costs (Firebase quotas, DB operations) and focuses on practical infrastructure assessment.</p>
+<p><strong>Unified Test Profile</strong>:</p>
+<ul>
+<li>Ramp: 10 users (warmup) → 1000 users over 5 minutes → 2 minutes at peak</li>
+<li>Total duration: 7 minutes</li>
+<li>Spawn rate: ~3 users/sec (200/min, below Firebase 400/min limit)</li>
+<li>Framework: Locust (Python), Target: <a href="https://iii.dev.cloudappdev.site">https://iii.dev.cloudappdev.site</a></li>
+</ul>
+<hr>
+<h2 id="52-test-setup-architecture-and-transaction-mix">5.2 Test Setup: Architecture and Transaction Mix</h2>
+<p><strong>Microservice Stack</strong>: Next.js Frontend → Nginx Gateway → User/Itinerary/Social/Travel-Info Microservices → MongoDB/PostgresDBs</p>
+<p><strong>Transaction Mix</strong> (identical across all 3 tests):</p>
+<ul>
+<li>Search Itineraries (40%, Weight 3): Primary activity</li>
+<li>View Itinerary (26%, Weight 2): Display details</li>
+<li>Create Itinerary (26%, Weight 2): Create new travel plans</li>
+<li>Comments &amp; Likes (8%, Weight 1 each): Social features</li>
+</ul>
+<p><strong>User Initialization</strong>: Dynamic registration with Firebase Auth (max ~400 reg/min rate-limit), then login, then transactions weighted by task distribution.</p>
+<p><strong>Initialization Data</strong>: Minimal (max. 50-100 predefined itineraries); test creates new users/comments at runtime.</p>
+<hr>
+<h2 id="53-test-results-and-infrastructure-comparison">5.3 Test Results and Infrastructure Comparison</h2>
+<h3 id="metrics-summary">Metrics Summary</h3>
+<p><strong>Free-Tier Results</strong> (from Locust test):</p>
+<ul>
+<li>Failures begin around ~300  users</li>
+<li>High failure ratio: 15496 failures / 11496 requests</li>
+<li>Mechanism: Resource exhaustion or rate limiting at low concurrency</li>
+</ul>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\test_results\free.png" alt="Free-Tier Test Results"></p>
+<p><strong>Standard-Tier Results</strong> (from Locust test):</p>
+<ul>
+<li>Stable and error-free up to ~600  users</li>
+<li>Errors begin increasing after 600 users</li>
+<li>High error ratio only reached after 1000+ users at sustained load</li>
+</ul>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\test_results\standard.png" alt="Standard-Tier Test Results"></p>
+<p><strong>Enterprise-Tier Results</strong> (from Locust test):</p>
+<ul>
+<li>No failures observed across entire test duration</li>
+<li>Response times increase under load but no error conditions</li>
+<li>Continues accepting and processing all requests</li>
+</ul>
+<p><img src="file:///d:\GitHub\CloudAppDev\docs\test_results\enterprise.png" alt="Enterprise-Tier Test Results"></p>
+<hr>
+<h2 id="54-bottleneck-analysis">5.4 Bottleneck Analysis</h2>
+<h3 id="test-results-by-tier">Test Results by Tier:</h3>
+<p><strong>Free-Tier Failure Pattern</strong> (Locust data):</p>
+<ul>
+<li>Fails early at ~300 concurrent users with systematic high failure rate</li>
+<li>Hard limit: Once concurrency exceeds capacity, majority of requests fail</li>
+<li>Likely bottleneck: Resource exhaustion (connection pool, memory, or request queue)</li>
+</ul>
+<p><strong>Standard-Tier Degradation Pattern</strong> (Locust data):</p>
+<ul>
+<li>Remains stable up to ~600 concurrent users</li>
+<li>Failures emerge gradually between 600-1000 users</li>
+<li>High error ratio only after sustained load at 1000+ users</li>
+<li>Soft limit: System degrades gracefully rather than catastrophic failure</li>
+<li>visible dips where ressources are horizontally balanced</li>
+</ul>
+<p><strong>Enterprise-Tier Stability Pattern</strong> (Locust data):</p>
+<ul>
+<li>Zero failures across entire test duration (up to 1000+ concurrent users)</li>
+<li>No hard limit encountered in test scope</li>
+<li>Performance impact: Increased response times only, no error conditions</li>
+</ul>
+<hr>
+<h2 id="55-summary">5.5 Summary</h2>
+<h3 id="key-findings-from-test-data">Key Findings from Test Data:</h3>
+<ol>
+<li><strong>Free-Tier</strong>: Hard limit at ~300 concurrent users - majority of requests fail beyond this point</li>
+<li><strong>Standard-Tier</strong>: Soft limit around 600-1000 concurrent users - gradual error increase until defined limit of ressources is reached, not catastrophic</li>
+<li><strong>Enterprise-Tier</strong>: No observable limit within test scope - stable with graceful performance degradation</li>
+</ol>
+<h3 id="what-this-means">What This Means:</h3>
+<ul>
+<li><strong>Scaling behavior differs by tier</strong>: Free fails suddenly, Standard fails gradually, Enterprise doesn't fail</li>
+<li><strong>Failure mode differences suggest different bottleneck types</strong>:
+<ul>
+<li>Free-Tier likely hits connection/resource pool hard limit</li>
+<li>Standard-Tier hits soft resource limit allowing gradual degradation</li>
+<li>Enterprise-Tier has sufficient resources for test scope</li>
+</ul>
+</li>
+<li><strong>Infrastructure investment provides linear scaling improvement</strong>: Each tier handles roughly 2-3x more users before failures</li>
+</ul>
+<h1 id="6-commercial-aspects">6. Commercial Aspects</h1>
+<h2 id="61-tenant-types">6.1 Tenant Types</h2>
+<p>The platform implements a B2B SaaS multi-tenancy model with three tiers that differ in functional capabilities, resource thresholds, and isolation levels.</p>
+<h3 id="tenant-type-overview">Tenant Type Overview</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Free</th>
+<th>Standard</th>
+<th>Enterprise</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Namespace</strong></td>
+<td>Shared (<code>free</code>)</td>
+<td>Shared (<code>standard</code>)</td>
+<td>Dedicated per tenant</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL</strong></td>
+<td>Shared (logical isolation)</td>
+<td>Shared (logical isolation)</td>
+<td>Dedicated instances</td>
+</tr>
+<tr>
+<td><strong>MongoDB</strong></td>
+<td>Shared collections</td>
+<td>Shared collections</td>
+<td>Dedicated database</td>
+</tr>
+<tr>
+<td><strong>Cloud Storage</strong></td>
+<td>Shared bucket</td>
+<td>Dedicated bucket</td>
+<td>Dedicated bucket</td>
+</tr>
+<tr>
+<td><strong>Compute Pods</strong></td>
+<td>Shared replicas</td>
+<td>Shared with priority</td>
+<td>Dedicated pods (2-20)</td>
+</tr>
+<tr>
+<td><strong>Domain</strong></td>
+<td>{name}.cloudappdev.site</td>
+<td>{name}.cloudappdev.site</td>
+<td>Custom or {name}.cloudappdev.site</td>
+</tr>
+</tbody>
+</table>
+<h3 id="functional-capabilities">Functional Capabilities</h3>
+<p><strong>Free Tier:</strong></p>
+<ul>
+<li>Max 3 itineraries, 5 users, 100 comments</li>
+<li>500MB storage, 10K API requests/day</li>
+<li>No newsletter, best-effort availability</li>
+<li>Community support only</li>
+</ul>
+<p><strong>Standard Tier:</strong></p>
+<ul>
+<li>50 itineraries, 20 users, unlimited comments</li>
+<li>2GB storage, 300K API requests/month</li>
+<li>Newsletter enabled</li>
+<li>Email support, 99.5% SLA, daily backups</li>
+<li>Limited customization</li>
+</ul>
+<p><strong>Enterprise Tier:</strong></p>
+<ul>
+<li>Unlimited itineraries and users</li>
+<li>100GB storage, 1M API requests/month</li>
+<li>Unlimited newsletter recipients</li>
+<li>Dedicated support, 99.9% SLA</li>
+<li>Full customization</li>
+</ul>
+<h3 id="thresholds">Thresholds</h3>
+<p><strong>Compute Resources:</strong></p>
+<ul>
+<li>Free: CPU 50-200m, Memory 128-256Mi</li>
+<li>Standard: CPU 100-500m, Memory 256-512Mi</li>
+<li>Enterprise: CPU 500-2000m, Memory 1-2Gi</li>
+</ul>
+<p><strong>API Rate Limits:</strong></p>
+<ul>
+<li>Free: 100 req/min burst, 10K/day (hard limit)</li>
+<li>Standard: 300K/month included</li>
+<li>Enterprise: 1M/month included</li>
+</ul>
+<p><strong>Storage Caps:</strong></p>
+<ul>
+<li>Free: 500MB (hard limit)</li>
+<li>Standard: 2GB included</li>
+<li>Enterprise: 100GB included</li>
+</ul>
+<h3 id="isolation">Isolation</h3>
+<p><strong>Data Isolation:</strong></p>
+<ul>
+<li>Free/Standard: Logical isolation via <code>tenant_id</code> column in shared databases</li>
+<li>Enterprise: Physical isolation with dedicated PostgreSQL instances and MongoDB databases</li>
+</ul>
+<p><strong>Network Isolation:</strong></p>
+<ul>
+<li>Free/Standard: No network isolation (shared namespace)</li>
+<li>Enterprise: Kubernetes NetworkPolicies restrict cross-namespace traffic, dedicated endpoints</li>
+</ul>
+<p><strong>Resource Isolation:</strong></p>
+<ul>
+<li>Free/Standard: Shared compute resources with quotas</li>
+<li>Enterprise: Dedicated CPU/memory limits per namespace, isolated Cloud SQL instances</li>
+</ul>
+<h3 id="provisioning">Provisioning</h3>
+<p>Tenants are provisioned via Infrastructure-Provisioner Service:</p>
+<ul>
+<li>Free/Standard: Automatic provisioning (sub-minute)</li>
+<li>Enterprise: Terraform-based provisioning (5-10 minutes), dedicated namespace deployment</li>
+</ul>
+<h2 id="62-pricing-model">6.2 Pricing Model</h2>
+<h3 id="free-tier---000-month">Free Tier - 0.00 €/month</h3>
+<p><strong>Target Market</strong>: Hobbyists, personal projects, product evaluation</p>
+<p><strong>Included Resources</strong>:</p>
+<ul>
+<li>Custom subdomain (e.g., <code>mytravel.dev.cloudappdev.site</code>)</li>
+<li>3 travel itineraries (routes)</li>
+<li>5 user accounts per tenant</li>
+<li>500MB image storage</li>
+<li>10,000 API requests/day (300K/month)</li>
+<li>100 comments, unlimited likes</li>
+<li>Community support (documentation only)</li>
+<li>Weekly backups, 90-day data retention</li>
+<li>No SLA (best-effort availability)</li>
+</ul>
+<p><strong>Compute Resources</strong>: Shared pool (CPU: 50m-200m, Memory: 128-256Mi)</p>
+<p><strong>Rationale</strong>: Serves as product demo and viral marketing channel. Minimal marginal cost (~0.72 €/tenant/month) enables large user base for conversion funnel. Target 5-10% conversion to paid tiers.</p>
+<p><strong>Quota Enforcement</strong>: Hard limits at application layer. When exceeded, users see upgrade prompts with blocked functionality (HTTP 402 for storage, HTTP 429 for API rate limits).</p>
+<hr>
+<h3 id="standard-tier---1999-month-base-fee">Standard Tier - 19.99 €/month (Base Fee)</h3>
+<p><strong>Target Market</strong>: Power users, frequent travelers, small teams</p>
+<p><strong>Pricing Structure</strong>: Hybrid (Fixed base + usage-based overages)</p>
+<p><strong>Base Fee (19.99 €/month) Includes</strong>:</p>
+<ul>
+<li>50 routes (itineraries)</li>
+<li>20 user accounts</li>
+<li>2GB image storage</li>
+<li>300,000 API requests/month</li>
+<li>Newsletter functionality (SendGrid integration)</li>
+<li>Priority email support (24-48h response)</li>
+<li>Daily backups, 2-year retention</li>
+<li>99.5% uptime SLA</li>
+</ul>
+<p><strong>Usage-Based Pricing (Beyond Base Quotas)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Overage Pricing</th>
+<th>Monthly Cap</th>
+<th>Calculation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Storage</strong></td>
+<td>0.05 € per GB</td>
+<td>10.00 € (at 202GB)</td>
+<td>Daily average × 0.05 €/GB</td>
+</tr>
+<tr>
+<td><strong>API Requests</strong></td>
+<td>0.10 € per 1,000 requests</td>
+<td>50.00 €</td>
+<td>(Total - 300K) × 0.0001 €</td>
+</tr>
+<tr>
+<td><strong>Newsletter</strong></td>
+<td>0.01 € per recipient</td>
+<td>10.00 € (1,000 recipients)</td>
+<td>Recipients × 0.01 €</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total Monthly Range</strong>: 19.99 € - 89.99 € (with all caps applied)</p>
+<p><strong>Compute Resources</strong>: CPU 100-500m, Memory 256-512Mi, 1-5 autoscaling replicas</p>
+<p><strong>Rationale</strong>: Base fee of 19.99 € covers infrastructure costs with 25-28% margin on typical usage. Usage-based pricing aligns costs with customer value and prevents abuse. Caps protect customers from bill shock while maintaining profitability.</p>
+<p><strong>Metering</strong>: Real-time via Google Cloud Monitoring (storage: daily snapshots, API requests: counter per request, newsletter: SendGrid webhooks)</p>
+<hr>
+<h3 id="enterprise-tier---from-24900-month">Enterprise Tier - From 249.00 €/month</h3>
+<p><strong>Target Market</strong>: Travel agencies, tour operators, corporate teams, white-label partners</p>
+<p><strong>Pricing Structure</strong>: Custom quote based on requirements</p>
+<p><strong>Base Configuration (249 €/month)</strong>:</p>
+<ul>
+<li>Dedicated Kubernetes namespace</li>
+<li>Dedicated PostgreSQL databases (2 instances)</li>
+<li>Dedicated Firestore database</li>
+<li>Dedicated Cloud Storage bucket</li>
+<li>100GB storage included</li>
+<li>1,000,000 API requests/month included</li>
+<li>Unlimited routes and users</li>
+<li>Custom subdomain or BYOD (Bring Your Own Domain)</li>
+<li>99.9% uptime SLA</li>
+<li>Dedicated support (4-hour response)</li>
+<li>Daily backups + point-in-time recovery</li>
+</ul>
+<p><strong>Add-On Pricing</strong>:</p>
+<ul>
+<li>Additional storage: 0.03 € per GB/month (bulk discount vs Standard)</li>
+<li>Additional compute node: 50 €/month</li>
+<li>Dedicated node pool: 150 €/month</li>
+<li>White-label branding: 1,000 € one-time setup</li>
+<li>Multi-region deployment: 200 €/month per region</li>
+<li>Professional services: 150 €/hour</li>
+</ul>
+<p><strong>Typical Configurations</strong>:</p>
+<ul>
+<li>Small (249-350 €/month): 50-100 users, 100GB storage, 1M API requests</li>
+<li>Medium (350-600 €/month): 100-500 users, 250GB storage, 5M requests, custom integrations</li>
+<li>Large (600-1,500 €/month): 500+ users, 1TB storage, 20M+ requests, multi-region, dedicated support</li>
+</ul>
+<p><strong>Compute Resources</strong>: CPU 500m-2000m, Memory 1-2Gi per service, 2-20 autoscaling replicas</p>
+<p><strong>Contract Terms</strong>: 6-month minimum commitment, 500 € setup fee (waived for annual contracts)</p>
+<p><strong>Rationale</strong>: Value-based pricing reflecting dedicated infrastructure and premium features. Base pricing at €249 achieves 22% margin with optimized configuration. Typical customers at €399-699/month reach 30-40% margins. Custom pricing enables negotiation for large contracts while protecting profitability.</p>
+<hr>
+<h3 id="pricing-parameter-definitions">Pricing Parameter Definitions</h3>
+<h4 id="storage-calculation">Storage Calculation</h4>
+<pre><code>Monthly Storage Cost = Base Fee + (Total GB - Included GB) × Price per GB
+
+Free Tier:     Hard cap at 500MB (no overage allowed)
+Standard Tier: (Total GB - 2GB) × 0.05 €/GB (if Total GB &gt; 2GB)
+Enterprise Tier: (Total GB - 100GB) × 0.03 €/GB (if Total GB &gt; 100GB)
+</code></pre>
+<p><strong>Measurement</strong>: Monthly average from daily snapshots. Includes all Cloud Storage images. Deleted files removed within 24 hours. No versioning.</p>
+<h4 id="api-request-calculation">API Request Calculation</h4>
+<pre><code>Monthly API Cost = (Total Requests - Included Requests) × Price per Request
+
+Free Tier:     Hard cap at 300K/month (rate limited at 10,000/day)
+Standard Tier: (Total - 300K) × 0.0001 €/request (if Total &gt; 300K)
+Enterprise Tier: (Total - 1M) × 0.00005 €/request (if Total &gt; 1M)
+</code></pre>
+<p><strong>What Counts as API Request</strong>:</p>
+<ul>
+<li>✅ All backend HTTP requests (GET, POST, PUT, DELETE)</li>
+<li>✅ Frontend API calls (itineraries, comments, likes, user profiles)</li>
+<li>✅ Image uploads/downloads</li>
+<li>✅ Authentication requests</li>
+<li>❌ Static asset serving (CDN cached)</li>
+<li>❌ Health checks</li>
+<li>❌ Internal service-to-service calls</li>
+</ul>
+<p><strong>Metering</strong>: Counted at NGINX API Gateway, logged to Cloud Monitoring, aggregated per tenant ID.</p>
+<hr>
+<h3 id="tier-comparison-summary-1">Tier Comparison Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Free</th>
+<th>Standard</th>
+<th>Enterprise</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Price</strong></td>
+<td>0 €</td>
+<td>19.99 €/mo</td>
+<td>249+ €/mo</td>
+</tr>
+<tr>
+<td><strong>Routes</strong></td>
+<td>3</td>
+<td>50</td>
+<td>Unlimited</td>
+</tr>
+<tr>
+<td><strong>Users</strong></td>
+<td>5</td>
+<td>20</td>
+<td>Unlimited</td>
+</tr>
+<tr>
+<td><strong>Storage</strong></td>
+<td>500MB</td>
+<td>2GB + overages</td>
+<td>100GB + overages</td>
+</tr>
+<tr>
+<td><strong>API Requests</strong></td>
+<td>300K/mo</td>
+<td>300K/mo + overages</td>
+<td>1M/mo + overages</td>
+</tr>
+<tr>
+<td><strong>Newsletter</strong></td>
+<td>Disabled</td>
+<td>0.01 €/recipient</td>
+<td>Unlimited</td>
+</tr>
+<tr>
+<td><strong>CPU</strong></td>
+<td>50-200m</td>
+<td>100-500m</td>
+<td>500-2000m</td>
+</tr>
+<tr>
+<td><strong>Memory</strong></td>
+<td>128-256Mi</td>
+<td>256-512Mi</td>
+<td>1-2Gi</td>
+</tr>
+<tr>
+<td><strong>Replicas</strong></td>
+<td>1 (shared)</td>
+<td>1-5</td>
+<td>2-20</td>
+</tr>
+<tr>
+<td><strong>SLA</strong></td>
+<td>None</td>
+<td>99.5%</td>
+<td>99.9%</td>
+</tr>
+<tr>
+<td><strong>Support</strong></td>
+<td>Community</td>
+<td>Email (24-48h)</td>
+<td>Dedicated (4h)</td>
+</tr>
+<tr>
+<td><strong>Backups</strong></td>
+<td>Weekly</td>
+<td>Daily</td>
+<td>Daily + PITR</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="63-cost-model">6.3 Cost Model</h2>
+<h3 id="shared-infrastructure-costs-monthly">Shared Infrastructure Costs (Monthly)</h3>
+<p>These fixed costs serve all tenants regardless of tier:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Monthly Cost</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GKE Cluster</strong></td>
+<td>170.31 €</td>
+<td>Control plane (72 €) + 3 nodes (72.81 €) + disks (25.50 €)</td>
+</tr>
+<tr>
+<td><strong>Networking</strong></td>
+<td>35.06 €</td>
+<td>Load balancer (18.26 €) + SSL (free) + egress (16.80 €)</td>
+</tr>
+<tr>
+<td><strong>Shared Services</strong></td>
+<td>15.75 €</td>
+<td>Tenant service (3.50 €) + Travel info (3.50 €) + Provisioning (8.75 €)</td>
+</tr>
+<tr>
+<td><strong>Monitoring &amp; Logging</strong></td>
+<td>18.10 €</td>
+<td>Cloud Monitoring (12.90 €) + Logging (5.00 €) + Errors (0.20 €)</td>
+</tr>
+<tr>
+<td><strong>Shared Databases</strong></td>
+<td>17.84 €</td>
+<td>PostgreSQL users (7.67 €) + itinerary (7.67 €) + backups (2.50 €)</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>257.06 €</strong></td>
+<td>Allocated across all paying customers</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Allocation Strategy</strong>: Shared costs divided equally among Standard and Enterprise tenants. Free tier excluded from allocation to minimize friction.</p>
+<hr>
+<h3 id="per-tenant-costs-by-tier">Per-Tenant Costs by Tier</h3>
+<h4 id="free-tier---072-tenantmonth">Free Tier - 0.72 €/tenant/month</h4>
+<p><strong>Marginal Cost Breakdown</strong>:</p>
+<ul>
+<li>Compute (shared pool): 0.50 €/month (50m CPU, 128Mi memory amortized)</li>
+<li>Storage (500MB max): 0.063 €/month (0.013 € Cloud Storage + 0.05 € database)</li>
+<li>Bandwidth (~0.5GB): 0.06 €/month</li>
+<li>Monitoring: 0.10 €/month</li>
+</ul>
+<p><strong>Rationale</strong>: Near-zero marginal cost enables large user base. Main cost is opportunity cost of shared resources. Break-even requires 4% conversion rate to Standard tier.</p>
+<p><strong>Scenarios</strong>:</p>
+<ul>
+<li><strong>Best Case</strong> (100 tenants): 72 €/month cost, 10% conversion = 10 Standard = 199.90 € revenue → ✅ Profitable</li>
+<li><strong>Average Case</strong> (500 tenants): 360 €/month cost, 5% conversion = 25 Standard = 499.75 € revenue → ✅ Profitable</li>
+<li><strong>Worst Case</strong> (1,000 tenants): 720 €/month cost, 2% conversion = 20 Standard = 399.80 € revenue → ❌ Loss (320 €/month)</li>
+</ul>
+<p><strong>Risk Mitigation</strong>: Monitor conversion rates closely. If &lt;4%, tighten quotas or implement time-based limits (e.g., 90-day trial).</p>
+<hr>
+<h4 id="standard-tier---3015-tenantmonth-total-cost">Standard Tier - 30.15 €/tenant/month total cost</h4>
+<p><strong>Direct Cost Breakdown</strong>:</p>
+<ul>
+<li>Compute (shared replicas): 18.00 €/month (5 services × dedicated resources during peaks)</li>
+<li>Storage (2GB base): 0.052 €/month</li>
+<li>Database (shared): 1.53 €/month (10% allocation of shared PostgreSQL)</li>
+<li>Bandwidth (~5GB): 0.60 €/month</li>
+<li>Monitoring: 3.08 €/month (logs + custom metrics)</li>
+<li>Support (email): 2.00 €/month (amortized)</li>
+<li><strong>Direct Subtotal</strong>: 25.21 €/month</li>
+</ul>
+<p><strong>Allocated Infrastructure</strong>: 4.94 €/month (assuming 50 Standard + 2 Enterprise tenants share 257.06 €)</p>
+<p><strong>Total Cost</strong>: 30.15 €/month</p>
+<p><strong>Revenue Analysis</strong>:</p>
+<ul>
+<li>Base fee only: 19.99 €/month → <strong>❌ Loss of 10.16 €/month</strong></li>
+<li>With avg overages (7 €/mo): 26.99 €/month → <strong>❌ Loss of 3.16 €/month</strong></li>
+<li>With typical usage (17 €/mo overage): 36.99 €/month → <strong>✅ Profit 6.84 €/month (23% margin)</strong></li>
+<li>With high usage (55 €/mo overage): 74.99 €/month → <strong>✅ Profit 44.84 €/month (60% margin)</strong></li>
+</ul>
+<p><strong>Scenarios</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Revenue</th>
+<th>Cost</th>
+<th>Margin</th>
+<th>Likelihood</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Worst</strong> (no overage)</td>
+<td>19.99 €</td>
+<td>30.15 €</td>
+<td>-10.16 € (-34%)</td>
+<td>15% of users</td>
+</tr>
+<tr>
+<td><strong>Average</strong> (moderate usage)</td>
+<td>36.99 €</td>
+<td>30.15 €</td>
+<td>6.84 € (23%)</td>
+<td>60% of users</td>
+</tr>
+<tr>
+<td><strong>Best</strong> (high usage)</td>
+<td>74.99 €</td>
+<td>30.15 €</td>
+<td>44.84 € (60%)</td>
+<td>25% of users</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Weighted Average</strong>: (0.15 × -10.16 €) + (0.60 × 6.84 €) + (0.25 × 44.84 €) = <strong>13.94 €/month profit (38% margin)</strong></p>
+<p><strong>Rationale</strong>: Base price of 19.99 € deliberately set below full cost recovery to maintain competitive positioning and psychological pricing (sub-20 €). Profitability depends on usage-based revenue, which aligns incentives: higher usage = more customer value = more revenue. Average customer achieves 23% margin.</p>
+<p><strong>Break-Even</strong>: Requires 10.16 € in monthly overages (achievable with typical usage patterns: 5GB storage overage + 100K extra API calls + 200 newsletter recipients = 0.25 € + 10 € + 2 € = 12.25 €).</p>
+<hr>
+<h4 id="enterprise-tier---38466-tenantmonth-ongoing">Enterprise Tier - 384.66 €/tenant/month (ongoing)</h4>
+<p><strong>Direct Cost Breakdown</strong>:</p>
+<ul>
+<li>Compute (dedicated): 202.50 €/month (2 replicas per service × 5 services)
+<ul>
+<li>Frontend: 2 × (500m CPU, 1Gi memory) = 45 €</li>
+<li>User Service: 2 × (500m CPU, 1Gi memory) = 45 €</li>
+<li>Itinerary Service: 2 × (500m CPU, 1Gi memory) = 45 €</li>
+<li>Social Service: 2 × (500m CPU, 1Gi memory) = 45 €</li>
+<li>API Gateway: 2 × (250m CPU, 512Mi memory) = 22.50 €</li>
+</ul>
+</li>
+<li>Databases (dedicated): 105.66 €/month
+<ul>
+<li>Users DB: db-n1-standard-1 = 45.33 €</li>
+<li>Itinerary DB: db-n1-standard-1 = 45.33 €</li>
+<li>Firestore: Dedicated database = 10.00 €</li>
+<li>Backups: 7-day retention = 5.00 €</li>
+</ul>
+</li>
+<li>Storage (100GB): 2.60 €/month</li>
+<li>Networking (~50GB egress): 6.00 €/month</li>
+<li>Monitoring (dedicated): 17.90 €/month (logs + dashboards)</li>
+<li>Support (dedicated): 50.00 €/month (fractional CSM allocation)</li>
+<li><strong>Total Ongoing</strong>: 384.66 €/month</li>
+</ul>
+<p><strong>First-Year Cost</strong>: 426.33 €/month (includes 41.67 €/month amortized provisioning setup fee)</p>
+<p><strong>Revenue Analysis at Base Pricing (249 €/month)</strong>:</p>
+<ul>
+<li>Base fee: 249 €/month</li>
+<li>Typical add-ons: 50 €/month (storage overages, custom features)</li>
+<li><strong>Total Revenue</strong>: 299 €/month</li>
+<li><strong>Margin</strong>: 299 € - 384.66 € = <strong>❌ Loss of 85.66 €/month (-22%)</strong></li>
+</ul>
+<p><strong>Break-Even Price</strong>: 384.66 €/month<br>
+<strong>Target Price for 30% Margin</strong>: 384.66 € / 0.70 = <strong>549.51 €/month</strong></p>
+<p><strong>Scenarios</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Monthly Cost</th>
+<th>Revenue</th>
+<th>Margin</th>
+<th>Recommendation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Optimized</strong> (1 replica, db-f1-micro)</td>
+<td>245.33 €</td>
+<td>249 € base</td>
+<td>3.67 € (1.5%)</td>
+<td>Minimum viable</td>
+</tr>
+<tr>
+<td><strong>Standard</strong> (2 replicas, db-n1-standard-1)</td>
+<td>384.66 €</td>
+<td>399 € adjusted</td>
+<td>14.34 € (3.7%)</td>
+<td>Requires price increase</td>
+</tr>
+<tr>
+<td><strong>Premium</strong> (2 replicas + add-ons)</td>
+<td>384.66 €</td>
+<td>549 € target</td>
+<td>164.34 € (30%)</td>
+<td>Ideal target</td>
+</tr>
+<tr>
+<td><strong>High-Scale</strong> (10 replicas, peak usage)</td>
+<td>1,192.50 €</td>
+<td>249 € base</td>
+<td>-943.50 € (-79%)</td>
+<td>⚠️ Risk scenario</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rationale</strong>:</p>
+<ul>
+<li>Base price of 249 € is <strong>strategically underpriced</strong> to compete with market and secure enterprise deals</li>
+<li>Requires either: (1) infrastructure optimization (smaller databases, fewer replicas) OR (2) price adjustment to 399-549 €</li>
+<li>High-scale risk mitigated through resource quotas and autoscaling limits configured per contract</li>
+<li>Profitability achieved through add-ons (white-label, multi-region, professional services)</li>
+</ul>
+<p><strong>Recommended Strategy</strong>:</p>
+<ol>
+<li>Set base configuration as <strong>optimized</strong> (1 replica, db-f1-micro) at 249 € → 1.5% margin</li>
+<li>Offer <strong>standard configuration</strong> (2 replicas, db-n1-standard-1) at 399 € → 3.7% margin</li>
+<li>Upsell <strong>premium features</strong> (multi-region, white-label) to reach 549+ € → 30% margin</li>
+<li>Reserve <strong>high-scale configurations</strong> for custom quotes only (800-1,500 €/month range)</li>
+</ol>
+<hr>
+<h3 id="aggregate-cost-scenarios">Aggregate Cost Scenarios</h3>
+<h4 id="scenario-1-early-stage-0-6-months">Scenario 1: Early Stage (0-6 months)</h4>
+<p><strong>Customer Mix</strong>:</p>
+<ul>
+<li>500 Free tenants</li>
+<li>20 Standard tenants</li>
+<li>1 Enterprise tenant</li>
+</ul>
+<p><strong>Monthly Costs</strong>:</p>
+<ul>
+<li>Shared infrastructure: 257.06 €</li>
+<li>Free tier: 500 × 0.72 € = 360.00 €</li>
+<li>Standard tier: 20 × 30.15 € = 603.00 €</li>
+<li>Enterprise tier: 1 × 426.33 € = 426.33 €</li>
+<li><strong>Total</strong>: 1,646.39 €/month</li>
+</ul>
+<p><strong>Monthly Revenue</strong>:</p>
+<ul>
+<li>Free: €0
+<ul>
+<li>Standard: 20 × 36.99 € (with avg overages) = 739.80 €</li>
+<li>Enterprise: 1 × 299 € = 299.00 €</li>
+<li><strong>Total</strong>: 1,038.80 €/month</li>
+</ul>
+</li>
+</ul>
+<p><strong>Result</strong>: <strong>❌ Loss of 607.59 €/month (-37% margin)</strong></p>
+<p><strong>Break-Even Requirements</strong>: Need 3 more Enterprise tenants OR 35 more Standard tenants (with average overages)</p>
+<hr>
+<h4 id="scenario-2-growth-stage-6-18-months">Scenario 2: Growth Stage (6-18 months)</h4>
+<p><strong>Customer Mix</strong>:</p>
+<ul>
+<li>200 Free tenants (reduced through conversion)</li>
+<li>50 Standard tenants</li>
+<li>5 Enterprise tenants</li>
+</ul>
+<p><strong>Monthly Costs</strong>:</p>
+<ul>
+<li>Shared infrastructure: 257.06 €</li>
+<li>Free tier: 200 × 0.72 € = 144.00 €</li>
+<li>Standard tier: 50 × 30.15 € = 1,507.50 €</li>
+<li>Enterprise tier: 5 × 384.66 € = 1,923.30 €</li>
+<li><strong>Total</strong>: 3,831.86 €/month</li>
+</ul>
+<p><strong>Monthly Revenue</strong>:</p>
+<ul>
+<li>Free: €0
+<ul>
+<li>Standard: 50 × 36.99 € = 1,849.50 €</li>
+<li>Enterprise: 5 × 399 € (adjusted pricing) = 1,995.00 €</li>
+<li><strong>Total</strong>: 3,844.50 €/month</li>
+</ul>
+</li>
+</ul>
+<p><strong>Result</strong>: <strong>✅ Profit of 12.64 €/month (0.3% margin)</strong></p>
+<p><strong>Break-Even Achieved</strong>: Minimal profitability at scale with adjusted pricing</p>
+<hr>
+<h4 id="scenario-3-mature-stage-18-months">Scenario 3: Mature Stage (18+ months)</h4>
+<p><strong>Customer Mix</strong>:</p>
+<ul>
+<li>100 Free tenants (low activity, mostly dormant)</li>
+<li>30 Standard tenants (power users with high overages)</li>
+<li>10 Enterprise tenants (optimized configurations + add-ons)</li>
+</ul>
+<p><strong>Monthly Costs</strong>:</p>
+<ul>
+<li>Shared infrastructure: 257.06 €</li>
+<li>Free tier: 100 × 0.50 € = 50.00 € (low activity reduces costs)</li>
+<li>Standard tier: 30 × 30.15 € = 904.50 €</li>
+<li>Enterprise tier: 10 × 245.33 € = 2,453.30 € (optimized infrastructure)</li>
+<li><strong>Total</strong>: 3,664.86 €/month</li>
+</ul>
+<p><strong>Monthly Revenue</strong>:</p>
+<ul>
+<li>Free: €0
+<ul>
+<li>Standard: 30 × 55.00 € (high usage) = 1,650.00 €</li>
+<li>Enterprise: 10 × 449 € (base + add-ons) = 4,490.00 €</li>
+<li><strong>Total</strong>: 6,140.00 €/month</li>
+</ul>
+</li>
+</ul>
+<p><strong>Result</strong>: <strong>✅ Profit of 2,475.14 €/month (40% margin)</strong></p>
+<p><strong>Target Achieved</strong>: Healthy profitability with balanced customer mix and optimized infrastructure</p>
+<hr>
+<h3 id="cost-optimization-opportunities">Cost Optimization Opportunities</h3>
+<h4 id="infrastructure-optimization-potential-savings-600-800month">Infrastructure Optimization (Potential Savings: €600-800/month)</h4>
+<ol>
+<li><strong>GKE Autopilot</strong>: 15% reduction in compute costs through better bin-packing</li>
+<li><strong>Preemptible VMs</strong>: 60% savings on non-critical workloads (monitoring, batch jobs)</li>
+<li><strong>Committed Use Discounts</strong>: 37% savings on databases with 3-year commitment</li>
+<li><strong>Regional Consolidation</strong>: 20% reduction in networking costs (single region vs multi-region)</li>
+</ol>
+<h4 id="operational-efficiency-potential-savings-200-400month">Operational Efficiency (Potential Savings: €200-400/month)</h4>
+<ol>
+<li><strong>Multi-Tenancy Density</strong>: Increase free/standard tenants per node from 10 to 20</li>
+<li><strong>Vertical Pod Autoscaling</strong>: Right-size resources dynamically (reduce overprovisioning by 25%)</li>
+<li><strong>Database Connection Pooling</strong>: Reduce database instance count by 50%</li>
+</ol>
+<h4 id="strategic-pricing-adjustments-revenue-increase-1500-2000month-at-50-customers">Strategic Pricing Adjustments (Revenue Increase: €1,500-2,000/month at 50 customers)</h4>
+<ol>
+<li><strong>Standard Tier</strong>: Current pricing optimal (€19.99 base achieves target margin with overages)</li>
+<li><strong>Enterprise Tier</strong>: Adjust base pricing to €399-549 range (30% margin target)</li>
+<li><strong>Free Tier</strong>: Implement time-based limits (90-day trial) or tighter quotas to drive conversion</li>
+</ol>
+<hr>
+<h3 id="summary--recommendations">Summary &amp; Recommendations</h3>
+<p><strong>Current State</strong>: Platform operates at a loss in early stage due to customer acquisition costs and infrastructure overhead.</p>
+<p><strong>Path to Profitability</strong>:</p>
+<ol>
+<li><strong>Immediate</strong>: Adjust Enterprise pricing to 399 € minimum (achieves break-even)</li>
+<li><strong>Short-term</strong> (3 months): Optimize infrastructure (target 600 €/month savings)</li>
+<li><strong>Medium-term</strong> (6 months): Reach 30 Standard + 5 Enterprise customers (break-even point)</li>
+<li><strong>Long-term</strong> (12 months): Target 30 Standard + 10 Enterprise customers (40% margin, 2,500 €/month profit)</li>
+</ol>
+<p><strong>Profitability Milestones</strong>:</p>
+<ul>
+<li><strong>Break-Even</strong>: 15 Enterprise tenants @ 399 € OR 100 Standard tenants @ 37 €/month (with overages)</li>
+<li><strong>Target Margin (30%)</strong>: 10 Enterprise @ 549 € + 30 Standard @ 55 €/month</li>
+<li><strong>Optimal Mix</strong>: 60% revenue from Enterprise (predictable), 40% from Standard (volume)</li>
+</ul>
+
+            <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
+            <script async type="text/javascript">
+/* From extension marp-team.marp-vscode */
+(()=>{var G=Object.defineProperty;var J=(f,u,_)=>u in f?G(f,u,{enumerable:!0,configurable:!0,writable:!0,value:_}):f[u]=_;var r=(f,u)=>G(f,"name",{value:u,configurable:!0});var w=(f,u,_)=>J(f,typeof u!="symbol"?u+"":u,_);(()=>{var f={32:(S,E,h)=>{S.exports=h(924)},924:(S,E)=>{"use strict";var h;h={value:!0};const b={h1:{proto:r(()=>HTMLHeadingElement,"proto"),attrs:{role:"heading","aria-level":"1"},style:"display: block; font-size: 2em; margin-block-start: 0.67em; margin-block-end: 0.67em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h2:{proto:r(()=>HTMLHeadingElement,"proto"),attrs:{role:"heading","aria-level":"2"},style:"display: block; font-size: 1.5em; margin-block-start: 0.83em; margin-block-end: 0.83em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h3:{proto:r(()=>HTMLHeadingElement,"proto"),attrs:{role:"heading","aria-level":"3"},style:"display: block; font-size: 1.17em; margin-block-start: 1em; margin-block-end: 1em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h4:{proto:r(()=>HTMLHeadingElement,"proto"),attrs:{role:"heading","aria-level":"4"},style:"display: block; margin-block-start: 1.33em; margin-block-end: 1.33em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h5:{proto:r(()=>HTMLHeadingElement,"proto"),attrs:{role:"heading","aria-level":"5"},style:"display: block; font-size: 0.83em; margin-block-start: 1.67em; margin-block-end: 1.67em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h6:{proto:r(()=>HTMLHeadingElement,"proto"),attrs:{role:"heading","aria-level":"6"},style:"display: block; font-size: 0.67em; margin-block-start: 2.33em; margin-block-end: 2.33em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},span:{proto:r(()=>HTMLSpanElement,"proto")},pre:{proto:r(()=>HTMLElement,"proto"),style:"display: block; font-family: monospace; white-space: pre; margin: 1em 0; --marp-auto-scaling-white-space: pre;"}},z="data-marp-auto-scaling-wrapper",M="data-marp-auto-scaling-svg",T="data-marp-auto-scaling-container",j=class j extends HTMLElement{constructor(){super();w(this,"container");w(this,"containerSize");w(this,"containerObserver");w(this,"svg");w(this,"svgComputedStyle");w(this,"svgPreserveAspectRatio","xMinYMid meet");w(this,"wrapper");w(this,"wrapperSize");w(this,"wrapperObserver");const n=r(s=>([t])=>{const{width:i,height:o}=t.contentRect;this[s]={width:i,height:o},this.updateSVGRect()},"e");this.attachShadow({mode:"open"}),this.containerObserver=new ResizeObserver(n("containerSize")),this.wrapperObserver=new ResizeObserver((...s)=>{n("wrapperSize")(...s),this.flushSvgDisplay()})}static get observedAttributes(){return["data-downscale-only"]}connectedCallback(){this.shadowRoot.innerHTML=`
+<style>
+  svg[${M}] { display: block; width: 100%; height: auto; vertical-align: top; }
+  span[${T}] { display: table; white-space: var(--marp-auto-scaling-white-space, nowrap); width: max-content; }
+</style>
+<div ${z}>
+  <svg part="svg" ${M}>
+    <foreignObject><span ${T}><slot></slot></span></foreignObject>
+  </svg>
+</div>
+    `.split(/\n\s*/).join(""),this.wrapper=this.shadowRoot.querySelector(`div[${z}]`)??void 0;const n=this.svg;this.svg=this.wrapper?.querySelector(`svg[${M}]`)??void 0,this.svg!==n&&(this.svgComputedStyle=this.svg?window.getComputedStyle(this.svg):void 0),this.container=this.svg?.querySelector(`span[${T}]`)??void 0,this.observe()}disconnectedCallback(){this.svg=void 0,this.svgComputedStyle=void 0,this.wrapper=void 0,this.container=void 0,this.observe()}attributeChangedCallback(){this.observe()}flushSvgDisplay(){const{svg:n}=this;n&&(n.style.display="inline",requestAnimationFrame(()=>{n.style.display=""}))}observe(){this.containerObserver.disconnect(),this.wrapperObserver.disconnect(),this.wrapper&&this.wrapperObserver.observe(this.wrapper),this.container&&this.containerObserver.observe(this.container),this.svgComputedStyle&&this.observeSVGStyle(this.svgComputedStyle)}observeSVGStyle(n){const s=r(()=>{const t=(()=>{const i=n.getPropertyValue("--preserve-aspect-ratio");return i?i.trim():`x${(({textAlign:o,direction:p})=>{if(o.endsWith("left"))return"Min";if(o.endsWith("right"))return"Max";if(o==="start"||o==="end"){let m=p==="rtl";return o==="end"&&(m=!m),m?"Max":"Min"}return"Mid"})(n)}YMid meet`})();t!==this.svgPreserveAspectRatio&&(this.svgPreserveAspectRatio=t,this.updateSVGRect()),n===this.svgComputedStyle&&requestAnimationFrame(s)},"t");s()}updateSVGRect(){let n=Math.ceil(this.containerSize?.width??0);const s=Math.ceil(this.containerSize?.height??0);this.dataset.downscaleOnly!==void 0&&(n=Math.max(n,this.wrapperSize?.width??0));const t=this.svg?.querySelector(":scope > foreignObject");if(t?.setAttribute("width",`${n}`),t?.setAttribute("height",`${s}`),this.svg&&(this.svg.setAttribute("viewBox",`0 0 ${n} ${s}`),this.svg.setAttribute("preserveAspectRatio",this.svgPreserveAspectRatio),this.svg.style.height=n<=0||s<=0?"0":""),this.container){const i=this.svgPreserveAspectRatio.toLowerCase();this.container.style.marginLeft=i.startsWith("xmid")||i.startsWith("xmax")?"auto":"0",this.container.style.marginRight=i.startsWith("xmi")?"auto":"0"}}};r(j,"s");let k=j;const F=r((d,{attrs:v={},style:n})=>class extends d{constructor(...s){super(...s);for(const[t,i]of Object.entries(v))this.hasAttribute(t)||this.setAttribute(t,i);this._shadow()}static get observedAttributes(){return["data-auto-scaling"]}connectedCallback(){this._update()}attributeChangedCallback(){this._update()}_shadow(){if(!this.shadowRoot)try{this.attachShadow({mode:"open"})}catch(s){if(!(s instanceof Error&&s.name==="NotSupportedError"))throw s}return this.shadowRoot}_update(){const s=this._shadow();if(s){const t=n?`<style>:host { ${n} }</style>`:"";let i="<slot></slot>";const{autoScaling:o}=this.dataset;o!==void 0&&(i=`<marp-auto-scaling exportparts="svg:auto-scaling" ${o==="downscale-only"?"data-downscale-only":""}>${i}</marp-auto-scaling>`),s.innerHTML=t+i}}},"r");let L;const R=Symbol();let H;const C="marpitSVGPolyfill:setZoomFactor,",a=Symbol(),l=Symbol(),e=r(()=>{const d=navigator.vendor==="Apple Computer, Inc.",v=d?[g]:[],n={then:r(s=>(d?(async()=>{if(H===void 0){const t=document.createElement("canvas");t.width=10,t.height=10;const i=t.getContext("2d"),o=new Image(10,10),p=new Promise(m=>{o.addEventListener("load",()=>m())});o.crossOrigin="anonymous",o.src="data:image/svg+xml;charset=utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%201%201%22%3E%3CforeignObject%20width%3D%221%22%20height%3D%221%22%20requiredExtensions%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxhtml%22%3E%3Cdiv%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxhtml%22%20style%3D%22width%3A%201px%3B%20height%3A%201px%3B%20background%3A%20red%3B%20position%3A%20relative%22%3E%3C%2Fdiv%3E%3C%2FforeignObject%3E%3C%2Fsvg%3E",await p,i.drawImage(o,0,0),H=i.getImageData(5,5,1,1).data[3]<128}return H})().then(t=>{s?.(t?[g]:[])}):s?.([]),n),"then")};return Object.assign(v,n)},"g");let c,y;function g(d){const v=typeof d=="object"&&d.target||document,n=typeof d=="object"?d.zoom:d;window[l]||(Object.defineProperty(window,l,{configurable:!0,value:!0}),document.body.style.zoom=1.0001,document.body.offsetHeight,document.body.style.zoom=1,window.addEventListener("message",({data:t,origin:i})=>{if(i===window.origin)try{if(t&&typeof t=="string"&&t.startsWith(C)){const[,o]=t.split(","),p=Number.parseFloat(o);Number.isNaN(p)||(y=p)}}catch(o){console.error(o)}}));let s=!1;Array.from(v.querySelectorAll("svg[data-marpit-svg]"),t=>{var i,o,p,m;t.style.transform||(t.style.transform="translateZ(0)");const x=n||y||t.currentScale||1;c!==x&&(c=x,s=x);const B=t.getBoundingClientRect(),{length:Y}=t.children;for(let N=0;N<Y;N+=1){const $=t.children[N];if($.getScreenCTM){const A=$.getScreenCTM();if(A){const Z=(o=(i=$.x)===null||i===void 0?void 0:i.baseVal.value)!==null&&o!==void 0?o:0,U=(m=(p=$.y)===null||p===void 0?void 0:p.baseVal.value)!==null&&m!==void 0?m:0,X=$.children.length;for(let P=0;P<X;P+=1){const W=$.children[P];if(W.tagName==="SECTION"){const{style:D}=W;D.transformOrigin||(D.transformOrigin=`${-Z}px ${-U}px`),D.transform=`scale(${x}) matrix(${A.a}, ${A.b}, ${A.c}, ${A.d}, ${A.e-B.left}, ${A.f-B.top}) translateZ(0.0001px)`;break}}}}}}),s!==!1&&Array.from(v.querySelectorAll("iframe"),({contentWindow:t})=>{t?.postMessage(`${C}${s}`,window.origin==="null"?"*":window.origin)})}r(g,"u");function O({once:d=!1,target:v=document}={}){const n=function(s=document){if(s[a])return s[a];let t=!0;const i=r(()=>{t=!1,delete s[a]},"i");Object.defineProperty(s,a,{configurable:!0,value:i});let o=[],p=!1;(async()=>{try{o=await e()}finally{p=!0}})();const m=r(()=>{for(const x of o)x({target:s});p&&o.length===0||t&&window.requestAnimationFrame(m)},"r");return m(),i}(v);return d?(n(),()=>{}):n}r(O,"v"),c=1,y=void 0;const I=O,q=Symbol(),V=r((d=document)=>{if(typeof window>"u")throw new Error("Marp Core's browser script is valid only in browser context.");if(((t=document)=>{const i=window[R];i||customElements.define("marp-auto-scaling",k);for(const o of Object.keys(b)){const p=`marp-${o}`,m=b[o].proto();(L??(L=!!document.createElement("div",{is:"marp-auto-scaling"}).outerHTML.startsWith("<div is"),L))&&m!==HTMLElement?i||customElements.define(p,F(m,{style:b[o].style}),{extends:o}):(i||customElements.define(p,F(HTMLElement,b[o])),t.querySelectorAll(`${o}[is="${p}"]`).forEach(x=>{x.outerHTML=x.outerHTML.replace(new RegExp(`^<${o}`,"i"),`<${p}`).replace(new RegExp(`</${o}>$`,"i"),`</${p}>`)}))}window[R]=!0})(d),d[q])return d[q];const v=O({target:d}),n=r(()=>{v(),delete d[q]},"n"),s=Object.assign(n,{cleanup:n,update:r(()=>V(d),"update")});return Object.defineProperty(d,q,{configurable:!0,value:s}),s},"y");E.browser=V,h=V,h=I}},u={};function _(S){var E=u[S];if(E!==void 0)return E.exports;var h=u[S]={exports:{}};return f[S](h,h.exports,_),h.exports}r(_,"__webpack_require__");var K={};(()=>{"use strict";var S=_(32);const E="marp_vscode_content_section",h="data-marp-vscode-content-start-line",b="data-marp-vscode-content-end-line";function z(a){a.core.ruler.push(E,l=>{if(l.inlineMode)return;let e=null,c=0,y=0;for(const g of l.tokens)g.map&&(c=g.map[0],y=Math.max(y,...g.map)),g.type==="marpit_slide_open"&&(e&&(e.map&&e.attrSet(h,e.map[0]),e.attrSet(b,c-1)),e=g);e&&(e.map&&e.attrSet(h,e.map[0]),e.attrSet(b,y))})}r(z,"marpVSCodeContentSection");const M="marp-vscode.overflowTracker",T=r(a=>typeof a=="object"&&a!=null&&"type"in a&&a.type===M&&"overflowElements"in a&&Array.isArray(a.overflowElements),"isOverflowTrackerEvent"),C=class C{constructor(l){this.postMessage=l,this.delay=150,this.update()}update(){window.setTimeout(()=>this.detectOverflowElements(),this.delay)}cleanup(){}detectOverflowElements(){const l=[];for(const e of document.querySelectorAll(`section[${h}][${b}]`)){const c=e.scrollWidth-e.clientWidth,y=e.scrollHeight-e.clientHeight;if(c<=0&&y<=0)continue;const g=parseInt(e.getAttribute(h)||"",10),O=parseInt(e.getAttribute(b)||"",10);Number.isNaN(g)||Number.isNaN(O)||l.push({startLine:g,endLine:O})}this.postMessage(M,{overflowElements:l})}};r(C,"OverflowTracker");let k=C;function F(){let a;const l=window.cspAlerter?._messaging?.postMessage||window.styleLoadingMonitor?._poster?.postMessage,e=r(()=>{const c=document.getElementById("__marp-vscode");!!a!=!!c?(document.body.classList.toggle("marp-vscode",!!c),c?a={browser:(0,S.browser)(),overflowTracker:l?new k(l):void 0}:(a?.browser.cleanup(),a?.overflowTracker?.cleanup(),a=void 0)):(a?.browser.update(),a?.overflowTracker?.update()),a?(c&&L(c),R()):H()},"updateCallback");window.addEventListener("load",()=>window.setTimeout(e,100)),window.addEventListener("vscode.markdown.updateContent",e),e()}r(F,"preview");const L=r(a=>{a.querySelectorAll("[is]").forEach(l=>{if(l.nodeName.includes("-")||document.createElement(l.nodeName).constructor!==l.constructor)return;const{outerHTML:c}=l;l.outerHTML=c,console.debug("[marp-vscode] Custom element has been upgraded forcibly:",c.slice(0,c.indexOf(">")+1||void 0))})},"forceUpgradeCustomElements"),R=r(()=>{const a=document.querySelectorAll("style:not(#__marp-vscode-style,#_defaultStyles,[data-marp-vscode-body])"),l=document.querySelectorAll('link[rel="stylesheet"][href]:not([href*="marp-vscode"])');a.forEach(e=>{e.closest("#__marp-vscode")||(e.dataset.marpVscodeBody=e.textContent??"",e.textContent="")}),l.forEach(e=>{if(e.closest("#__marp-vscode"))return;const{href:c}=e;e.dataset.marpVscodeHref=c,e.removeAttribute("href")})},"removeStyles"),H=r(()=>{const a=document.querySelectorAll("style[data-marp-vscode-body]"),l=document.querySelectorAll("link[data-marp-vscode-href]");a.forEach(e=>{e.textContent=e.dataset.marpVscodeBody||"",delete e.dataset.marpVscodeBody}),l.forEach(e=>{e.href=e.dataset.marpVscodeHref||"",delete e.dataset.marpVscodeHref})},"restoreStyles");F()})()})();})();
+
+</script>
+
+        </body>
+        </html>
