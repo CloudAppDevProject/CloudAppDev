@@ -6,11 +6,7 @@ Starting from a blank GCP project, the following steps provision all infrastruct
 
 ### Step 1: GCP Project Initialization
 
-The script `terraform/scripts/init-env.sh` prepares the GCP project:
-
-```bash
-./terraform/scripts/init-env.sh dev cloudappdev-dev
-```
+The script `terraform/scripts/init-env.sh` prepares the GCP project.
 
 This enables 21 GCP APIs (Compute Engine, GKE, Cloud SQL, Artifact Registry, Secret Manager, Certificate Manager, Firestore, Cloud Storage, IAM, VPC, Load Balancing, DNS, Monitoring, Logging, etc.) and creates a GCS bucket with versioning for Terraform remote state (`gs://cloudappdev-tf-state-dev/`).
 
@@ -48,12 +44,7 @@ The infrastructure is organized in reusable Terraform modules:
 
 ### Step 3: Tenant Infrastructure State
 
-A second, separate Terraform state is initialized for dynamic tenant provisioning:
-
-```bash
-cd terraform/environments/dev-tenants
-terraform init
-```
+A second, separate Terraform state is initialized for dynamic tenant provisioning.
 
 State: `gs://cloudappdev-tf-state-dev/env/dev-tenants`
 
@@ -79,1104 +70,284 @@ After this, the platform is operational at `https://dev.cloudappdev.site`.
 
 ## 4.2 Pipelines and Release of New Features
 
-### Overview
-
-The CloudAppDev platform implements a sophisticated CI/CD pipeline using GitHub Actions, Google Kubernetes Engine (GKE), and Helm charts. The pipeline automates the entire software lifecycle from code commit to deployment, with intelligent change detection and multi-tenant support.
-
 ### Branching Strategy
 
-The project follows a **Git Flow** branching model with three primary branch types:
-
-#### Branch Hierarchy
+The project follows **Git Flow** with three branch types:
 
 ```
-master (production)
-  ↑
-develop (development/staging)
-  ↑
-feature/* (feature branches)
+master (production) ← develop (staging) ← feature/* (development)
 ```
 
-#### Branch Types and Purposes
+**Branch Types:**
+- **Feature branches** (`feature/*`): Created from `develop`, trigger CI/CD to dev environment, auto-version `0.0.BUILD_NUMBER`
+- **Develop branch**: Integration branch, deploys to development cluster, may contain unstable features
+- **Master branch**: Production-ready code, semantic versioning `MAJOR.MINOR.PATCH`, requires manual approval
 
-1. **Feature Branches** (`feature/*`)
-   - Created from: `develop`
-   - Purpose: Development of new features or bug fixes
-   - Naming convention: `feature/feature-name` (e.g., `feature/navigation-service`)
-   - Triggers: CI/CD pipeline on push (builds and deploys to dev environment)
-   - Merge destination: `develop` branch via pull request
+**Rationale**: Isolates production from active development while enabling rapid iteration in dev environment. Feature branches allow parallel development without conflicts.
 
-2. **Develop Branch**
-   - Purpose: Integration branch for ongoing development
-   - Environment: Development (dev)
-   - Triggers: Automatic builds and deployments on every push
-   - Auto-versioning: `0.0.BUILD_NUMBER` (e.g., `0.0.42`)
-   - Testing: Integration testing and QA validation
-   - Stability: May contain unstable features
-
-3. **Master Branch** (production)
-   - Purpose: Production-ready code
-   - Environment: Production
-   - Versioning: Semantic versioning `MAJOR.MINOR.PATCH` (e.g., `1.2.3`)
-   - Deployment: Manual approval required
-   - Stability: Always stable and tested
-   - Tags: Git tags for each release
-
-#### Workflow Process
-
-```
-Developer → Feature Branch → Push → CI/CD (Dev) → Pull Request → Develop → CI/CD (Dev) → Testing → Merge to Master → CI/CD (Prod) → Production
-```
+---
 
 ### CI/CD Pipeline Architecture
 
-#### Pipeline Trigger Mechanism
+The pipeline uses **GitHub Actions + Terraform + Helm** to automate builds and deployments with intelligent change detection.
 
-The pipeline is triggered by:
+#### Pipeline Triggers
 
-1. **Automatic Triggers**
-   - Push to `develop` branch
-   - Push to `feature/navigation-service` branch
-   - Changes in specific paths:
-     - Application code (`app/**`, `lib/**`, `public/**`)
-     - Microservices (`services/**`)
-     - Infrastructure (`nginx/**`, `Dockerfile`, `package.json`)
-     - Workflow definitions (`.github/workflows/**`)
+**Automatic Triggers:**
+- Push to `develop` or `feature/*` branches
+- Changes in application code (`app/**`, `services/**`, `nginx/**`, `Dockerfile`)
 
-2. **Manual Triggers** (workflow_dispatch)
-   - Build all services
-   - Build only changed services
-   - Build specific service (dropdown selection)
+**Manual Triggers:**
+- Build all services
+- Build specific service (dropdown selection)
 
-**Benefits:**
-- Only builds services that have changed (reduces build time by 60-80%)
-- Reduces resource consumption
-- Faster feedback loop for developers
-- Independent service deployment
+**Rationale**: Selective builds reduce pipeline time by 60-80% by only building changed services. Manual triggers enable emergency deployments and testing.
+
+---
 
 #### Pipeline Stages
 
-The CI/CD pipeline consists of three main stages:
-
-##### 1. Prepare Stage
-
-**Purpose:** Analyze changes and set up build matrix
-
-**Steps:**
-- Checkout code with full git history
+**1. Prepare Stage**
 - Detect changed files using path filters
-- Generate version number:
-  - **Development:** `0.0.BUILD_NUMBER` (auto-incrementing)
-  - **Production:** `MAJOR.MINOR.PATCH` (semantic versioning)
+- Generate version number (`0.0.BUILD_NUMBER` for dev, `MAJOR.MINOR.PATCH` for prod)
 - Create build matrix with services to build
-- Generate short SHA for reference
+- Generate short SHA for traceability
 
-**Version Strategy:**
-- Development: `0.0.42`, `0.0.43`, etc.
-- Production: `1.2.3`, `1.3.0`, etc.
-- All images also tagged with `sha-abc1234` for traceability
+**2. Build and Push Stage**
+- Parallel Docker builds for all changed services (multi-stage builds for optimization)
+- Tag images with `latest`, version number, and `sha-abc1234`
+- Push to Google Artifact Registry (europe-west1)
+- Add metadata labels (version, environment, git SHA, service ID)
 
-##### 2. Build and Push Stage
+**3. Deploy Stage**
+- Authenticate to GKE cluster
+- Retrieve secrets from Google Secret Manager (database credentials, API keys)
+- Deploy services to tier-specific namespaces using Helm
+- Apply tier-based resource limits (CPU, memory, replicas)
+- Verify deployment health (rollout status, pod health checks)
 
-**Purpose:** Build Docker images and push to Google Artifact Registry
+**Rationale**: Three-stage pipeline ensures separation of concerns: analyze → build → deploy. Parallel builds maximize efficiency. Health checks prevent broken deployments reaching production.
 
-**Process:**
-1. **Matrix Strategy:** Parallel builds for all changed services
-2. **Service Configuration:** Each service has specific:
-   - Image name (e.g., `cloudappdev-frontend`)
-   - Build context directory
-   - Dockerfile path
-   - Description and metadata
-
-3. **Docker Build:**
-   - Multi-stage builds for optimization
-   - Build cache using GitHub Actions cache
-   - Platform: `linux/amd64`
-   - Target: `production` stage
-
-4. **Image Tagging:**
-   ```
-   europe-west1-docker.pkg.dev/PROJECT/docker-repo/SERVICE:latest
-   europe-west1-docker.pkg.dev/PROJECT/docker-repo/SERVICE:0.0.42
-   europe-west1-docker.pkg.dev/PROJECT/docker-repo/SERVICE:sha-abc1234
-   ```
-
-5. **Metadata Labels:**
-   - Image version, build number, git SHA, branch name
-   - Environment (dev/production)
-   - Service identifier
-   - OpenContainer Initiative labels
-
-6. **Push to Registry:**
-   - Google Artifact Registry (GCP)
-   - Authentication via service account key
-   - Multi-tag push for version flexibility
-
-##### 3. Deploy Stage
-
-**Purpose:** Deploy services to GKE using Helm
-
-**Process:**
-
-1. **Authentication:**
-   - Authenticate to Google Cloud using service account
-   - Obtain GKE cluster credentials
-   - Set up Helm CLI
-
-2. **Secret Management:**
-   - Retrieve secrets from Google Secret Manager
-   - Database credentials (per namespace)
-   - API keys (JWT, Firebase, SendGrid, Weather API)
-   - Service account keys
-   - Create Kubernetes secrets in target namespaces
-
-3. **Namespace Deployment:**
-   - Services deploy to different namespaces based on service type
-   - Multi-namespace deployment for tenant isolation
-
-4. **Release Management:**
-   - Check for stuck Helm releases
-   - Clean up pending secrets
-   - Unlock blocked deployments
-   - Perform Helm upgrade/install
-
-5. **Configuration:**
-   - Apply tier-based resource limits
-   - Configure namespace routing
-   - Update Chart.yaml version
-   - Set environment-specific values
-
-6. **Verification:**
-   - Monitor rollout status
-   - Check pod health
-   - Verify deployment success
+---
 
 ### Multi-Tenant Deployment Strategy
 
-The platform supports three tenant tiers with different deployment configurations:
+Services deploy to different namespaces based on tenant tier:
 
-#### Namespace Architecture
+| Namespace | Services Deployed | Purpose |
+|-----------|-------------------|---------|
+| **cloudappdev** | Frontend, API Gateway | Admin/primary namespace |
+| **free** | All 5 services (shared) | Free tier tenants share these pods |
+| **standard** | All 5 services (shared) | Standard tier tenants share these pods |
+| **default** | Tenant Service, Travel Info, Provisioner | Shared services for all tiers |
+| **enterprise-*** | All 5 services (dedicated) | Each enterprise tenant gets own namespace |
 
-```
-┌─────────────────┐
-│   cloudappdev   │  (Primary/Admin namespace)
-│   - frontend    │
-│   - api-gateway │
-└─────────────────┘
+**Tier-Based Resource Allocation:**
 
-┌─────────────────┐
-│      free       │  (Free tier namespace)
-│   - frontend    │
-│   - api-gateway │
-│   - user-svc    │
-│   - itinerary   │
-│   - social-svc  │
-└─────────────────┘
+| Tier | CPU | Memory | Replicas | Autoscaling |
+|------|-----|--------|----------|-------------|
+| **Free** | 50m-200m | 64Mi-128Mi | 1 | Disabled |
+| **Standard** | 100m-500m | 128Mi-256Mi | 2-4 | Enabled |
+| **Enterprise** | 250m-1000m | 256Mi-512Mi | 3-10 | Enabled |
 
-┌─────────────────┐
-│    standard     │  (Standard tier namespace)
-│   - frontend    │
-│   - api-gateway │
-│   - user-svc    │
-│   - itinerary   │
-│   - social-svc  │
-└─────────────────┘
+**Rationale**: Free/Standard tiers share infrastructure to minimize costs (95% reduction vs dedicated). Enterprise tenants get isolated namespaces for performance and security. Resource limits prevent noisy neighbors and ensure fair usage.
 
-┌─────────────────┐
-│     default     │  (Shared services)
-│   - tenant-svc  │
-│   - travel-info │
-│   - provisioner │
-└─────────────────┘
+**Service Discovery**: API Gateway routes requests to correct namespace via environment variables (`USER_NAMESPACE=${DEPLOYMENT_NAMESPACE}`). Shared services (travel-info, tenant-service) always route to `default` namespace.
 
-┌─────────────────┐
-│  enterprise-*   │  (Dynamic enterprise namespaces)
-│   - frontend    │
-│   - api-gateway │
-│   - user-svc    │
-│   - itinerary   │
-│   - social-svc  │
-└─────────────────┘
-```
-
-#### Service Deployment Matrix
-
-| Service | cloudappdev | free | standard | default | enterprise-* |
-|---------|-------------|------|----------|---------|--------------|
-| Frontend | ✅ | ✅ | ✅ | ❌ | ✅ |
-| API Gateway | ✅ | ✅ | ✅ | ❌ | ✅ |
-| User Service | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Itinerary Service | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Social Service | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Travel Info Service | ❌ | ❌ | ❌ | ✅ (Shared) | ❌ |
-| Tenant Service | ❌ | ❌ | ❌ | ✅ (Shared) | ❌ |
-| Provisioning Service | ❌ | ❌ | ❌ | ✅ (Shared) | ❌ |
-
-#### Tier-Based Resource Allocation
-
-The pipeline automatically configures resource limits based on tenant tier:
-
-##### Free Tier
-```yaml
-Resources:
-  CPU Request: 50m
-  CPU Limit: 200m
-  Memory Request: 64Mi
-  Memory Limit: 128Mi
-Replicas: 1
-Autoscaling: Disabled
-```
-
-##### Standard Tier
-```yaml
-Resources:
-  CPU Request: 100m
-  CPU Limit: 500m
-  Memory Request: 128Mi
-  Memory Limit: 256Mi
-Replicas: 2
-Autoscaling: Enabled (2-4 replicas)
-```
-
-##### Enterprise Tier
-```yaml
-Resources:
-  CPU Request: 250m
-  CPU Limit: 1000m
-  Memory Request: 256Mi
-  Memory Limit: 512Mi
-Replicas: 3
-Autoscaling: Enabled (3-10 replicas)
-```
-
-#### Tier Configuration in Pipeline
-
-The pipeline automatically applies tier configurations during deployment:
-
-```bash
-case "${NAMESPACE}" in
-  "free")
-    # Free tier: minimal resources
-    --set resources.requests.cpu=50m
-    --set resources.limits.memory=128Mi
-    --set replicas=1
-    ;;
-  "standard")
-    # Standard tier: moderate resources
-    --set resources.requests.cpu=100m
-    --set resources.limits.memory=256Mi
-    --set replicas=2
-    --set autoscaling.enabled=true
-    ;;
-  *)
-    # Enterprise tier: full resources
-    --set resources.requests.cpu=250m
-    --set resources.limits.memory=512Mi
-    --set replicas=3
-    --set autoscaling.enabled=true
-    ;;
-esac
-```
+---
 
 ### Environment-Specific Deployment
 
-#### Development Environment (dev)
+**Development Environment:**
+- **Trigger**: Push to `develop` or `feature/*`
+- **Version**: Auto-increment `0.0.BUILD_NUMBER`
+- **Namespaces**: cloudappdev, free, standard
+- **Duration**: 10-15 minutes end-to-end
+- **Benefits**: Rapid feedback, early integration testing, no production impact
 
-**Trigger:** Push to `develop` or `feature/*` branches
+**Production Environment:**
+- **Trigger**: Push to `master` (manual approval required)
+- **Version**: Semantic versioning with git tags
+- **Namespaces**: All (including enterprise)
+- **Safety**: Pre-deployment validation, health checks, automatic rollback on failure
+- **Duration**: 15-25 minutes with approval gates
 
-**Characteristics:**
-- Automatic deployment on every commit
-- Auto-incrementing version (`0.0.BUILD_NUMBER`)
-- Deploys to GKE development cluster
-- Namespaces: `cloudappdev`, `free`, `standard`
-- Shorter timeouts (5 minutes)
-- Enables debug logging
-- Uses development configurations
+**Rationale**: Separate clusters prevent development changes from affecting production. Automatic dev deployment enables fast iteration. Manual production approval adds safety gate for critical changes.
 
-**Workflow:**
-1. Developer pushes code to `develop` or feature branch
-2. Pipeline detects changed services
-3. Builds Docker images with `latest` + `0.0.X` tags
-4. Pushes images to Artifact Registry
-5. Deploys to development cluster using Helm
-6. Verifies deployment health
-7. Sends notification to developer
+---
 
-**Benefits:**
-- Rapid feedback loop (10-15 minutes end-to-end)
-- Early detection of integration issues
-- Safe testing environment
-- No impact on production
+### Pipeline Optimizations
 
-#### Production Environment (production)
+**Build Optimizations:**
+- Docker layer caching (50-70% faster builds)
+- Multi-stage builds (image size reduced 300MB → 150MB)
+- Parallel service builds
+- Selective builds (only changed services)
 
-**Trigger:** Push to `master` branch (typically via merge from `develop`)
+**Deployment Optimizations:**
+- Helm release management (automatic cleanup of stuck releases)
+- Idempotent namespace provisioning
+- Rolling updates (zero-downtime deployments)
+- Progressive rollout for production
 
-**Characteristics:**
-- Manual approval required
-- Semantic versioning (`MAJOR.MINOR.PATCH`)
-- Deploys to production GKE cluster
-- Git tags for releases
-- Full namespace deployment (including enterprise)
-- Extended timeouts (10 minutes)
-- Health checks and smoke tests
-- Rollback capability
+**Rationale**: Optimizations reduce pipeline time from 30+ minutes to 10-15 minutes for typical changes. Faster feedback improves developer productivity. Zero-downtime deployments maintain service availability.
 
-**Workflow:**
-1. Merge `develop` into `master` after QA approval
-2. Create release tag (e.g., `v1.2.3`)
-3. Pipeline triggered automatically
-4. Requires manual approval gate
-5. Builds Docker images with version tag
-6. Pushes to production registry
-7. Deploys to production cluster
-8. Performs health checks
-9. Sends deployment notification
-10. Updates deployment documentation
-
-**Safety Measures:**
-- Pre-deployment validation
-- Database migration checks
-- Canary deployments (gradual rollout)
-- Automatic rollback on failure
-- Production change window enforcement
-
-### Namespace Routing and Service Discovery
-
-The API Gateway is configured to route requests to the correct namespace:
-
-```yaml
-Environment Variables:
-  USER_NAMESPACE: ${DEPLOYMENT_NAMESPACE}
-  ITINERARY_NAMESPACE: ${DEPLOYMENT_NAMESPACE}
-  SOCIAL_NAMESPACE: ${DEPLOYMENT_NAMESPACE}
-  TRAVEL_INFO_NAMESPACE: default
-  TENANT_NAMESPACE: default
-```
-
-**Routing Logic:**
-- Tenant-specific services (user, itinerary, social) → deployed namespace
-- Shared services (travel-info, tenant, provisioning) → default namespace
-- API Gateway resolves service endpoints dynamically
-
-### Database and Secret Management
-
-#### Per-Namespace Database Credentials
-
-Each namespace has isolated database credentials stored in Google Secret Manager:
-
-```
-Secrets:
-  - free-users-password
-  - free-itinerary-password
-  - standard-users-password
-  - standard-itinerary-password
-  - enterprise-{TENANT}-users-password
-  - enterprise-{TENANT}-itinerary-password
-```
-
-### Deployment Verification
-
-After deployment, the pipeline verifies service health:
-
-1. **Rollout Status:**
-   ```bash
-   kubectl rollout status deployment/SERVICE -n NAMESPACE --timeout=3m
-   ```
-
-2. **Pod Health Check:**
-   ```bash
-   kubectl get pods -n NAMESPACE -l app.kubernetes.io/instance=SERVICE
-   ```
-
-3. **Deployment Summary:**
-   - Service name and version
-   - Namespace(s) deployed
-   - Build number and git SHA
-   - Pod status and replica count
-   - Deployment duration
-
-### Pipeline Performance Optimizations
-
-#### Build Optimization
-- **Docker layer caching:** Reduces build time by 50-70%
-- **Multi-stage builds:** Smaller image sizes (300MB → 150MB average)
-- **Parallel builds:** All services build simultaneously
-- **Selective builds:** Only changed services are built
-
-#### Deployment Optimization
-- **Helm release management:** Automatic cleanup of stuck releases
-- **Namespace creation:** Idempotent namespace provisioning
-- **Secret recreation:** Forces secret updates without manual cleanup
-- **Progressive rollout:** Zero-downtime deployments with rolling updates
-
-### Monitoring and Notifications
-
-#### Build Status Tracking
-- GitHub Actions summary with service-by-service status
-- List of built services vs. skipped services
-- Build duration and artifact sizes
-- Deployment verification results
-
-### Summary
-
-The CloudAppDev CI/CD pipeline provides:
-
-✅ **Automated Deployment:** Push-to-deploy workflow  
-✅ **Multi-Tenant Support:** Tier-based resource allocation  
-✅ **Intelligent Builds:** Only changed services are built  
-✅ **Environment Isolation:** Separate dev and production clusters  
-✅ **Version Control:** Semantic versioning with git integration  
-✅ **Security:** Secret management and namespace isolation  
-✅ **Scalability:** Supports unlimited tenants and services  
-✅ **Observability:** Comprehensive monitoring and notifications  
-✅ **Reliability:** Automatic health checks and rollback  
-✅ **Efficiency:** Parallel builds and optimized deployments  
-
-The pipeline enables rapid feature delivery while maintaining production stability, supporting the platform's multi-tenant architecture with tier-based resource allocation and isolated deployments.
+---
 
 ## 4.3 Creation of New Tenants
 
 ### Overview
 
-The CloudAppDev platform implements an automated tenant provisioning system that handles the complete lifecycle of tenant creation, from initial registration to full infrastructure deployment. The process is orchestrated by the **Provisioning Service**, a NestJS microservice that coordinates Terraform infrastructure provisioning and Kubernetes deployments.
+Tenant provisioning is **fully automated** via the **Provisioning Service** (NestJS microservice). The process varies by tier:
+- **Free/Standard**: Lightweight provisioning (SSL + routing only)
+- **Enterprise**: Full infrastructure provisioning (dedicated namespace + databases + services)
 
-The tenant creation process varies significantly between tenant tiers:
-- **Free & Standard tiers**: Lightweight provisioning (SSL certificates + routing configuration)
-- **Enterprise tier**: Full infrastructure provisioning (dedicated namespace, databases, services)
+---
 
 ### Tenant Creation Workflow
 
-The following diagram illustrates the complete tenant registration and provisioning workflow:
+**Phase 1: User Registration (Manual - ~5 minutes)**
 
-![Tenant Registration Process](../Presentation/tenant-registration-bpmn.png)
+1. **Register Organization**: User provides organization name and contact info
+2. **Choose Plan**: Select tier (Free/Standard/Enterprise)
+3. **Specify Subdomain**: User chooses subdomain (e.g., `acme-corp.dev.cloudappdev.site`)
+4. **Create Admin Credentials**: Set password for admin account
 
-#### Process Actors
+**Phase 2: Infrastructure Provisioning (Automatic - 2-15 minutes)**
 
-1. **Client**: End user initiating tenant registration
-2. **Infrastructure**: Provisioning Service orchestrating infrastructure setup
-3. **User**: Admin user completing tenant configuration
-
-### Tenant Creation Steps
-
-#### Phase 1: Client Registration (Manual)
-
-The tenant creation process begins with the user registering through the frontend:
-
-**Step 1: Register Organization**
-- User accesses the registration page
-- Provides organization details (name, contact information)
-- System validates input and initiates tenant creation
-
-**Step 2: Choose Plan**
-- User selects tenant tier:
-  - **Free**: Cost-effective tier for testing and personal projects
-  - **Standard**: Balanced tier for small businesses
-  - **Enterprise**: Full-featured tier with dedicated infrastructure
-
-**Step 3: Specify Organization Name**
-- User provides organization subdomain name
-- System sanitizes the name (lowercase, alphanumeric + hyphens only)
-- Checks for subdomain availability
-
-**Step 4: Specify Client Credentials**
-- User creates admin account credentials
-- Password requirements enforced
-- Credentials stored securely
-
-#### Phase 2: Infrastructure Provisioning (Automatic)
-
-Once the user submits the registration form, the **Provisioning Service** takes over:
-
-**Step 5: Register Subdomain**
-- Provisioning Service receives the provision request
-- Adds tenant to Terraform configuration file (`tenants.tfvars`)
-- Executes Terraform apply to provision infrastructure
-
-**Infrastructure Provisioned:**
-- **Free/Standard**: 
-  - Cloudflare DNS record (subdomain)
-  - Google-managed SSL certificate
-  - Certificate mapping to load balancer
-- **Enterprise**:
-  - Cloudflare DNS record
-  - Google-managed SSL certificate
-  - Certificate mapping
-  - Cloud SQL PostgreSQL databases (users, itinerary)
-  - Firestore database (social service)
-  - Cloud Storage bucket (image uploads)
-  - Cloud SQL Proxy configuration
-  - Database users and passwords (stored in Secret Manager)
-
-**Step 6: Conditional Namespace Creation (Enterprise Only)**
-- For enterprise tenants: Creates dedicated Kubernetes namespace
-- Deploys full microservices stack:
-  - User Service
-  - Itinerary Service
-  - Social Service
-  - Frontend (Next.js)
-  - API Gateway
-- Configures namespace-specific secrets
-- Sets up service discovery
-
-**Step 6 Alternative: HTTPRoute Deployment (Free/Standard)**
-- For free/standard tenants: Creates HTTPRoute in shared namespace
-- Routes subdomain traffic to existing shared infrastructure
-- No dedicated services deployed
-
-**Step 7: Save Tenant UUID**
-- Generates unique tenant identifier
-- Stores tenant metadata in central Tenant Service database
-
-**Step 8: Save Admin Credentials**
-- Creates admin user in tenant's user database
-- Hashes password securely
-- Associates user with tenant ID
-
-#### Phase 3: User Onboarding (Manual)
-
-**Step 9: Login at Subdomain**
-- Admin user redirects to tenant-specific subdomain
-- Example: `https://acme-corp.dev.cloudappdev.site`
-- Logs in with admin credentials
-
-**Step 10: Inform User**
-- System displays welcome message
-- Client can inform his users about the new subdomain
-
-**Step 11: Select Tenant UUID from Subdomain**
-- System resolves tenant from subdomain
-- Loads tenant-specific configuration
-- Applies tier-based resource limits
-
-**Step 12: Open Subdomain to Register**
-- Admin accesses tenant portal
-- Configures organization settings
-- Invites additional users
-
-**Step 13: Specify User Credentials**
-- Additional users register on tenant subdomain
-- Credentials validated and stored
-- Role-based access control applied
-
-**Step 14: Save User with Tenant UUID**
-- User account created in tenant database
-- Associated with tenant identifier
-- Ready for application use
-
-**Final Step: User Registered / Organization Registered**
-- Tenant fully operational
-- All services accessible
-- Monitoring and analytics enabled
-
-### Technical Implementation
-
-#### Provisioning Service Architecture
-
-The Provisioning Service is built with NestJS and consists of three main modules:
-
-```
-provisioning-service/
-├── tenant/              # Tenant provisioning controller & service
-├── terraform/           # Terraform infrastructure orchestration
-└── kubernetes/          # Kubernetes deployment management
-```
-
-#### Core Provisioning Flow
-
-**Entry Point: `TenantController.provisionTenant()`**
-
-```typescript
-@Post('provision-tenant')
-async provisionTenant(@Body() dto: ProvisionTenantDto) {
-  return this.tenantService.provisionTenant(dto);
-}
-```
-
-**Input Parameters:**
-```typescript
-{
-  tenantId: string;      // Unique identifier from Tenant Service
-  tenantName: string;    // Organization name (e.g., "acme-corp")
-  tier: 'free' | 'standard' | 'enterprise';
-  environment: 'dev' | 'prod';  // Optional, defaults to 'dev'
-}
-```
-
-#### Step-by-Step Provisioning Process
-
-##### 1. Tenant Name Sanitization
-
-```typescript
-const sanitizedName = tenantName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-```
-
-**Purpose**: Ensure tenant name is valid for:
-- DNS subdomain requirements
-- Kubernetes namespace names
-- Database identifiers
-
-##### 2. Update Terraform Configuration
-
-**Method**: `TerraformService.addTenantToTfvars()`
-
-```typescript
-// Adds tenant to tenants.tfvars
-tenants = [
-  {
-    name = "acme-corp"
-    tier = "enterprise"
-  }
-]
-```
-
-**File Location**: `/terraform/environments/${environment}-tenants/tenants.tfvars`
-
-**Rollback Strategy**: If any subsequent step fails, the tenant is automatically removed from `tenants.tfvars` to prevent orphaned configuration.
-
-##### 3. Execute Terraform Apply
-
-**Method**: `TerraformService.runTerraformApply()`
-
-**Process:**
-1. Initialize Terraform (`terraform init`)
-2. Apply changes with auto-approval (`terraform apply -auto-approve`)
-3. Create infrastructure resources (see tier-specific details below)
-4. Store database credentials in Google Secret Manager
-5. Return Terraform outputs (connection strings, resource IDs)
-
-**Concurrency Handling**: Implements state lock retry mechanism:
-```typescript
-// Retry logic for Terraform state lock conflicts
-for (let attempt = 1; attempt <= maxRetries; attempt++) {
-  try {
-    await execAsync('terraform apply -auto-approve ...');
-    break;
-  } catch (error) {
-    if (error.includes('state lock') && attempt < maxRetries) {
-      await sleep(10000); // Wait 10 seconds and retry
-    }
-  }
-}
-```
-
-**Error Handling**: On Terraform failure:
-- Logs detailed error message
-- Rolls back `tenants.tfvars` changes
-- Returns error response with diagnostic information
-
-##### 4a. Enterprise Tier: Full Namespace Deployment
-
-**Method**: `KubernetesService.deployEnterpriseNamespace()`
-
-**Steps:**
-
-1. **Retrieve Terraform Outputs**
-   ```typescript
-   const outputs = await terraformService.getTerraformOutputsForTenant(tenantName);
-   // Returns: database passwords, connection strings, resource IDs
-   ```
-
-2. **Create Kubernetes Namespace**
-   ```bash
-   kubectl create namespace acme-corp
-   ```
-
-3. **Deploy Kubernetes Secrets**
-   - User Service secrets (database URL, JWT secret, storage bucket)
-   - Itinerary Service secrets (database URL, storage bucket)
-   - Social Service secrets (MongoDB URI, SendGrid API keys)
-   - Frontend secrets (Firebase credentials, monitoring keys)
-
-   **Example Secret Creation:**
-   ```typescript
-   const userSecrets = {
-     DATABASE_URL: `postgresql://users:${password}@127.0.0.1:5432/users`,
-     JWT_SECRET: `${tenantName}-jwt-secret`,
-     GOOGLE_CLOUD_STORAGE_BUCKET: `cloudappdev-${tenantName}-images`,
-     FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: '...'
-   };
+5. **Provision Infrastructure**: Provisioning Service executes Terraform + Kubernetes deployments
+   - Updates `tenants.tfvars` with new tenant
+   - Runs `terraform apply` to create cloud resources
+   - Deploys Kubernetes resources (namespace or HTTPRoute)
    
-   await execAsync(
-     `kubectl create secret generic user-service-secrets 
-      --from-literal=DATABASE_URL="${userSecrets.DATABASE_URL}" 
-      --from-literal=JWT_SECRET="${userSecrets.JWT_SECRET}" 
-      --namespace ${tenantName}`
-   );
-   ```
+6. **Tier-Specific Provisioning**:
+   - **Enterprise**: Creates dedicated namespace with all services
+   - **Free/Standard**: Creates HTTPRoute to shared namespace
 
-4. **Deploy Services via Helm**
-   
-   Services deployed in order:
-   - User Service (port 8080)
-   - Itinerary Service (port 8081)
-   - Social Service (port 8082)
-   - Frontend (Next.js, port 80)
-   - API Gateway (NGINX, port 8000)
+7. **Save Tenant Data**: Stores tenant UUID and metadata in database
+8. **Create Admin User**: Hashes password and associates with tenant ID
 
-   **Helm Deployment Command:**
-   ```bash
-   helm upgrade --install user-service /k8s/services/user \
-     -f /k8s/services/user/values-dev.yaml \
-     --set resources.requests.cpu=500m \
-     --set resources.requests.memory=1Gi \
-     --set resources.limits.cpu=2000m \
-     --set resources.limits.memory=2Gi \
-     --set autoscaling.enabled=true \
-     --set autoscaling.minReplicas=2 \
-     --set autoscaling.maxReplicas=20 \
-     --namespace acme-corp \
-     --wait --timeout 10m
-   ```
+**Phase 3: User Onboarding (Manual - ~5 minutes)**
 
-5. **Configure Namespace Routing**
-   - API Gateway environment variables set to route to tenant namespace
-   - Service discovery configured within namespace
-   - Network policies applied (future enhancement)
+9. **Login**: Admin user accesses tenant-specific subdomain
+10. **Configure Organization**: Set organization settings and preferences
+11. **Invite Users**: Additional users register on tenant subdomain
 
-6. **Deploy HTTPRoute**
-   - Creates HTTPRoute resource to route subdomain to tenant services
-   - Configures SSL certificate mapping
-   - Attaches to shared Gateway resource
+**Rationale**: Only ~10 minutes of manual user interaction required. All complex infrastructure provisioning (the time-consuming part) is fully automated, reducing time-to-market and eliminating human error.
 
-**Resource Configuration (Enterprise Tier):**
-```yaml
-Resources per service:
-  CPU Request: 500m
-  CPU Limit: 2000m (2 cores)
-  Memory Request: 1Gi
-  Memory Limit: 2Gi
-Replicas: 2-20 (autoscaling enabled)
-Target CPU: 70%
-```
+---
 
-**Deployment Result:**
-```typescript
-{
-  namespace: "acme-corp",
-  infrastructure: { /* Terraform outputs */ },
-  deployments: [
-    { service: "user-service", success: true },
-    { service: "itinerary-service", success: true },
-    { service: "social-service", success: true },
-    { service: "app", success: true },
-    { service: "api-gateway", success: true }
-  ]
-}
-```
+### Tier-Specific Provisioning
 
-##### 4b. Free/Standard Tier: Shared Infrastructure Routing
+#### Free/Standard Tier Provisioning (~2 minutes)
 
-**Method**: `KubernetesService.deploySharedTierHTTPRoute()`
+**Infrastructure Created via Terraform:**
+- Cloudflare DNS record (subdomain)
+- Google-managed SSL certificate
+- Certificate mapping to load balancer
 
-**Process:**
+**Kubernetes Resources Created:**
+- HTTPRoute pointing to shared namespace services
+- No dedicated pods, databases, or storage
 
-Free and Standard tiers do NOT receive dedicated infrastructure. Instead, they share existing namespaces (`free` or `standard`) with pre-deployed services.
+**Resource Usage**: Shares existing pods in `free` or `standard` namespace. Tenant isolation via application-layer filtering (tenant ID).
 
-**Steps:**
+**Cost**: ~€0/month (shared infrastructure)
 
-1. **Determine Target Namespace**
-   ```typescript
-   const namespace = tier; // "free" or "standard"
-   ```
+**Rationale**: Lightweight provisioning enables unlimited free/standard tenants at near-zero marginal cost. Shared infrastructure maximizes resource utilization while HTTPRoute provides SSL and domain isolation.
 
-2. **Deploy HTTPRoute Using Helm**
-   ```bash
-   helm upgrade --install acme-corp-httproute /k8s/tenant-httproute \
-     --set tenant.name=acme-corp \
-     --set tenant.domain=acme-corp.dev.cloudappdev.site \
-     --set tenant.tier=free \
-     --set namespace=free \
-     --set gateway.name=main-gateway \
-     --set gateway.namespace=default \
-     --set backend.serviceName=app \
-     --set backend.servicePort=80 \
-     --namespace free \
-     --wait --timeout 2m
-   ```
+---
 
-3. **HTTPRoute Configuration**
-   
-   The HTTPRoute resource created:
-   ```yaml
-   apiVersion: gateway.networking.k8s.io/v1
-   kind: HTTPRoute
-   metadata:
-     name: acme-corp-httproute
-     namespace: free
-   spec:
-     parentRefs:
-       - name: main-gateway
-         namespace: default
-     hostnames:
-       - "acme-corp.dev.cloudappdev.site"
-     rules:
-       - backendRefs:
-           - name: app
-             port: 80
-   ```
+#### Enterprise Tier Provisioning (~10-15 minutes)
 
-   **What this does:**
-   - Routes all traffic from `acme-corp.dev.cloudappdev.site` to the shared `app` service in the `free` namespace
-   - SSL termination handled by shared Gateway
-   - No dedicated pods or databases created
-   - Tenant isolation handled at application layer (tenant ID filtering)
+**Infrastructure Created via Terraform:**
+- Cloudflare DNS record
+- Google-managed SSL certificate
+- **2× Cloud SQL PostgreSQL databases** (users, itinerary)
+- **Firestore database** (social service)
+- **Cloud Storage bucket** (image uploads)
+- Database credentials stored in Google Secret Manager
 
-**Resource Configuration (Free/Standard Tier):**
+**Kubernetes Resources Created:**
+- **Dedicated namespace** (`acme-corp`)
+- **5 microservices deployed**:
+  - User Service (port 8080)
+  - Itinerary Service (port 8081)
+  - Social Service (port 8082)
+  - Frontend/Next.js (port 80)
+  - API Gateway/NGINX (port 8000)
+- **Kubernetes secrets** (database URLs, JWT secrets, API keys)
+- **HTTPRoute** routing subdomain to namespace services
+- **Autoscaling** (2-20 replicas per service)
 
-Since no new pods are deployed, the existing shared services continue running with their configured resources:
+**Cost**: ~€150/month (dedicated infrastructure)
 
-**Free Tier (Shared):**
-```yaml
-Resources per service:
-  CPU Request: 50m
-  CPU Limit: 200m
-  Memory Request: 128Mi
-  Memory Limit: 256Mi
-Replicas: 1 (no autoscaling)
-```
+**Rationale**: Dedicated infrastructure provides performance isolation, scalability, and security for enterprise customers. Higher costs justified by premium pricing (€249+/month). Full namespace isolation enables custom configurations and SLA guarantees.
 
-**Standard Tier (Shared):**
-```yaml
-Resources per service:
-  CPU Request: 100m
-  CPU Limit: 500m
-  Memory Request: 256Mi
-  Memory Limit: 512Mi
-Replicas: 1-5 (autoscaling enabled)
-Target CPU: 75%
-```
+---
 
-**Deployment Result:**
-```typescript
-{
-  type: 'shared-infrastructure',
-  httproute: 'acme-corp-httproute deployed to free namespace',
-  domain: 'https://acme-corp.dev.cloudappdev.site'
-}
-```
+### Provisioning Service Implementation
 
-##### 5. Response to Tenant Service
+**API Endpoint**: `POST /provision-tenant`
 
-**Success Response:**
-```typescript
-{
-  success: true,
-  tenantId: "uuid-1234-5678",
-  tenantName: "acme-corp",
-  tier: "enterprise",
-  domain: "https://acme-corp.dev.cloudappdev.site",
-  namespace: "acme-corp", // or "free"/"standard" for non-enterprise
-  infrastructure: {
-    terraform: { /* Terraform apply output */ },
-    deployment: { /* Kubernetes deployment result */ }
-  },
-  message: "Infrastructure provisioned successfully"
-}
-```
+**Execution Flow:**
 
-**Error Response with Rollback:**
-```typescript
-{
-  success: false,
-  tenantId: "uuid-1234-5678",
-  tenantName: "acme-corp",
-  tier: "enterprise",
-  error: "Kubernetes deployment failed after Terraform provisioning",
-  message: "Infrastructure was provisioned but deployment failed. Tenant entry removed from tfvars.",
-  terraform: { /* What succeeded */ },
-  deployment: { /* Error details */ }
-}
-```
+1. **Sanitize Tenant Name**: Convert to lowercase, remove invalid characters
+2. **Update Terraform Config**: Add tenant to `tenants.tfvars`
+3. **Run Terraform Apply**: Provision cloud resources (DNS, SSL, databases, storage)
+4. **Conditional Deployment**:
+   - **Enterprise**: Deploy full namespace via Helm (5 services × Helm charts)
+   - **Free/Standard**: Deploy HTTPRoute only via Helm
+5. **Return Response**: Success/failure with infrastructure details
 
-### Tier Comparison: Infrastructure Provisioning
+**Error Handling & Rollback:**
+- **Terraform Failure**: Remove tenant from `tenants.tfvars` (no infrastructure created)
+- **Kubernetes Failure**: Remove tenant from `tenants.tfvars` (may leave orphaned cloud resources)
+- **Retry Logic**: Terraform state lock conflicts retry with 10-second backoff
+- **Logging**: All errors logged with full context (tenant ID, tier, stage, stack trace)
 
-| Aspect | Free Tier | Standard Tier | Enterprise Tier |
-|--------|-----------|---------------|-----------------|
-| **Provisioning Time** | ~2 minutes | ~2 minutes | ~10-15 minutes |
-| **Infrastructure Created** | SSL cert + DNS | SSL cert + DNS | SSL cert + DNS + Databases + Storage + Namespace |
-| **Kubernetes Resources** | HTTPRoute only | HTTPRoute only | Full namespace with 5 services |
-| **Database** | Shared (multi-tenant) | Shared (multi-tenant) | Dedicated PostgreSQL + Firestore |
-| **Storage** | Shared bucket | Shared bucket | Dedicated Cloud Storage bucket |
+**Rationale**: Single API endpoint handles complex multi-step provisioning. Automatic rollback ensures clean state on failure. Retry logic handles transient errors. Comprehensive logging enables troubleshooting.
+
+---
+
+### Tier Comparison Summary
+
+| Aspect | Free | Standard | Enterprise |
+|--------|------|----------|------------|
+| **Provisioning Time** | ~2 min | ~2 min | ~10-15 min |
+| **Infrastructure** | SSL + DNS | SSL + DNS | SSL + DNS + DB + Storage + Namespace |
+| **Kubernetes** | HTTPRoute only | HTTPRoute only | Dedicated namespace (5 services) |
+| **Database** | Shared | Shared | Dedicated PostgreSQL + Firestore |
+| **Storage** | Shared bucket | Shared bucket | Dedicated bucket |
 | **Namespace** | Shared (`free`) | Shared (`standard`) | Dedicated (`tenantName`) |
-| **Pod Replicas** | Shared (1) | Shared (1-5) | Dedicated (2-20) |
-| **Autoscaling** | No | Yes (shared) | Yes (dedicated) |
+| **Replicas** | 1 (shared) | 1-5 (shared) | 2-20 (dedicated) |
 | **Resource Isolation** | Application-level | Application-level | Namespace + infrastructure |
-| **Cost** | ~$0/month (shared) | ~$0/month (shared) | ~$150/month (dedicated) |
-| **Automatic Provisioning** | Yes | Yes | Yes |
-| **Manual Steps** | User registration only | User registration only | User registration only |
 
-### Rollback and Error Handling
+---
 
-The provisioning service implements comprehensive error handling with automatic rollback:
+### Benefits of Implementation
 
-#### Rollback Scenarios
+**1. Full Automation**: Single API call provisions complete tenant infrastructure (no manual Terraform or kubectl commands)
 
-**1. Terraform Apply Failure**
-- **Trigger**: Terraform execution fails (syntax error, resource quota exceeded, etc.)
-- **Action**: Remove tenant from `tenants.tfvars`
-- **Result**: No infrastructure created, safe to retry
+**2. Cost Optimization**: Free/Standard tiers share infrastructure (95% cost reduction vs dedicated). Enterprise tier pays for dedicated resources.
 
-**2. Kubernetes Deployment Failure (Enterprise)**
-- **Trigger**: Helm deployment fails, pod crashes, timeout
-- **Action**: 
-  - Remove tenant from `tenants.tfvars`
-  - Note: Infrastructure resources remain (databases, storage) but are not linked
-- **Result**: Manual cleanup may be required for orphaned resources
+**3. Scalability**: Can provision thousands of free/standard tenants. Enterprise tenants scale independently with autoscaling.
 
-**3. HTTPRoute Deployment Failure (Free/Standard)**
-- **Trigger**: HTTPRoute creation fails
-- **Action**: Remove tenant from `tenants.tfvars`
-- **Result**: SSL certificate provisioned but no routing configured
+**4. Security**: Namespace isolation (Enterprise), unique database credentials, secrets stored in Secret Manager.
 
-#### Error Logging
+**5. Reliability**: Comprehensive rollback on failure, retry logic for transient errors, health checks verify successful deployment.
 
-All errors are logged with full context:
-```typescript
-this.logger.error(
-  `[Provision Error] ${error.message}`,
-  {
-    tenantId,
-    tenantName,
-    tier,
-    stage: 'terraform-apply', // or 'k8s-deploy', 'httproute-deploy'
-    stack: error.stack
-  }
-);
-```
+**6. Developer Experience**: Simple API, rich error messages, async processing.
 
-### Database Credential Management
+**7. Business Enablement**: Freemium strategy (low-cost free tier), clear upgrade path (free → standard → enterprise), resource accountability per tier.
 
-For enterprise tenants, database credentials are generated and stored securely:
-
-**1. Terraform Generates Passwords**
-```hcl
-resource "random_password" "users_db_password" {
-  length  = 32
-  special = true
-}
-```
-
-**2. Stored in Google Secret Manager**
-```bash
-gcloud secrets create acme-corp-users-password \
-  --data-file=<(echo -n "${random_password.users_db_password.result}")
-```
-
-**3. Retrieved by Provisioning Service**
-```typescript
-const password = await getSecretFromGSM('acme-corp-users-password');
-```
-
-**4. URI-Encoded for PostgreSQL**
-```typescript
-const encodedPassword = encodeURIComponent(password);
-const dbUrl = `postgresql://users:${encodedPassword}@127.0.0.1:5432/users`;
-```
-
-**5. Injected as Kubernetes Secret**
-```bash
-kubectl create secret generic user-service-secrets \
-  --from-literal=DATABASE_URL="${dbUrl}" \
-  --namespace acme-corp
-```
-
-### Benefits of This Implementation
-
-#### 1. **Fully Automated Provisioning**
-- **No manual infrastructure setup required**: Single API call provisions everything
-- **Consistent deployments**: Terraform ensures identical infrastructure for all tenants
-- **Reduced human error**: Automation eliminates manual configuration mistakes
-- **Fast time-to-market**: Tenants operational within minutes
-
-#### 2. **Tier-Based Resource Optimization**
-- **Cost efficiency**: Free/Standard tiers share infrastructure, reducing costs by 95%
-- **Performance isolation**: Enterprise tenants get dedicated resources
-- **Scalability**: Each tier configured for appropriate workload capacity
-- **Flexibility**: Easy to upgrade tenants between tiers
-
-#### 3. **Comprehensive Rollback Strategy**
-- **Automatic cleanup on failure**: Failed provisioning leaves no orphaned resources
-- **Safe retry mechanism**: Tenants can retry registration after fixing issues
-- **Audit trail**: Full logging of all provisioning attempts
-- **Data integrity**: Rollback ensures consistent state between Terraform and Kubernetes
-
-#### 4. **Security Best Practices**
-- **Secret isolation**: Each tenant has unique database credentials
-- **Secret rotation ready**: Credentials stored in Secret Manager support rotation
-- **Namespace isolation (Enterprise)**: Network-level separation between tenants
-- **Least privilege**: Services receive only necessary credentials
-
-#### 5. **Scalability**
-- **Unlimited tenants**: Can provision thousands of free/standard tenants with shared infrastructure
-- **Elastic enterprise tenants**: Each enterprise tenant scales independently
-- **Efficient resource usage**: Shared tiers maximize cluster utilization
-- **Cloud-native**: Leverages GKE autoscaling and load balancing
-
-#### 6. **Developer Experience**
-- **Simple API**: Single endpoint handles complex provisioning workflow
-- **Idempotent operations**: Safe to retry provisioning requests
-- **Rich error messages**: Detailed feedback for troubleshooting
-- **Async processing**: Non-blocking provisioning for better UX
-
-#### 7. **Operational Excellence**
-- **Infrastructure as Code**: Terraform state tracks all tenant infrastructure
-- **Declarative configuration**: Helm charts ensure consistent deployments
-- **Health checks**: Automatic verification of successful provisioning
-- **Monitoring ready**: All services instrumented with logging and metrics
-
-#### 8. **Multi-Tenancy at Scale**
-- **3 tenant tiers supported**: Free, Standard, Enterprise
-- **Shared infrastructure**: Free/Standard tiers leverage existing namespaces
-- **Dedicated infrastructure**: Enterprise tenants get isolated environments
-- **Dynamic provisioning**: New tenants added without downtime
-- **Cost transparency**: Clear resource allocation per tier
-
-#### 9. **Business Model Enablement**
-- **Freemium strategy**: Low-cost free tier for customer acquisition
-- **Upgrade path**: Seamless transition from free → standard → enterprise
-- **Value differentiation**: Clear benefits for each tier
-- **Resource accountability**: Track costs per tenant/tier
-
-### Manual vs Automatic Steps Summary
-
-| Step | Actor | Type | Duration |
-|------|-------|------|----------|
-| Register organization | Client | Manual | 2 min |
-| Choose plan (tier) | Client | Manual | 30 sec |
-| Specify subdomain | Client | Manual | 30 sec |
-| Create admin credentials | Client | Manual | 1 min |
-| **Provision infrastructure** | **System** | **Automatic** | **2-15 min** |
-| Register subdomain (DNS + SSL) | Provisioning Service | Automatic | 1-2 min |
-| Create databases (Enterprise) | Terraform | Automatic | 5-8 min |
-| Deploy namespace (Enterprise) | Kubernetes Service | Automatic | 3-5 min |
-| Deploy HTTPRoute (Free/Std) | Kubernetes Service | Automatic | 30 sec |
-| Save tenant data | Tenant Service | Automatic | < 1 sec |
-| Send welcome email | Notification Service | Automatic | < 1 sec |
-| Login at subdomain | Admin User | Manual | 1 min |
-| Configure organization | Admin User | Manual | 5 min |
-| Invite users | Admin User | Manual | Variable |
-
-**Key Insight**: Only ~5 minutes of manual user interaction required. All infrastructure provisioning (the complex part) is fully automated.
+---
 
 ### Summary
 
-The CloudAppDev tenant provisioning system provides:
+**CI/CD Pipeline**: Intelligent build system that only builds changed services, deploys to tier-specific namespaces with appropriate resource limits, and verifies health before completion. Development pipeline provides rapid feedback (10-15 min), production pipeline adds safety gates.
 
-✅ **Fully Automated**: End-to-end infrastructure provisioning without manual intervention  
-✅ **Tier-Optimized**: Free/Standard tiers share infrastructure, Enterprise gets dedicated resources  
-✅ **Fast Provisioning**: 2 minutes for Free/Standard, 10-15 minutes for Enterprise  
-✅ **Robust Error Handling**: Automatic rollback on failure with detailed error messages  
-✅ **Secure by Default**: Unique credentials per tenant, Secret Manager integration  
-✅ **Scalable Architecture**: Support for unlimited free/standard tenants, auto-scaling enterprise  
-✅ **Infrastructure as Code**: Terraform + Helm ensure consistent, reproducible deployments  
-✅ **Cost Efficient**: Shared infrastructure reduces costs by 95% for non-enterprise tiers  
-✅ **Developer Friendly**: Simple API, rich logging, idempotent operations  
-✅ **Production Ready**: Comprehensive rollback, health checks, and monitoring  
-
-The system enables a freemium business model with clear differentiation between tiers while maintaining operational simplicity through automation.
-
-## 4.4 Monitoring
+**Tenant Provisioning**: Fully automated infrastructure provisioning that adapts to tenant tier. Free/Standard tenants provision in ~2 minutes with shared infrastructure. Enterprise tenants provision in ~10-15 minutes with dedicated infrastructure. Only ~10 minutes of manual user interaction required for complete onboarding.
 
 ### Service Health Monitoring
 
@@ -1188,46 +359,7 @@ All microservices expose a `/health` endpoint that returns service status. GKE u
 | **Liveness Probe** | Restarts unresponsive pods | HTTP GET `/health`, failure threshold 3, period 30s |
 | **Readiness Probe** | Removes pod from traffic if unhealthy | HTTP GET `/health`, failure threshold 3, period 10s |
 
-If a health check fails beyond the configured threshold, Kubernetes automatically restarts the pod (liveness) or stops routing traffic to it (readiness).
-
 The API Gateway also exposes a `/health` endpoint that verifies its own availability.
-
-### Alarms and Alerts
-
-GKE Autopilot provides built-in monitoring through Google Cloud Monitoring:
-
-- **Pod restarts:** Alerts when a pod restart count exceeds threshold, indicating crash loops
-- **CPU / Memory utilization:** HPA triggers scaling when CPU exceeds 70-75% (tier-dependent). Cloud Monitoring alerts on sustained high utilization
-- **Error rates:** HTTP 5xx response rates tracked per service via Cloud Monitoring metrics
-- **Node pressure:** GKE Autopilot automatically provisions nodes; alerts fire if pod scheduling is delayed
-
-### Logging
-
-All services follow the 12-Factor App principle of treating logs as event streams. Services write to `stdout`/`stderr` and never to local files.
-
-**Log Collection:**
-- Container stdout/stderr is automatically collected by GKE's logging agent
-- Logs are forwarded to **Google Cloud Logging** (Stackdriver)
-- Structured JSON logging from NestJS services enables field-based filtering
-
-**Querying Logs:**
-
-Logs are queried via the Google Cloud Console (Logs Explorer) or `gcloud` CLI:
-
-```bash
-# View logs for a specific service
-kubectl logs -f deployment/user-service -n free
-
-# Query Cloud Logging for a namespace
-gcloud logging read 'resource.labels.namespace_name="free" AND resource.labels.container_name="user-service"' --limit=100
-
-# Filter by severity
-gcloud logging read 'severity>=ERROR AND resource.labels.cluster_name="cloudappdev-dev"' --limit=50
-```
-
-**Log Retention:**
-- Cloud Logging retains logs for 30 days by default
-- Logs can be exported to Cloud Storage for long-term retention
 
 ### CI/CD Pipeline Monitoring
 
@@ -1236,10 +368,3 @@ The GitHub Actions pipeline provides deployment-level observability:
 - Deployment rollout verification via `kubectl rollout status`
 - Pod health checks after each deployment
 - Helm release status tracking with stuck release detection and cleanup
-
-### Newsletter Delivery Monitoring
-
-The Social Service tracks newsletter delivery in MongoDB:
-- `/api/v1/social/newsletter/status` -- overall health, subscriber count, last send timestamp
-- `/api/v1/social/newsletter/logs/:userId` -- per-user delivery history with retry counts and failure reasons
-- CronJob execution logs available via `kubectl logs job/social-newsletter-weekly -n default`
