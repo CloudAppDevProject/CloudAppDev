@@ -1,5 +1,79 @@
 # 6. Commercial Aspects
 
+## 6.1 Tenant Types
+
+The platform implements a B2B SaaS multi-tenancy model with three tiers that differ in functional capabilities, resource thresholds, and isolation levels.
+
+### Tenant Type Overview
+
+| Aspect | Free | Standard | Enterprise |
+|--------|------|----------|------------|
+| **Namespace** | Shared (`free`) | Shared (`standard`) | Dedicated per tenant |
+| **PostgreSQL** | Shared (logical isolation) | Shared (logical isolation) | Dedicated instances |
+| **MongoDB** | Shared collections | Shared collections | Dedicated database |
+| **Cloud Storage** | Shared bucket | Dedicated bucket | Dedicated bucket |
+| **Compute Pods** | Shared replicas | Shared with priority | Dedicated pods (2-20) |
+| **Domain** | `{name}.cloudappdev.site` | `{name}.cloudappdev.site` | Custom or `{name}.cloudappdev.site` |
+
+### Functional Capabilities
+
+**Free Tier:**
+- Max 3 itineraries, 5 users, 100 comments
+- 500MB storage, 10K API requests/day
+- No newsletter, best-effort availability
+- Community support only
+
+**Standard Tier:**
+- 50 itineraries, 20 users, unlimited comments
+- 2GB storage, 300K API requests/month
+- Newsletter enabled
+- Email support, 99.5% SLA, daily backups
+- Limited customization
+
+**Enterprise Tier:**
+- Unlimited itineraries and users
+- 100GB storage, 1M API requests/month
+- Unlimited newsletter recipients
+- Dedicated support, 99.9% SLA
+- Full customization
+
+### Thresholds
+
+**Compute Resources:**
+- Free: CPU 50-200m, Memory 128-256Mi
+- Standard: CPU 100-500m, Memory 256-512Mi
+- Enterprise: CPU 500-2000m, Memory 1-2Gi
+
+**API Rate Limits:**
+- Free: 100 req/min burst, 10K/day (hard limit)
+- Standard: 300K/month included
+- Enterprise: 1M/month included
+
+**Storage Caps:**
+- Free: 500MB (hard limit)
+- Standard: 2GB included
+- Enterprise: 100GB included
+
+### Isolation
+
+**Data Isolation:**
+- Free/Standard: Logical isolation via `tenant_id` column in shared databases
+- Enterprise: Physical isolation with dedicated PostgreSQL instances and MongoDB databases
+
+**Network Isolation:**
+- Free/Standard: No network isolation (shared namespace)
+- Enterprise: Kubernetes NetworkPolicies restrict cross-namespace traffic, dedicated endpoints
+
+**Resource Isolation:**
+- Free/Standard: Shared compute resources with quotas
+- Enterprise: Dedicated CPU/memory limits per namespace, isolated Cloud SQL instances
+
+### Provisioning
+
+Tenants are provisioned via Infrastructure-Provisioner Service:
+- Free/Standard: Automatic provisioning (sub-minute)
+- Enterprise: Terraform-based provisioning (5-10 minutes), dedicated namespace deployment
+
 ## 6.2 Pricing Model
 
 ### Free Tier - €0.00/month
