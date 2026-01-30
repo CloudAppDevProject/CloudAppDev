@@ -202,6 +202,13 @@ Tenant provisioning is **fully automated** via the **Provisioning Service** (Nes
 - **Free/Standard**: Lightweight provisioning (SSL + routing only)
 - **Enterprise**: Full infrastructure provisioning (dedicated namespace + databases + services)
 
+
+### Tenant Creation Workflow
+
+The following diagram illustrates the complete tenant registration and provisioning workflow:
+
+![Tenant Registration Process](../diagrams/registration.drawio.svg)
+
 ---
 
 ### Tenant Creation Workflow
