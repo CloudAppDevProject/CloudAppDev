@@ -13,7 +13,7 @@ The platform implements a B2B SaaS multi-tenancy model with three tiers that dif
 | **MongoDB** | Shared collections | Shared collections | Dedicated database |
 | **Cloud Storage** | Shared bucket | Dedicated bucket | Dedicated bucket |
 | **Compute Pods** | Shared replicas | Shared with priority | Dedicated pods (2-20) |
-| **Domain** | `{name}.cloudappdev.site` | `{name}.cloudappdev.site` | Custom or `{name}.cloudappdev.site` |
+| **Domain** | {name}.cloudappdev.site | {name}.cloudappdev.site | Custom or {name}.cloudappdev.site |
 
 ### Functional Capabilities
 
