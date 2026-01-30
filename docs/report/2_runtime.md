@@ -1,7 +1,7 @@
 # 2 Runtime View
 
 ## 2.1 Runtime Overview
-Since this Diagram is fairly large and provides a complete overview of the runtime setup please open this link [HERE](https://github.com/CloudAppDevProject/CloudAppDev/wiki/Microservice-architecture) for a btter oiverview. Rightclick the image and open in new tab. Alternative the drawio source file is located under: `<repository>/docs/microservice_architecture.drawio.svg`
+Since this Diagram is fairly large and provides a complete overview of the runtime setup please open this link [HERE](https://github.com/CloudAppDevProject/CloudAppDev/wiki/Microservice-architecture) for a better oiverview. Rightclick the image and open in new tab. Alternative the drawio source file is located under: `<repository>/docs/microservice_architecture.drawio.svg`
 ![Micro Service Diagram](../microservice_architecture.drawio.svg)
 
 **Cloud Resources (GCP):**
