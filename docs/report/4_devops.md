@@ -549,7 +549,7 @@ The tenant creation process varies significantly between tenant tiers:
 
 The following diagram illustrates the complete tenant registration and provisioning workflow:
 
-![Tenant Registration Process](../Presentation/tenant-registration-bpmn.png)
+![Tenant Registration Process](../Presentation/registration.drawio.svg)
 
 #### Process Actors
 
